@@ -23,6 +23,7 @@ public static class MoveEffects
     public const int MoveIdMeteorBeam = 800;
     public const int MoveIdElectroShot = 905;
     public const int MoveIdRagingBull = 873;
+    public const int MoveIdIvyCudgel = 904;
     public const int MoveIdBrickBreak = 280;
     public const int MoveIdPsychicFangs = 706;
     public const int MoveIdCollisionCourse = 878;
@@ -111,6 +112,21 @@ public static class MoveEffects
         10252 => "Water",
         _ => moveType,
     };
+
+    /// <summary>ツタこんぼうのタイプ（オーガポンはお面をつけたすがたで変わる）。</summary>
+    public static string IvyCudgelType(Pokemon attacker, string moveType) => attacker.Id switch
+    {
+        10273 => "Water",
+        10274 => "Fire",
+        10275 => "Rock",
+        _ => moveType,
+    };
+
+    /// <summary>
+    /// オーガポンが、自分のすがたに合ったお面（いどのめん・かまどのめん・いしずえのめん）を持っているか。
+    /// 持っていると、技の威力が 1.2 倍になる（別のすがたのお面では上がらない）。
+    /// </summary>
+    public static bool OgerponMaskBoosts(Pokemon attacker, Item? item) => (attacker.Id, item?.Id) is (10273, 2106) or (10274, 2107) or (10275, 2108);
 
     /// <summary>相手の状態異常で威力が 2 倍になる技（たたりめ・たたりびは状態異常のとき、どくばりセンボンはどく・もうどくのとき、きつけはまひ、めざましビンタはねむり）。</summary>
     public static bool DoublesAgainstStatus(Move move, StatusCondition defenderStatus) => move.Id switch

@@ -101,4 +101,24 @@ public class RosterChoiceTests
         Assert.Equal(1.2, gen9.TypeBoostMultiplier);
         Assert.Equal("むしタイプの技の威力が1.2倍になる。", gen9.Description);
     }
+
+    [Fact]
+    public async Task Ogerpon_mask_boosts_moves_only_for_its_own_form_and_changes_ivy_cudgel_type()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart);
+        var wellspring = data.Pokemon.First(p => p.Id == 10273);
+        var cornerstoneMask = data.Items.First(i => i.Id == 2108);
+        var wellspringMask = data.Items.First(i => i.Id == 2106);
+        var ivy = data.Moves.First(m => m.Id == 904);
+        var target = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem) { EVs = new StatSet { HP = 32 } };
+        PokemonBuild Make(Item? item) => new(wellspring, data.Info.EvSystem) { EVs = new StatSet { Attack = 32 }, Nature = data.Natures.First(), Item = item };
+
+        var plain = calc.Calculate(new DamageRequest { Attacker = Make(null), Move = ivy, Defender = target });
+        var masked = calc.Calculate(new DamageRequest { Attacker = Make(wellspringMask), Move = ivy, Defender = target });
+        var wrongMask = calc.Calculate(new DamageRequest { Attacker = Make(cornerstoneMask), Move = ivy, Defender = target });
+        Assert.Equal("Water", masked.MoveType);          // いどのめんのオーガポンのツタこんぼうは みずタイプ
+        Assert.True(masked.MaxDamage > plain.MaxDamage);   // 自分のお面なら威力が上がる
+        Assert.Equal(plain.MaxDamage, wrongMask.MaxDamage); // 別のすがたのお面では上がらない
+    }
 }

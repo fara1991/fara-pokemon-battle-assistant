@@ -312,6 +312,8 @@ public sealed class DamageCalculator
         }
         else if (move.Id == MoveEffects.MoveIdRagingBull)
             moveType = MoveEffects.RagingBullType(attacker.Pokemon, moveType);
+        else if (move.Id == MoveEffects.MoveIdIvyCudgel)
+            moveType = MoveEffects.IvyCudgelType(attacker.Pokemon, moveType);
         var skinType = noTypeChange ? null : AbilityEffects.SkinType(attackerAbility);
         if (skinType is not null && moveType == "Normal")
         {
@@ -680,6 +682,8 @@ public sealed class DamageCalculator
             Add(4505, $"{attackerItem!.Name}(1.1倍)");
         else if (attackerItem?.Id == ItemIdPunchingGlove && move.HasFlag("Punch"))
             Add(4506, $"{attackerItem.Name}(1.1倍)");
+        else if (MoveEffects.OgerponMaskBoosts(attacker.Pokemon, attackerItem))
+            Add(4915, $"{attackerItem!.Name}(1.2倍)");
         return mods;
     }
 
