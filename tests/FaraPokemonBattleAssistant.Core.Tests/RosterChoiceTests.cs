@@ -168,4 +168,24 @@ public class RosterChoiceTests
         var masked = calc.Calculate(new DamageRequest { Attacker = Make(teal), Move = ivy, Defender = target });
         Assert.True(masked.MaxDamage > plain.MaxDamage);
     }
+
+    [Fact]
+    public async Task Terastallized_wellspring_ogerpon_loses_water_absorb_in_the_calculation()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart);
+        var wellspring = data.Pokemon.First(p => p.Id == 10273);
+        var surf = data.Moves.First(m => m.Name == "なみのり");
+        var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem) { EVs = new StatSet { SpAttack = 32 } };
+        PokemonBuild Defender(string? tera) => new(wellspring, data.Info.EvSystem)
+        {
+            Ability = data.AbilitiesOf(wellspring).First(a => a.Identifier == "water-absorb"),
+            TeraType = tera,
+        };
+        var normal = calc.Calculate(new DamageRequest { Attacker = attacker, Move = surf, Defender = Defender(null) });
+        var tera = calc.Calculate(new DamageRequest { Attacker = attacker, Move = surf, Defender = Defender("Water") });
+        Assert.Equal(0, normal.MaxDamage);       // ちょすいで無効
+        Assert.True(tera.MaxDamage > 0);         // テラスタルで おもかげやどし になり、ちょすいは消える
+        Assert.Contains(tera.Modifiers, m => m.Contains("おもかげやどし"));
+    }
 }

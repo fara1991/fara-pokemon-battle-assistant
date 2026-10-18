@@ -442,6 +442,9 @@ public sealed class DamageCommand
             defender.Ability = usage?.DefaultAbility(defender.Pokemon, AbilityEffects.Side.Defender) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(defender.Pokemon), null, AbilityEffects.Side.Defender);
         if (attackerTeraToMoveType)
             attacker.TeraType = AbilityEffects.SkinType(attacker.Ability?.Identifier ?? "") is { } skin && move.Type == "Normal" ? skin : move.Type;
+        // テラスタルしたオーガポンのテラスタイプは、お面のタイプで決まる（表示も計算に合わせる）
+        foreach (var ogerpon in new[] { attacker, defender })
+            if (ogerpon.Pokemon.SpeciesId == MoveEffects.OgerponSpeciesId && ogerpon.IsTerastallized) ogerpon.TeraType = ogerpon.Pokemon.Types.Last();
 
         if (!data.CanLearn(attacker.Pokemon.Id, move.Id))
             warnings.Add($"{attacker.Pokemon.Name}は{move.Name}を覚えません");

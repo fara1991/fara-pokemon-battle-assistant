@@ -29,6 +29,7 @@ public static class SpeedCalculator
     /// <summary>ランク・持ち物・特性・まひ・おいかぜを含めた素早さ。<paramref name="generation"/> はゲームの世代（第 6 世代まではまひで素早さ 1/4）。</summary>
     public static (int Speed, List<string> Notes) Effective(PokemonBuild build, Weather weather = Weather.None, Terrain terrain = Terrain.None, bool tailwind = false, int generation = 9)
     {
+        build = MoveEffects.AdjustOgerponTerastal(build, out _);   // テラスタルしたオーガポンは、すばやさが上がることがある
         var notes = new List<string>();
         var speed = StatCalculator.Calculate(build, Stat.Speed);
         var boost = build.Boosts[Stat.Speed];

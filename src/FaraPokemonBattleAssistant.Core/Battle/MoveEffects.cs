@@ -123,7 +123,7 @@ public static class MoveEffects
     };
 
     /// <summary>
-    /// オーガポンが、自分のすがたに合ったお面（いどのめん・かまどのめん・いしずえのめん）を持っているか。
+    /// オーガポンが、自分のすがたに合ったお面（みどりのめん・いどのめん・かまどのめん・いしずえのめん）を持っているか。
     /// 持っていると、技の威力が 1.2 倍になる（別のすがたのお面では上がらない）。
     /// </summary>
     public static bool OgerponMaskBoosts(Pokemon attacker, Item? item) => (attacker.Id, item?.Id) is (1017, 2102) or (10273, 2106) or (10274, 2107) or (10275, 2108);
@@ -213,7 +213,7 @@ public static class MoveEffects
             1660 => species != 484,                                      // だいしらたま（パルキア）
             1161 => species != 888,                                      // くちたけん（ザシアン）
             1162 => species != 889,                                      // くちたたて（ザマゼンタ）
-            2106 or 2107 or 2108 => species != 1017,                     // めん（オーガポン）
+            2102 or 2106 or 2107 or 2108 => species != 1017,            // めん（オーガポン）
             ItemIdBoosterEnergy => defender.Ability?.Identifier is not ("protosynthesis" or "quark-drive"),
             _ => true,
         };

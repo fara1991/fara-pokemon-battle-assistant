@@ -586,10 +586,12 @@ else if (data is not null && dataSet is not null)
     private static IReadOnlyCollection<string> TeraTypesFor(PokemonBuild build)
     {
         if (build.Pokemon.SpeciesId != MoveEffects.OgerponSpeciesId) return TypeNames.All;
-        var own = build.Pokemon.Types.Last();
-        if (build.IsTerastallized && build.TeraType != own) build.TeraType = own;
-        return new[] { own };
+        return new[] { build.Pokemon.Types.Last() };
     }
+
+    /// <summary>テラスタル欄の表示値。オーガポンは、選択肢にあるお面のタイプだけ（計算はお面のタイプで行う）。</summary>
+    private static string TeraValue(PokemonBuild build) =>
+        build.Pokemon.SpeciesId == MoveEffects.OgerponSpeciesId && build.IsTerastallized ? build.Pokemon.Types.Last() : build.TeraType ?? "";
 
     private string estimateKey = "";
 
@@ -1062,7 +1064,7 @@ else if (data is not null && dataSet is not null)
             {
                 <div class="form-group mb-3">
                     <label>テラスタル <Help Title="テラスタル">テラスタル後のタイプ。攻撃側はテラスタイプと同じ技が 1.5 倍（元のタイプとも一致なら 2 倍）、防御側は受けるタイプがテラスタイプだけになります。</Help></label>
-                    <select class="form-select" value="@(build.TeraType ?? "")" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
+                    <select class="form-select" value="@TeraValue(build)" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
                         <option value="">なし</option>
                         @foreach (var t in TeraTypesFor(build))
                         {
