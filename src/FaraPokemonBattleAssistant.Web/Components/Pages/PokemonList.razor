@@ -192,7 +192,7 @@
         hasProvisional = data.Pokemon.Any(p => p.IsProvisional);
         var abilityIds = data.Pokemon.SelectMany(p => p.AbilityIds).ToHashSet();
         abilityChoices = data.Abilities.Where(a => abilityIds.Contains(a.Id)).OrderBy(a => a.Name, StringComparer.Ordinal).ToList();
-        moveChoices = data.Moves.OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
+        moveChoices = MoveDex.Query(data, new MoveFilter());   // 五十音順
         Refresh();
     }
 

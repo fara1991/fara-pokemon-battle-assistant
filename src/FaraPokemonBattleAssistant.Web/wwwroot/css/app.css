@@ -3470,3 +3470,117 @@ html.vt-nav .sidebar {
     .with-desc .help-note, .fixed-field .help-note { left: 0; right: 0; top: 100%; width: auto; max-width: none; margin-top: 0.25rem; }
     .with-desc .help-note::before, .fixed-field .help-note::before { display: none; }
 }
+
+/* ---- わざ一覧（ポケモン一覧の一覧表と同じ作り） ---- */
+.mv-row {
+    grid-template-columns: minmax(9rem, 1.2fr) 4.6rem 3rem 3.2rem 3.2rem 3rem minmax(14rem, 4fr);
+    min-height: 56px;
+}
+
+.mv-name {
+    font-weight: 600;
+}
+
+.mv-type {
+    line-height: 0;
+}
+
+.mv-cat,
+.mv-num {
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.mv-num {
+    text-align: right;
+}
+
+.mv-desc {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.dex-sort.mv-type,
+.dex-sort.mv-name {
+    text-align: left;
+}
+
+.mv-row .mv-desc {
+    padding-left: 0.6rem;
+}
+
+.mv-learners {
+    padding: 0.5rem 0.6rem 0.6rem;
+    border-bottom: 1px solid var(--app-card-border);
+    background: var(--bs-primary-bg-subtle);
+}
+
+.mv-learner-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.35rem;
+    max-height: 14rem;
+    overflow-y: auto;
+}
+
+.mv-learner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    padding: 0 0.5rem 0 0.1rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: 0.82rem;
+    text-decoration: none;
+}
+
+.mv-learner:hover {
+    border-color: var(--bs-primary);
+}
+
+.mv-learner .poke-icon-sm {
+    width: 32px;
+    height: 32px;
+}
+
+/* スマホ: 1 つの技を 3 段のカードにする（技名とタイプ / 分類・威力・命中・PP / 説明） */
+@media (max-width: 767.98px) {
+    .mv-row {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.15rem 0.25rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    .mv-row .mv-name {
+        grid-column: 1 / 4;
+        grid-row: 1;
+    }
+
+    .mv-row .mv-type {
+        grid-column: 4;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    .mv-row .mv-cat,
+    .mv-row .mv-num {
+        grid-row: 2;
+        text-align: center;
+    }
+
+    .mv-row .mv-num::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--app-muted);
+        font-size: 0.62rem;
+        font-weight: 400;
+    }
+
+    .mv-row .mv-desc {
+        grid-column: 1 / -1;
+        grid-row: 3;
+    }
+}

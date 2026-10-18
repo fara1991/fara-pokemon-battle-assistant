@@ -45,6 +45,7 @@ public class SitePathsTests
     [InlineData("/api/my/team")]
     [InlineData("/api/my/access-key")]
     [InlineData("/api/game/Gen9/pokemon.csv")]
+    [InlineData("/move-list")]
     public void New_urls_and_other_paths_are_not_redirected(string path)
         => Assert.Null(SitePaths.Redirect(path));
 
