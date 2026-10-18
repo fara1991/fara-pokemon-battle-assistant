@@ -151,7 +151,7 @@ public static class MoveEffects
         var type = build.Pokemon.Types.Last();
         var result = build.Clone();
         result.TeraType = type;
-        result.Ability = new Ability { Identifier = "embody-aspect", Name = "おもかげやどし" };
+        result.Ability = new Ability { Identifier = "embody-aspect", Name = "おもかげやどし", Description = $"テラスタルしたとき、{StatNames.Japanese(stat)}が1段階上がる。" };
         var boosts = result.Boosts.Clone();
         boosts[stat] = Math.Clamp(boosts[stat] + 1, -6, 6);
         result.Boosts = boosts;
