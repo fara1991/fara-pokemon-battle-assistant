@@ -128,4 +128,64 @@ public class RosterChoiceTests
         var teal = calc.Calculate(new DamageRequest { Attacker = Make(data.Pokemon.First(p => p.Id == 1017), ownMask), Move = ivy, Defender = target });
         Assert.Equal("Grass", teal.MoveType);
     }
+
+    [Theory]
+    [InlineData(1017, Stat.Speed, "Grass")]
+    [InlineData(10273, Stat.SpDefense, "Water")]
+    [InlineData(10274, Stat.Attack, "Fire")]
+    [InlineData(10275, Stat.Defense, "Rock")]
+    public async Task Terastallized_ogerpon_gets_embody_aspect_and_a_fixed_tera_type(int formId, Stat boosted, string type)
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var form = data.Pokemon.First(p => p.Id == formId);
+        var build = new PokemonBuild(form, data.Info.EvSystem) { Ability = data.AbilitiesOf(form).First(), TeraType = "Dragon" };
+        var tera = FaraPokemonBattleAssistant.Core.Battle.MoveEffects.AdjustOgerponTerastal(build, out var note);
+        Assert.Equal(type, tera.TeraType);                      // テラスタイプはお面のタイプに固定
+        Assert.Equal("embody-aspect", tera.Ability!.Identifier);  // 特性は おもかげやどし（かたやぶりなどは消える）
+        Assert.Equal(1, tera.Boosts[boosted]);
+        Assert.NotNull(note);
+        Assert.Equal("Dragon", build.TeraType);                 // 元の構成は変わらない
+        Assert.Equal(0, build.Boosts[boosted]);
+
+        build.TeraType = null;   // テラスタルしていなければ、そのまま
+        Assert.Same(build, FaraPokemonBattleAssistant.Core.Battle.MoveEffects.AdjustOgerponTerastal(build, out _));
+        var other = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem) { TeraType = "Fire" };
+        Assert.Same(other, FaraPokemonBattleAssistant.Core.Battle.MoveEffects.AdjustOgerponTerastal(other, out _));
+    }
+
+    [Fact]
+    public async Task Teal_mask_exists_and_boosts_base_ogerpon()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var teal = data.Items.First(i => i.Id == 2102);
+        Assert.Equal("みどりのめん", teal.Name);
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart);
+        var ogerpon = data.Pokemon.First(p => p.Id == 1017);
+        var ivy = data.Moves.First(m => m.Id == 904);
+        var target = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem) { EVs = new StatSet { HP = 32 } };
+        PokemonBuild Make(Item? item) => new(ogerpon, data.Info.EvSystem) { EVs = new StatSet { Attack = 32 }, Nature = data.Natures.First(), Item = item };
+        var plain = calc.Calculate(new DamageRequest { Attacker = Make(null), Move = ivy, Defender = target });
+        var masked = calc.Calculate(new DamageRequest { Attacker = Make(teal), Move = ivy, Defender = target });
+        Assert.True(masked.MaxDamage > plain.MaxDamage);
+    }
+
+    [Fact]
+    public async Task Terastallized_wellspring_ogerpon_loses_water_absorb_in_the_calculation()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart);
+        var wellspring = data.Pokemon.First(p => p.Id == 10273);
+        var surf = data.Moves.First(m => m.Name == "なみのり");
+        var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem) { EVs = new StatSet { SpAttack = 32 } };
+        PokemonBuild Defender(string? tera) => new(wellspring, data.Info.EvSystem)
+        {
+            Ability = data.AbilitiesOf(wellspring).First(a => a.Identifier == "water-absorb"),
+            TeraType = tera,
+        };
+        var normal = calc.Calculate(new DamageRequest { Attacker = attacker, Move = surf, Defender = Defender(null) });
+        var tera = calc.Calculate(new DamageRequest { Attacker = attacker, Move = surf, Defender = Defender("Water") });
+        Assert.Equal(0, normal.MaxDamage);       // ちょすいで無効
+        Assert.True(tera.MaxDamage > 0);         // テラスタルで おもかげやどし になり、ちょすいは消える
+        Assert.Contains(tera.Modifiers, m => m.Contains("おもかげやどし"));
+    }
 }
