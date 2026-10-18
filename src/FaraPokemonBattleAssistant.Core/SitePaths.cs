@@ -14,6 +14,7 @@ public static class SitePaths
     public const string MyTeam = "my-team";
     public const string TypeChart = "type-chart";
     public const string PokemonList = "pokemon-list";
+    public const string MoveList = "move-list";
     public const string BattleTerms = "battle-terms";
     public const string ChatCommands = "chat-commands";
     public const string AboutAuthor = "about-author";

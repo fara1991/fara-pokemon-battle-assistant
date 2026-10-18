@@ -188,4 +188,26 @@ public class RosterChoiceTests
         Assert.True(tera.MaxDamage > 0);         // テラスタルで おもかげやどし になり、ちょすいは消える
         Assert.Contains(tera.Modifiers, m => m.Contains("おもかげやどし"));
     }
+
+    [Fact]
+    public async Task Move_dex_filters_sorts_and_lists_learners()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        // 名前（ローマ字・かなでも）・タイプ・分類で絞り込む
+        var byName = MoveDex.Query(data, new MoveFilter { Name = "なみのり" });
+        Assert.Contains(byName, m => m.Name == "なみのり");
+        var fire = MoveDex.Query(data, new MoveFilter { Type = "Fire", Category = MoveCategory.Special });
+        Assert.NotEmpty(fire);
+        Assert.All(fire, m => { Assert.Equal("Fire", m.Type); Assert.Equal(MoveCategory.Special, m.Category); });
+        // 威力の大きい順。同じ威力は技名順
+        var byPower = MoveDex.Query(data, new MoveFilter { Sort = MoveSort.Power, Descending = true });
+        Assert.True(byPower.Zip(byPower.Skip(1)).All(p => p.First.Power >= p.Second.Power));
+        // 1 つの技だけと、その技を覚えるポケモン
+        var surf = data.Moves.First(m => m.Name == "なみのり");
+        Assert.Single(MoveDex.Query(data, new MoveFilter { MoveId = surf.Id }));
+        var learners = MoveDex.Learners(data, surf.Id);
+        Assert.Contains(learners, p => p.Name == "ガブリアス") ;
+        Assert.All(learners, p => Assert.True(data.CanLearn(p.Id, surf.Id)));
+        Assert.True(learners.Zip(learners.Skip(1)).All(p => FaraPokemonBattleAssistant.Core.Data.Pokedex.CompareDex(p.First, p.Second) <= 0));
+    }
 }
