@@ -67,7 +67,7 @@ public sealed partial class PokeCommand
         rival.PokemonId = pokemon.Id;
         rival.PokemonName = pokemon.Name;
         if (rival.AbilityId is { } aid && data.AbilitiesOf(pokemon).All(a => a.Id != aid)) rival.AbilityId = null;
-        if (pokemon.IsMega) rival.ItemId = null;   // メガシンカ後の姿は、持ち物がメガストーンで確定している
+        if (pokemon.FixedItemId is not null) rival.ItemId = null;   // メガシンカ後の姿は、持ち物がメガストーンで確定している
         return true;
     }
 
@@ -496,7 +496,7 @@ public sealed partial class PokeCommand
             parts.Add((r.NatureUp is { } up ? $"{StatNames.Letter(up)}↑" : "") + (r.NatureDown is { } down ? $"{StatNames.Letter(down)}↓" : ""));
         if (r.AbilityId is { } aid && data.FindAbility(aid) is { } ability) parts.Add(ability.Name);
         // 持ち物は、分かっていればその持ち物。メガシンカ後の姿は、メガストーンで確定している
-        var heldItem = data.FindPokemon(r.PokemonId)?.MegaStoneId is { } stoneId ? data.FindItem(stoneId)
+        var heldItem = data.FindPokemon(r.PokemonId)?.FixedItemId is { } stoneId ? data.FindItem(stoneId)
             : r.ItemId is { } heldId ? data.FindItem(heldId) : null;
         if (heldItem is not null) parts.Add("持ち物:" + heldItem.Name);
         var moveNames = r.MoveIds.Select(id => data.FindMove(id)?.Name).Where(n => n is not null).ToList();
@@ -560,7 +560,7 @@ public sealed partial class PokeCommand
 
         var request = baseline.Request;
         // 相手の持ち物は、書いたもの（防:たべのこし など）・保存してある持ち物・メガストーンだけ。不明なら持ち物なしとして推定する（使用率の持ち物は入れない）
-        var writtenItem = request.Defender.Item is { } given && request.Defender.Pokemon.MegaStoneId is null ? given : null;
+        var writtenItem = request.Defender.Item is { } given && request.Defender.Pokemon.FixedItemId is null ? given : null;
         var estimator = new EvEstimator(data.TypeChart, ds.Generation);
         var attackerText = $"{request.Attacker.Pokemon.Name}({request.Attacker.DescribeShort()})";
         var pokemon = request.Defender.Pokemon;
@@ -591,7 +591,7 @@ public sealed partial class PokeCommand
 
         // 特性ごとの結果は、重なる範囲ではなく「どれかの特性なら成り立つ範囲」（和）にまとめて反映する
         var merged = MergeEstimates(found.Select(r => r.Estimate).ToList());
-        var note = request.Defender.Item is { } noteItem && request.Defender.Pokemon.MegaStoneId is null ? $"{scanText} 防:{noteItem.Name}" : $"{scanText}";
+        var note = request.Defender.Item is { } noteItem && request.Defender.Pokemon.FixedItemId is null ? $"{scanText} 防:{noteItem.Name}" : $"{scanText}";
         var now = DateTimeOffset.Now;
         (bool Applied, string? Problem) applied = (false, null);
         var rivalAdded = false;

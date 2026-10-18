@@ -430,7 +430,7 @@ public sealed partial class PokeCommand
         {
             var ability = rival.AbilityId is { } abilityId ? data.FindAbility(abilityId) : null;
             // 持ち物は、保存してあればその持ち物。メガシンカ後の姿は、メガストーンで確定している
-            var stone = request.Defender.Pokemon.MegaStoneId is { } stoneId ? data.FindItem(stoneId) : null;
+            var stone = request.Defender.Pokemon.FixedItemId is { } stoneId ? data.FindItem(stoneId) : null;
             rivalItem = stone ?? (rival.ItemId is { } savedItemId ? data.FindItem(savedItemId) : null);
             foe = KnownFoe.FromRival(rival, request.Defender.Pokemon, ds.EvSystem, data.Natures, request.Move.DefenseStatUsed, ability, rivalItem);
         }
@@ -680,7 +680,7 @@ public sealed partial class PokeCommand
         var (mySpeed, myNotes) = SpeedCalculator.Effective(mine, weather, terrain, generation: ds.Generation);
         var oppBuild = provider(oppMatch.Value!, false);
         var scarf = data.Items.FirstOrDefault(i => i.Id == 264);
-        var reference = SpeedCalculator.OpponentReference(oppMatch.Value!, ds.EvSystem, oppMatch.Value!.IsMega ? null : scarf, opponentParalyzed, ds.Generation);
+        var reference = SpeedCalculator.OpponentReference(oppMatch.Value!, ds.EvSystem, oppMatch.Value!.FixedItemId is not null ? null : scarf, opponentParalyzed, ds.Generation);
         string text;
         if (oppBuild is not null)
         {

@@ -411,7 +411,7 @@ else
             }
             else PokeCommand.SetRivalNature(target, editUp, editDown, data!.Natures);
             target.AbilityId = abilityId;
-            target.ItemId = form?.IsMega == true ? null : itemId;
+            target.ItemId = form?.FixedItemId is not null ? null : itemId;
             target.Updated = DateTimeOffset.Now.ToString("o");
             return (true, true);
         }));

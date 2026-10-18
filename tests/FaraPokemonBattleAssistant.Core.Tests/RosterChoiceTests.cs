@@ -1,3 +1,4 @@
+using FaraPokemonBattleAssistant.Core.Battle;
 using FaraPokemonBattleAssistant.Core.Data;
 using FaraPokemonBattleAssistant.Core.Models;
 using FaraPokemonBattleAssistant.Core.Roster;
@@ -187,5 +188,25 @@ public class RosterChoiceTests
         Assert.Equal(0, normal.MaxDamage);       // ちょすいで無効
         Assert.True(tera.MaxDamage > 0);         // テラスタルで おもかげやどし になり、ちょすいは消える
         Assert.Contains(tera.Modifiers, m => m.Contains("おもかげやどし"));
+    }
+
+    [Fact]
+    public async Task Ogerpon_mask_forms_hold_their_mask_but_base_ogerpon_is_free()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        Assert.Equal(2106, data.Pokemon.First(p => p.Id == 10273).FixedItemId);
+        Assert.Equal(2107, data.Pokemon.First(p => p.Id == 10274).FixedItemId);
+        Assert.Equal(2108, data.Pokemon.First(p => p.Id == 10275).FixedItemId);
+        Assert.Null(data.Pokemon.First(p => p.Id == 1017).FixedItemId);   // 通常のオーガポンは持ち物自由
+        var champions = await TestData.Catalog().GetDataSetAsync("Champions");
+        var megaX = champions.Pokemon.First(p => p.Name == "メガリザードンX");
+        Assert.Equal(megaX.MegaStoneId, megaX.FixedItemId);   // メガストーンの固定は今まで通り
+        // 通常のオーガポンは、使用率の持ち物がほかのすがたのお面でも、みどりのめんになる
+        var base1017 = data.Pokemon.First(p => p.Id == 1017);
+        Assert.Equal(2102, MoveEffects.NormalizeOgerponItem(base1017, data.FindItem(2107), data)?.Id);
+        Assert.Equal(2107, MoveEffects.NormalizeOgerponItem(data.Pokemon.First(p => p.Id == 10274), data.FindItem(2107), data)?.Id);
+        // 登録の構成も、お面のすがたならそのお面を持つ
+        var entry = new RegisteredPokemon { PokemonId = 10274, PokemonName = "オーガポン(かまどのめん)", Nature = data.Natures.First().Name };
+        Assert.Equal(2107, RosterRepository.ToBuild(entry, data)!.Item?.Id);
     }
 }

@@ -487,8 +487,10 @@ else if (data is not null && dataSet is not null)
     private void ApplyFixedChoices(PokemonBuild build)
     {
         if (data is null) return;
-        if (build.Pokemon.IsMega)
-            build.Item = data.FindItem(build.Pokemon.MegaStoneId!.Value) ?? build.Item;
+        if (build.Pokemon.FixedItemId is { } fixedItemId)
+            build.Item = data.FindItem(fixedItemId) ?? build.Item;
+        else
+            build.Item = MoveEffects.NormalizeOgerponItem(build.Pokemon, build.Item, data);   // 通常のオーガポンは、ほかのすがたのお面ではなく、みどりのめん
         var abilities = data.AbilitiesOf(build.Pokemon);
         if (abilities.Count == 1) build.Ability = abilities[0];
         else if (build.Ability is not null && !abilities.Contains(build.Ability)) build.Ability = abilities.FirstOrDefault();
@@ -778,7 +780,7 @@ else if (data is not null && dataSet is not null)
         if (data is null || s.Defender is null) return null;
         var ability = rival.AbilityId is { } id ? data.FindAbility(id) : null;
         return KnownFoe.FromRival(rival, s.Defender.Pokemon, data.Info.EvSystem, data.Natures, s.Move?.DefenseStatUsed ?? Stat.Defense, ability,
-            s.Defender.Pokemon.MegaStoneId is { } stoneId ? data.FindItem(stoneId) : null);
+            s.Defender.Pokemon.FixedItemId is { } stoneId ? data.FindItem(stoneId) : null);
     }
 
     private string RivalSummary(RivalPokemon rival)
@@ -1030,7 +1032,7 @@ else if (data is not null && dataSet is not null)
         <div class="build-grid">
             <div class="form-group mb-3">
                 <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）を先に並べます。ほかの持ち物も選べます。" : "防御側は B・D に関係する持ち物（とつげきチョッキ・しんかのきせきなど）を先に並べます。ほかの持ち物も選べます。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
-                @if (build.Pokemon.IsMega)
+                @if (build.Pokemon.FixedItemId is not null)
                 {
                     <FixedField Value="@build.Item?.Name" Item="build.Item" Reason="@FixedField.MegaReason" />
                 }
