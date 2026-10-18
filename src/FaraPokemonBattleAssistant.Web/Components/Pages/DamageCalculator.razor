@@ -589,6 +589,13 @@ else if (data is not null && dataSet is not null)
         return new[] { build.Pokemon.Types.Last() };
     }
 
+    /// <summary>テラスタルしたオーガポンの特性（おもかげやどし）。そうでなければ null。</summary>
+    private static Ability? OgerponTeraAbility(PokemonBuild build)
+    {
+        var adjusted = MoveEffects.AdjustOgerponTerastal(build, out _);
+        return ReferenceEquals(adjusted, build) ? null : adjusted.Ability;
+    }
+
     /// <summary>テラスタル欄の表示値。オーガポンは、選択肢にあるお面のタイプだけ（計算はお面のタイプで行う）。</summary>
     private static string TeraValue(PokemonBuild build) =>
         build.Pokemon.SpeciesId == MoveEffects.OgerponSpeciesId && build.IsTerastallized ? build.Pokemon.Types.Last() : build.TeraType ?? "";
@@ -1047,7 +1054,12 @@ else if (data is not null && dataSet is not null)
             </div>
             <div class="form-group mb-3">
                 <label>特性 <Help Title="特性">そのポケモンが持てる特性だけを表示します。特性が 1 つしかないポケモン（メガシンカ後など）は固定です。</Help></label>
-                @if (abilities.Count <= 1)
+                @if (OgerponTeraAbility(build) is { } embodyAspect)
+                {
+                    @* テラスタルしたオーガポンは、特性がおもかげやどしに変わる（計算もそれで行う） *@
+                    <FixedField Value="@embodyAspect.Name" Ability="embodyAspect" Reason="テラスタルしたオーガポンの特性" />
+                }
+                else if (abilities.Count <= 1)
                 {
                     <FixedField Value="@build.Ability?.Name" Ability="build.Ability" Reason="@FixedField.SingleAbilityReason" />
                 }
