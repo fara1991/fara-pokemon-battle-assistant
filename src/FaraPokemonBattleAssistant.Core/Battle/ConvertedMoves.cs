@@ -65,6 +65,7 @@ public static class ConvertedMoves
         if (move.Id == MoveEffects.MoveIdWeatherBall && MoveEffects.WeatherBallType(weather) is { } w) type = w;
         else if (move.Id == MoveEffects.MoveIdTerrainPulse && MoveEffects.TerrainPulseType(terrain) is { } t) type = t;
         else if (move.Id == MoveEffects.MoveIdRagingBull) type = MoveEffects.RagingBullType(attacker.Pokemon, type);
+        else if (move.Id == MoveEffects.MoveIdIvyCudgel) type = MoveEffects.IvyCudgelType(attacker.Pokemon, type);
         var ability = attacker.Ability?.Identifier ?? "";
         var skin = noTypeChange ? null : AbilityEffects.SkinType(ability);
         if (skin is not null && type == "Normal") type = skin;

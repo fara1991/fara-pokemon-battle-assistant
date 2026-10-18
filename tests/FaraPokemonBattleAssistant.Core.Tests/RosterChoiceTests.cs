@@ -101,4 +101,31 @@ public class RosterChoiceTests
         Assert.Equal(1.2, gen9.TypeBoostMultiplier);
         Assert.Equal("むしタイプの技の威力が1.2倍になる。", gen9.Description);
     }
+
+    [Theory]
+    [InlineData(10273, 2106, "Water")]
+    [InlineData(10274, 2107, "Fire")]
+    [InlineData(10275, 2108, "Rock")]
+    public async Task Ogerpon_mask_boosts_moves_only_for_its_own_form_and_changes_ivy_cudgel_type(int formId, int maskId, string type)
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart);
+        var form = data.Pokemon.First(p => p.Id == formId);
+        var ownMask = data.Items.First(i => i.Id == maskId);
+        var otherMask = data.Items.First(i => i.Id != maskId && i.Id is 2106 or 2107 or 2108);
+        var ivy = data.Moves.First(m => m.Id == 904);
+        var target = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem) { EVs = new StatSet { HP = 32 } };
+        PokemonBuild Make(Pokemon pokemon, Item? item) => new(pokemon, data.Info.EvSystem) { EVs = new StatSet { Attack = 32 }, Nature = data.Natures.First(), Item = item };
+
+        var plain = calc.Calculate(new DamageRequest { Attacker = Make(form, null), Move = ivy, Defender = target });
+        var masked = calc.Calculate(new DamageRequest { Attacker = Make(form, ownMask), Move = ivy, Defender = target });
+        var wrongMask = calc.Calculate(new DamageRequest { Attacker = Make(form, otherMask), Move = ivy, Defender = target });
+        Assert.Equal(type, masked.MoveType);                 // ツタこんぼうは、お面のタイプ
+        Assert.Contains(masked.Modifiers, m => m.Contains("1.2倍") && m.Contains(ownMask.Name));
+        Assert.True(masked.MaxDamage > plain.MaxDamage);     // 自分のお面なら威力が上がる
+        Assert.Equal(plain.MaxDamage, wrongMask.MaxDamage);  // 別のすがたのお面では上がらない
+        // 通常のオーガポン（みどりのめん）は Grass のまま、お面の補正もつかない
+        var teal = calc.Calculate(new DamageRequest { Attacker = Make(data.Pokemon.First(p => p.Id == 1017), ownMask), Move = ivy, Defender = target });
+        Assert.Equal("Grass", teal.MoveType);
+    }
 }
