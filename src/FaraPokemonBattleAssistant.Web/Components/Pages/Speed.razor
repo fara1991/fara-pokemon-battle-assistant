@@ -308,7 +308,7 @@ else if (data is not null && dataSet is not null)
             Ability = abilities.FirstOrDefault(ab => SpeedCalculator.IsSpeedAbility(ab.Identifier)) ?? AbilityEffects.ChooseDefault(abilities, null),
             EVs = new StatSet { Speed = EvRules.Full(dataSet.EvSystem) },
         };
-        if (pokemon.FixedItemId is { } fixedItemId) build.Item = data.FindItem(fixedItemId);
+        if (pokemon.FixedItemId is { } fixedItemId) build.Item = data.FindItem(fixedItemId) ?? build.Item;
         s.Builds[side] = build;
     }
 

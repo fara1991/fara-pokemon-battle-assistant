@@ -152,13 +152,15 @@ else if (data is not null && roster is not null && dataSet is not null)
 
     private void OnTeamEntryChanged(string value)
     {
+        var previousFixed = s.TeamEntryId > 0 && roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } previousEntry
+            ? data?.FindPokemon(previousEntry.PokemonId)?.FixedItemId : null;
         s.TeamEntryId = ParseId(value);
         var entry = roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId);
         var pokemon = entry is null ? null : data?.FindPokemon(entry.PokemonId);
         if (pokemon?.FixedItemId is { } fixedItemId)
             s.TeamItem = data?.FindItem(fixedItemId);
-        else if (s.TeamItem?.IsMegaStone == true)
-            s.TeamItem = null;
+        else if (s.TeamItem?.IsMegaStone == true || previousFixed is not null && s.TeamItem?.Id == previousFixed)
+            s.TeamItem = null;   // 前のポケモンで固定されていた持ち物は、引き継がない
     }
 
     private async Task AddToTeamAsync()

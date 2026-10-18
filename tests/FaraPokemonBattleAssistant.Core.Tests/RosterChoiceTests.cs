@@ -1,3 +1,4 @@
+using FaraPokemonBattleAssistant.Core.Battle;
 using FaraPokemonBattleAssistant.Core.Data;
 using FaraPokemonBattleAssistant.Core.Models;
 using FaraPokemonBattleAssistant.Core.Roster;
@@ -197,8 +198,13 @@ public class RosterChoiceTests
         Assert.Equal(2107, data.Pokemon.First(p => p.Id == 10274).FixedItemId);
         Assert.Equal(2108, data.Pokemon.First(p => p.Id == 10275).FixedItemId);
         Assert.Null(data.Pokemon.First(p => p.Id == 1017).FixedItemId);   // 通常のオーガポンは持ち物自由
-        var charizardMegaX = data.Pokemon.FirstOrDefault(p => p.IsMega);
-        if (charizardMegaX is not null) Assert.Equal(charizardMegaX.MegaStoneId, charizardMegaX.FixedItemId);
+        var champions = await TestData.Catalog().GetDataSetAsync("Champions");
+        var megaX = champions.Pokemon.First(p => p.Name == "メガリザードンX");
+        Assert.Equal(megaX.MegaStoneId, megaX.FixedItemId);   // メガストーンの固定は今まで通り
+        // 通常のオーガポンは、使用率の持ち物がほかのすがたのお面でも、みどりのめんになる
+        var base1017 = data.Pokemon.First(p => p.Id == 1017);
+        Assert.Equal(2102, MoveEffects.NormalizeOgerponItem(base1017, data.FindItem(2107), data)?.Id);
+        Assert.Equal(2107, MoveEffects.NormalizeOgerponItem(data.Pokemon.First(p => p.Id == 10274), data.FindItem(2107), data)?.Id);
         // 登録の構成も、お面のすがたならそのお面を持つ
         var entry = new RegisteredPokemon { PokemonId = 10274, PokemonName = "オーガポン(かまどのめん)", Nature = data.Natures.First().Name };
         Assert.Equal(2107, RosterRepository.ToBuild(entry, data)!.Item?.Id);

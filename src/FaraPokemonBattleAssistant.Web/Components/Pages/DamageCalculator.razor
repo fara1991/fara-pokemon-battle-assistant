@@ -489,8 +489,8 @@ else if (data is not null && dataSet is not null)
         if (data is null) return;
         if (build.Pokemon.FixedItemId is { } fixedItemId)
             build.Item = data.FindItem(fixedItemId) ?? build.Item;
-        else if (build.Pokemon.SpeciesId == MoveEffects.OgerponSpeciesId && build.Item?.Id is 2106 or 2107 or 2108)
-            build.Item = data.FindItem(2102) ?? build.Item;   // 通常のオーガポンは、ほかのすがたのお面ではなく、みどりのめん
+        else
+            build.Item = MoveEffects.NormalizeOgerponItem(build.Pokemon, build.Item, data);   // 通常のオーガポンは、ほかのすがたのお面ではなく、みどりのめん
         var abilities = data.AbilitiesOf(build.Pokemon);
         if (abilities.Count == 1) build.Ability = abilities[0];
         else if (build.Ability is not null && !abilities.Contains(build.Ability)) build.Ability = abilities.FirstOrDefault();

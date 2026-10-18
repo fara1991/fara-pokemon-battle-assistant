@@ -128,6 +128,14 @@ public static class MoveEffects
     /// </summary>
     public static bool OgerponMaskBoosts(Pokemon attacker, Item? item) => (attacker.Id, item?.Id) is (1017, 2102) or (10273, 2106) or (10274, 2107) or (10275, 2108);
 
+    /// <summary>
+    /// 通常のオーガポンが、ほかのすがたのお面（いどのめん・かまどのめん・いしずえのめん）を持っていたら、みどりのめんに直す
+    /// （使用率の持ち物がほかのすがたのお面のことがあるため）。ほかのポケモン・すがたは、そのまま返す。
+    /// </summary>
+    public static Item? NormalizeOgerponItem(Pokemon pokemon, Item? item, FaraPokemonBattleAssistant.Core.Data.PokemonDataSet data) =>
+        pokemon.SpeciesId == OgerponSpeciesId && pokemon.FixedItemId is null && item?.Id is 2106 or 2107 or 2108
+            ? data.FindItem(2102) ?? item : item;
+
     /// <summary>オーガポン（みどりのめん・いどのめん・かまどのめん・いしずえのめん）の種族 ID。</summary>
     public const int OgerponSpeciesId = 1017;
 

@@ -436,6 +436,8 @@ public sealed class DamageCommand
             defender.Item = knownDefenderItem;
         else if (!defenderItemSet && defender.Pokemon.FixedItemId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
             defender.Item = defenderStoneItem;
+        // 通常のオーガポンは、使用率の持ち物がほかのすがたのお面でも、みどりのめんにする
+        if (!attackerItemSet) attacker.Item = MoveEffects.NormalizeOgerponItem(attacker.Pokemon, attacker.Item, data);
         if (!attackerAbilitySet)
             attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);
         if (!defenderAbilitySet)
