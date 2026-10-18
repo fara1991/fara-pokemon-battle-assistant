@@ -1071,6 +1071,12 @@ else if (data is not null && dataSet is not null)
                             <option value="@t">@TypeNames.ToJapanese(t)</option>
                         }
                     </select>
+                    @{ MoveEffects.AdjustOgerponTerastal(build, out var teraNote); }
+                    @if (teraNote is not null)
+                    {
+                        @* 選んでいる特性の欄は変わらないので、計算でどう扱ったかをここに出す *@
+                        <div class="small text-muted mt-1">@teraNote。計算に反映済み（ランク補正の欄には入れないでください）</div>
+                    }
                 </div>
             }
             @if (dataSet.HasDynamax)
