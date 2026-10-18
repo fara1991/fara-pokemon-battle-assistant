@@ -44,13 +44,14 @@ public static class MoveDex
         if (!string.IsNullOrEmpty(filter.Type)) list = list.Where(m => m.Type == filter.Type);
         if (filter.Category is { } category) list = list.Where(m => m.Category == category);
 
-        var ordered = list.OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
+        // 技名は五十音順（ひらがなとカタカナを区別せず並べる）
+        var ordered = list.OrderBy(m => KanaSearch.Normalize(m.Name), StringComparer.Ordinal).ThenBy(m => m.Name, StringComparer.Ordinal).ToList();
         if (filter.Sort == MoveSort.Name) return filter.Descending ? ordered.AsEnumerable().Reverse().ToList() : ordered;
 
         var typeOrder = TypeNames.All.ToList();
         Func<Move, int> key = filter.Sort switch
         {
-            MoveSort.Type => m => typeOrder.IndexOf(m.Type),
+            MoveSort.Type => m => typeOrder.IndexOf(m.Type) is var i and >= 0 ? i : int.MaxValue,   // 「???」などは最後
             MoveSort.Power => m => m.Power,
             MoveSort.Accuracy => m => m.Accuracy,
             _ => m => m.PP,

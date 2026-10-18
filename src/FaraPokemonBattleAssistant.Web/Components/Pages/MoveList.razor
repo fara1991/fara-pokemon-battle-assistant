@@ -57,8 +57,8 @@
                     <select class="form-select form-select-sm" aria-label="並び順" value="@SortValue(f.Sort, f.Descending)" @onchange="@(e => SetSort(e.Value?.ToString()))">
                         @foreach (var (sort, label) in SortColumns)
                         {
-                            <option value="@SortValue(sort, false)">@label（@(sort == MoveSort.Name ? "五十音順" : "低い順")）</option>
-                            <option value="@SortValue(sort, true)">@label（@(sort == MoveSort.Name ? "逆順" : "高い順")）</option>
+                            <option value="@SortValue(sort, false)">@label（@(sort == MoveSort.Name ? "五十音順" : sort == MoveSort.Type ? "昇順" : "低い順")）</option>
+                            <option value="@SortValue(sort, true)">@label（@(sort == MoveSort.Name ? "逆順" : sort == MoveSort.Type ? "降順" : "高い順")）</option>
                         }
                     </select>
                 </div>
