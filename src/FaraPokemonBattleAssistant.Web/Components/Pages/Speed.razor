@@ -309,6 +309,7 @@ else if (data is not null && dataSet is not null)
             EVs = new StatSet { Speed = EvRules.Full(dataSet.EvSystem) },
         };
         if (pokemon.FixedItemId is { } fixedItemId) build.Item = data.FindItem(fixedItemId) ?? build.Item;
+        else if (pokemon.SpeciesId == MoveEffects.OgerponSpeciesId) build.Item = data.FindItem(2102);   // 通常のオーガポンの既定は、みどりのめん
         s.Builds[side] = build;
     }
 
