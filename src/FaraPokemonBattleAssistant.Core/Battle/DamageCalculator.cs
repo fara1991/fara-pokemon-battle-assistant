@@ -673,7 +673,7 @@ public sealed class DamageCalculator
         if (_generation <= 8 && defenderAbility == "heatproof" && moveType == "Fire") Add(2048, $"{defName}(0.5倍)");
         else if (defenderAbility == "dry-skin" && moveType == "Fire") Add(5120, $"{defName}(1.25倍)");
 
-        // 持ち物（ジュエル 1.3 倍 / タイプ強化 1.2 倍 / ちからのハチマキ・ものしりメガネ 4505 / パンチグローブ 4506）
+        // 持ち物（ジュエル 1.3 倍 / タイプ強化 1.2 倍 / ちからのハチマキ・ものしりメガネ 4505 / パンチグローブ 4506 / オーガポンのお面 4915）
         if (MoveEffects.GemType(attackerItem) == moveType)
             Add(5325, $"{attackerItem!.Name}(1.3倍)");
         else if (attackerItem is { Category: ItemCategory.TypeBoost } typeItem && typeItem.TypeBoost == moveType)
