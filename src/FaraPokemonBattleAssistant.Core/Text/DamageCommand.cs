@@ -427,14 +427,14 @@ public sealed class DamageCommand
         if (!defenderNatureSet)
             defender.Nature = usage?.TopNature(defender.Pokemon.Id) ?? data.FindNature("まじめ") ?? data.Natures.FirstOrDefault(n => n.IsNeutral);
         // メガシンカ後の姿は、持ち物がメガストーンで確定（使用率の持ち物より優先する）
-        if (!attackerItemSet && attacker.Pokemon.MegaStoneId is { } attackerStone && data.FindItem(attackerStone) is { } attackerStoneItem)
+        if (!attackerItemSet && attacker.Pokemon.FixedItemId is { } attackerStone && data.FindItem(attackerStone) is { } attackerStoneItem)
             attacker.Item = attackerStoneItem;
         else if (!attackerItemSet && usage is not null)
             attacker.Item = usage.TopItem(attacker.Pokemon.Id);
         // 防御側は対戦中の相手なので、使用率の持ち物は入れない（書いた持ち物かメガストーンだけ。不明なら持ち物なしで計算し、表示にも出さない）
         if (!defenderItemSet && options.DefenderItem is { } knownDefenderItem)
             defender.Item = knownDefenderItem;
-        else if (!defenderItemSet && defender.Pokemon.MegaStoneId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
+        else if (!defenderItemSet && defender.Pokemon.FixedItemId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
             defender.Item = defenderStoneItem;
         if (!attackerAbilitySet)
             attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);

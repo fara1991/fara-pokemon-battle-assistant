@@ -298,6 +298,12 @@ public sealed class Pokemon
 
     public bool IsMega => MegaStoneId is not null;
 
+    /// <summary>
+    /// 持ち物が決まっているすがたの、持ち物 ID。メガシンカ後はメガストーン、オーガポンのお面のすがた（いどのめん・かまどのめん・いしずえのめん）はそのお面。
+    /// 通常のオーガポン（みどりのめん）は自由に選べる。決まっていなければ null。
+    /// </summary>
+    public int? FixedItemId => MegaStoneId ?? (SpeciesId == 1017 ? Id switch { 10273 => 2106, 10274 => 2107, 10275 => 2108, _ => null } : null);
+
     public bool HasType(string type) =>
         !string.IsNullOrEmpty(type) && (Type1 == type || Type2 == type);
 

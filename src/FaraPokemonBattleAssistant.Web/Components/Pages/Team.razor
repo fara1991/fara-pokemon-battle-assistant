@@ -148,15 +148,15 @@ else if (data is not null && roster is not null && dataSet is not null)
     }
 
     private bool TeamEntryIsMega =>
-        roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } entry && data?.FindPokemon(entry.PokemonId)?.IsMega == true;
+        roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } entry && data?.FindPokemon(entry.PokemonId)?.FixedItemId is not null;
 
     private void OnTeamEntryChanged(string value)
     {
         s.TeamEntryId = ParseId(value);
         var entry = roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId);
         var pokemon = entry is null ? null : data?.FindPokemon(entry.PokemonId);
-        if (pokemon?.IsMega == true)
-            s.TeamItem = data?.FindItem(pokemon.MegaStoneId!.Value);
+        if (pokemon?.FixedItemId is { } fixedItemId)
+            s.TeamItem = data?.FindItem(fixedItemId);
         else if (s.TeamItem?.IsMegaStone == true)
             s.TeamItem = null;
     }

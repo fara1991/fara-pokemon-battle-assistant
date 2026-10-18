@@ -559,7 +559,7 @@ public sealed class RosterRepository
             Nature = data.FindNature(entry.Nature),
             Ability = entry.AbilityId is { } aid ? data.FindAbility(aid) : data.AbilitiesOf(pokemon).FirstOrDefault(),
             // メガシンカ後のポケモンは、メガストーンを持つ（持ち物は固定）
-            Item = pokemon.IsMega && pokemon.MegaStoneId is { } stone ? data.FindItem(stone) ?? item : item,
+            Item = pokemon.FixedItemId is { } fixedItemId ? data.FindItem(fixedItemId) ?? item : item,
             TeraType = entry.TeraType,
         };
     }

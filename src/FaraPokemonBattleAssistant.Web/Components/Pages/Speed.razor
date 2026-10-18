@@ -308,7 +308,7 @@ else if (data is not null && dataSet is not null)
             Ability = abilities.FirstOrDefault(ab => SpeedCalculator.IsSpeedAbility(ab.Identifier)) ?? AbilityEffects.ChooseDefault(abilities, null),
             EVs = new StatSet { Speed = EvRules.Full(dataSet.EvSystem) },
         };
-        if (pokemon.IsMega) build.Item = data.FindItem(pokemon.MegaStoneId!.Value);
+        if (pokemon.FixedItemId is { } fixedItemId) build.Item = data.FindItem(fixedItemId);
         s.Builds[side] = build;
     }
 
@@ -389,7 +389,7 @@ else if (data is not null && dataSet is not null)
                     <div class="build-grid mb-2">
                     <div class="form-group">
                         <label>持ち物 <Help Title="持ち物">S が変わる持ち物を先に並べます。ほかの持ち物も選べます。@(SpeedItemNote)メガシンカ後はメガストーンで固定です。</Help></label>
-                        @if (build.Pokemon.IsMega)
+                        @if (build.Pokemon.FixedItemId is not null)
                         {
                             <FixedField Value="@build.Item?.Name" Item="build.Item" Reason="@FixedField.MegaReason" />
                         }
@@ -461,7 +461,7 @@ else if (data is not null && dataSet is not null)
     private RenderFragment RenderReference(PokemonBuild build, bool tailwind, int? opponentSpeed, string? opponentName) => __builder =>
     {
         // 振り方だけを置き換えて、結果の素早さと同じ計算（持ち物・特性・ランク・まひ・おいかぜ・天候・フィールド）をする
-        var rows = SpeedCalculator.ReferenceRows(build, data!.Natures, build.Pokemon.IsMega ? null : Scarf, s.Weather, s.Terrain, tailwind, dataSet!.Generation);
+        var rows = SpeedCalculator.ReferenceRows(build, data!.Natures, build.Pokemon.FixedItemId is not null ? null : Scarf, s.Weather, s.Terrain, tailwind, dataSet!.Generation);
         var (_, currentLabels) = SpeedCalculator.Effective(build, s.Weather, s.Terrain, tailwind, dataSet!.Generation);
         var hasCurrent = rows.Any(r => r.Current != r.Base) || currentLabels.Count > 0;
         var potential = SpeedCalculator.PotentialFactor(build, s.Weather, s.Terrain);
