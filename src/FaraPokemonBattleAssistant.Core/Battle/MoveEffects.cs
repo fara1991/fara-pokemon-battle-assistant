@@ -126,7 +126,38 @@ public static class MoveEffects
     /// オーガポンが、自分のすがたに合ったお面（いどのめん・かまどのめん・いしずえのめん）を持っているか。
     /// 持っていると、技の威力が 1.2 倍になる（別のすがたのお面では上がらない）。
     /// </summary>
-    public static bool OgerponMaskBoosts(Pokemon attacker, Item? item) => (attacker.Id, item?.Id) is (10273, 2106) or (10274, 2107) or (10275, 2108);
+    public static bool OgerponMaskBoosts(Pokemon attacker, Item? item) => (attacker.Id, item?.Id) is (1017, 2102) or (10273, 2106) or (10274, 2107) or (10275, 2108);
+
+    /// <summary>オーガポン（みどりのめん・いどのめん・かまどのめん・いしずえのめん）の種族 ID。</summary>
+    public const int OgerponSpeciesId = 1017;
+
+    /// <summary>
+    /// テラスタルしたオーガポンの扱いに直した構成を返す（オーガポンでない・テラスタルしていないなら、そのまま返す）。
+    /// テラスタイプはお面のタイプ（みどり=くさ・いど=みず・かまど=ほのお・いしずえ=いわ）で固定。
+    /// 特性は「おもかげやどし」に変わり（お面ごとの特性、かまどのめんのかたやぶりも消える）、
+    /// テラスタルしたとき、みどり=すばやさ・いど=とくぼう・かまど=こうげき・いしずえ=ぼうぎょが 1 段階上がる。
+    /// </summary>
+    public static PokemonBuild AdjustOgerponTerastal(PokemonBuild build, out string? note)
+    {
+        note = null;
+        if (build.Pokemon.SpeciesId != OgerponSpeciesId || !build.IsTerastallized) return build;
+        var stat = build.Pokemon.Id switch
+        {
+            10273 => Stat.SpDefense,
+            10274 => Stat.Attack,
+            10275 => Stat.Defense,
+            _ => Stat.Speed,
+        };
+        var type = build.Pokemon.Types.Last();
+        var result = build.Clone();
+        result.TeraType = type;
+        result.Ability = new Ability { Identifier = "embody-aspect", Name = "おもかげやどし" };
+        var boosts = result.Boosts.Clone();
+        boosts[stat] = Math.Clamp(boosts[stat] + 1, -6, 6);
+        result.Boosts = boosts;
+        note = $"{build.Pokemon.Name}はテラスタルで特性がおもかげやどしに（{StatNames.Japanese(stat)}+1・テラスタイプは{TypeNames.ToJapanese(type)}）";
+        return result;
+    }
 
     /// <summary>相手の状態異常で威力が 2 倍になる技（たたりめ・たたりびは状態異常のとき、どくばりセンボンはどく・もうどくのとき、きつけはまひ、めざましビンタはねむり）。</summary>
     public static bool DoublesAgainstStatus(Move move, StatusCondition defenderStatus) => move.Id switch

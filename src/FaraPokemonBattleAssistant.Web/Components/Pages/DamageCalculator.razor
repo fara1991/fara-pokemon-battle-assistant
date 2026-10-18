@@ -582,6 +582,15 @@ else if (data is not null && dataSet is not null)
         if (FindChoice(isAttacker ? s.AttackerRosterKey : s.DefenderRosterKey) is { } choice) PickFromRoster(choice, isAttacker, mega, keepMove: true);
     }
 
+    /// <summary>テラスタイプの選択肢。オーガポンはお面のタイプだけ（くさ・みず・ほのお・いわ）。</summary>
+    private static IReadOnlyCollection<string> TeraTypesFor(PokemonBuild build)
+    {
+        if (build.Pokemon.SpeciesId != MoveEffects.OgerponSpeciesId) return TypeNames.All;
+        var own = build.Pokemon.Types.Last();
+        if (build.IsTerastallized && build.TeraType != own) build.TeraType = own;
+        return new[] { own };
+    }
+
     private string estimateKey = "";
 
     /// <summary>
@@ -1055,7 +1064,7 @@ else if (data is not null && dataSet is not null)
                     <label>テラスタル <Help Title="テラスタル">テラスタル後のタイプ。攻撃側はテラスタイプと同じ技が 1.5 倍（元のタイプとも一致なら 2 倍）、防御側は受けるタイプがテラスタイプだけになります。</Help></label>
                     <select class="form-select" value="@(build.TeraType ?? "")" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
                         <option value="">なし</option>
-                        @foreach (var t in TypeNames.All)
+                        @foreach (var t in TeraTypesFor(build))
                         {
                             <option value="@t">@TypeNames.ToJapanese(t)</option>
                         }
