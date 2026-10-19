@@ -135,7 +135,16 @@ public sealed class AppState
     {
         if (Changed is null) return;
         foreach (var handler in Changed.GetInvocationList().Cast<Func<Task>>())
-            await handler();
+        {
+            // 1 つの画面の読み込みが失敗しても、残りの購読先（ほかの画面・メニュー）を呼ぶ。失敗した画面は、自分でメッセージを出す
+            try
+            {
+                await handler();
+            }
+            catch (Exception)
+            {
+            }
+        }
     }
 
     private sealed class Saved

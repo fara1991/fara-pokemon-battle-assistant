@@ -533,6 +533,28 @@ public class RosterSyncTests
         Assert.Empty((await repo.GetAsync()).For(Ds).Pokemon);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    public async Task Rivals_are_not_saved_when_they_could_not_be_read(HttpStatusCode status)
+    {
+        var (server, store) = NewRemote();
+        var repo = new RosterRepository(store);
+        // 相手チームの読み込みだけが、想定外の応答になる
+        server.Override = r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath == "/api/my/rival" ? FakeRosterServer.Json(status, "{}") : null;
+        Assert.Empty((await repo.GetAsync()).For(Ds).Rivals);
+        var putsBefore = server.Requests.Count(r => r.Method == HttpMethod.Put);
+
+        // この状態で相手チームを変える操作をしても、空のまま上書き保存しない（クラウドの相手チームと履歴を消さない）
+        var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.ChangeRivalsAsync(Ds, roster =>
+        {
+            roster.Rivals.Add(new RivalPokemon { Id = roster.NextRivalId++, PokemonId = 6, PokemonName = "リザードン" });
+            return (0, true);
+        }));
+        Assert.Equal(RosterUnavailableReason.InvalidResponse, ex.Reason);
+        Assert.Equal(putsBefore, server.Requests.Count(r => r.Method == HttpMethod.Put));
+    }
+
     [Fact]
     public async Task Poke_command_reports_cloud_errors_as_messages()
     {

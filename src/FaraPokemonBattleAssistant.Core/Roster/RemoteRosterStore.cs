@@ -159,18 +159,30 @@ public sealed class RemoteRosterStore : IRosterStore
     }
 
     /// <summary>1 つのゲームの、ポケモン（/api/my/pokemon）・自分チーム（/api/my/team）・相手チーム（/api/my/rival）のどれかだけを保存する。</summary>
-    public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) =>
-        PutAsync(part switch { RosterPart.Pokemon => _pokemonEndpoint, RosterPart.Rival => _rivalEndpoint, _ => _teamsEndpoint }, state, new[] { dataSetKey }, part, ct);
+    public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default)
+    {
+        // 相手チームを読めていないあいだは、空のまま上書きして、クラウドの相手チームと履歴を消さないよう保存しない
+        if (part == RosterPart.Rival && _rivalUnreadable)
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "相手チームを読み込めていないため、保存できません。ページを読み込み直してください");
+        return PutAsync(part switch { RosterPart.Pokemon => _pokemonEndpoint, RosterPart.Rival => _rivalEndpoint, _ => _teamsEndpoint }, state, new[] { dataSetKey }, part, ct);
+    }
+
+    /// <summary>直近の読み込みで、相手チームを読めなかった（保存すると、サーバーの相手チームと履歴を空で上書きしてしまう）。</summary>
+    private bool _rivalUnreadable;
 
     /// <summary>相手チームを読む。API が無い（404）・想定外の応答のときは null（相手チームは使えない）。</summary>
     private async Task<JsonDocument?> TryGetRivalAsync(CancellationToken ct)
     {
         try
         {
-            return await GetAsync(_rivalEndpoint, ct).ConfigureAwait(false);
+            var rivals = await GetAsync(_rivalEndpoint, ct).ConfigureAwait(false);
+            _rivalUnreadable = false;
+            return rivals;
         }
         catch (RosterUnavailableException ex) when (ex.Reason == RosterUnavailableReason.InvalidResponse)
         {
+            _rivalUnreadable = true;
             return null;
         }
     }

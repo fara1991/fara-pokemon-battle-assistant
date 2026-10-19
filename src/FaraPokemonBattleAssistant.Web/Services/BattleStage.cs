@@ -60,8 +60,10 @@ public sealed class BattleStage
     public Pokemon? RosterMegaMine { get; private set; }
     public Pokemon? RosterMegaFoe { get; private set; }
 
-    public void ShareRosterMode(bool mine, bool foe, string? keyMine = null, Pokemon? megaMine = null, string? keyFoe = null, Pokemon? megaFoe = null)
+    public void ShareRosterMode(string dataSetKey, bool mine, bool foe, string? keyMine = null, Pokemon? megaMine = null, string? keyFoe = null, Pokemon? megaFoe = null)
     {
+        // 登録の Key（r1 など）はゲームごとに同じ値がある。ゲームを切り替えた直後の描画で、前のゲームの Key を入れない
+        if (dataSetKey != DataSetKey) return;
         UseRosterMine = mine;
         UseRosterFoe = foe;
         RosterKeyMine = mine ? keyMine : null;

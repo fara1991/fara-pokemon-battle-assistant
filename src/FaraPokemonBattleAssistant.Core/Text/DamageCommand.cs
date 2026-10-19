@@ -548,7 +548,7 @@ public sealed class DamageCommand
         return tags.Count > 0 ? $" [{string.Join(" ", tags)}]" : "";
     }
 
-    private static readonly Regex RankSuffix = new(@"^(.*?)([+-＋－][1-6])$", RegexOptions.Compiled);
+    private static readonly Regex RankSuffix = new(@"^(.*?)([+\-＋－][1-6])$", RegexOptions.Compiled);   // 「+-＋」と書くと文字の範囲になり、ほとんどの文字が符号になってしまう
 
     /// <summary>「じしん+2」→ ("じしん", 2)。</summary>
     public static (string Name, int Rank) SplitRankSuffix(string token)
