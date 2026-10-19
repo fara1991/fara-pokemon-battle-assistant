@@ -231,6 +231,8 @@ else if (data is not null && dataSet is not null)
         }
         catch (Exception ex)
         {
+            data = null;   // 前のゲームのデータのまま描画しない
+            dataSet = null;
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
     }

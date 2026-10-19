@@ -184,6 +184,10 @@ public sealed class CloudSync : IRosterStore
         var key = RemoteRosterStore.GenerateKey();
         var remote = new RemoteRosterStore(_http, _baseUri, key);
         var json = await old.LoadAsync();
+        // 相手チームを読めていないと、新しいキーに相手チームと履歴が移らないまま、古い置き場を消してしまう
+        if (old.RivalUnreadable)
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "クラウドの相手チームを読み込めなかったため、キーを作り直せません。時間をおいて、もう一度試してください");
         if (json is not null) await MoveToNewKeyAsync(remote, json);
         else await remote.LoadAsync(); // つながるか確かめる
         await SwitchToAsync(key, remote);

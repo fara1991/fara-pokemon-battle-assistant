@@ -448,6 +448,7 @@ else if (data is not null)
         }
         catch (Exception ex)
         {
+            data = null;   // 前のゲームのデータのまま描画しない
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
     }

@@ -141,8 +141,9 @@ public sealed class AppState
             {
                 await handler();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.Error.WriteLine($"画面の更新に失敗しました: {ex.Message}");
             }
         }
     }
