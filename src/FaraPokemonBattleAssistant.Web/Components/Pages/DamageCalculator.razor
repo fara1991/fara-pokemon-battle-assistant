@@ -359,7 +359,7 @@ else if (data is not null && dataSet is not null)
     // 選んでいる攻撃側（手前）・防御側（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
-        if (stageReady) Stage.ShareRosterMode(RosterOn(s.UseRosterAttacker), RosterOn(s.UseRosterDefender), s.AttackerRosterKey, s.AttackerMega, s.DefenderRosterKey, s.DefenderMega);
+        if (stageReady) Stage.ShareRosterMode(s.DataSetKey, RosterOn(s.UseRosterAttacker), RosterOn(s.UseRosterDefender), s.AttackerRosterKey, s.AttackerMega, s.DefenderRosterKey, s.DefenderMega);
         if (stageReady) Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon, s.Attacker?.Nature, s.Defender?.Nature);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);

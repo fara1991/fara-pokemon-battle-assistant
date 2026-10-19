@@ -1599,4 +1599,18 @@ public class MoveEffectTests
         var z = new Item { Id = 817, Name = "ノーマルZ" };
         Assert.False(MoveEffects.KnockOffBoosted(z, other));
     }
+
+    [Theory]
+    [InlineData("じしん+2", "じしん", 2)]
+    [InlineData("じしん-1", "じしん", -1)]
+    [InlineData("じしん＋３", "じしん＋３", 0)]   // 全角の数字は、正規化したあとの文字列で渡される
+    [InlineData("じしん＋3", "じしん", 3)]
+    [InlineData("ワイドフォース3", "ワイドフォース3", 0)]   // 符号が無い数字は、ランクとして読まない
+    [InlineData("じしん2", "じしん2", 0)]
+    [InlineData("H4", "H4", 0)]
+    [InlineData("+2", "+2", 0)]
+    public void Rank_suffix_needs_a_plus_or_minus_sign(string token, string name, int rank)
+    {
+        Assert.Equal((name, rank), FaraPokemonBattleAssistant.Core.Text.DamageCommand.SplitRankSuffix(token));
+    }
 }

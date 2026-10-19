@@ -16,6 +16,11 @@
     <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="battle-terms">用語・略語</a>）</p>
 </div>
 
+@if (!string.IsNullOrEmpty(loadError))
+{
+    <div class="alert alert-danger">@loadError</div>
+}
+
 @if (App.DataSet is { CalcSupported: false } refOnly)
 {
     <CalcUnsupported DataSet="refOnly" Feature="チャットコマンド（計算・登録）" />
@@ -431,7 +436,24 @@ else if (data is not null)
         await LoadAsync();
     }
 
+    private string loadError = "";
+
+    /// <summary>データの読み込みに失敗したら、画面全体をエラー画面にせず、メッセージを出す。</summary>
     private async Task LoadAsync()
+    {
+        try
+        {
+            loadError = "";
+            await LoadCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            data = null;   // 前のゲームのデータのまま描画しない
+            loadError = $"データの読み込みに失敗しました: {ex.Message}";
+        }
+    }
+
+    private async Task LoadCoreAsync()
     {
         var switched = s.DataSetKey != App.DataSetKey;
         if (switched)

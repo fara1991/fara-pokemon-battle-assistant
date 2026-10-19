@@ -13,6 +13,10 @@
     <p class="text-muted mb-0">使用チームに同じポケモンがいれば、その構成が入ります。「登録から選ぶ」で、登録したポケモンを呼び出すこともできます。</p>
 </div>
 
+@if (!string.IsNullOrEmpty(loadError))
+{
+    <div class="alert alert-danger">@loadError</div>
+}
 @if (!string.IsNullOrEmpty(rosterError))
 {
     <div class="alert alert-warning">@rosterError</div>
@@ -215,7 +219,25 @@ else if (data is not null && dataSet is not null)
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 
+    private string loadError = "";
+
+    /// <summary>データの読み込みに失敗したら、画面全体をエラー画面にせず、メッセージを出す。</summary>
     private async Task LoadAsync()
+    {
+        try
+        {
+            loadError = "";
+            await LoadCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            data = null;   // 前のゲームのデータのまま描画しない
+            dataSet = null;
+            loadError = $"データの読み込みに失敗しました: {ex.Message}";
+        }
+    }
+
+    private async Task LoadCoreAsync()
     {
         dataSet = App.DataSet;
         data = await Catalog.GetDataSetAsync(App.DataSetKey);
@@ -256,7 +278,7 @@ else if (data is not null && dataSet is not null)
     // 選んでいるポケモン1（手前）・ポケモン2（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
-        if (stageReady) Stage.ShareRosterMode(RosterOn(0), RosterOn(1), s.RosterKey[0], s.RosterMega[0], s.RosterKey[1], s.RosterMega[1]);
+        if (stageReady) Stage.ShareRosterMode(s.DataSetKey, RosterOn(0), RosterOn(1), s.RosterKey[0], s.RosterMega[0], s.RosterKey[1], s.RosterMega[1]);
         if (stageReady) Stage.Show(s.DataSetKey, s.Builds[0]?.Pokemon, s.Builds[1]?.Pokemon, s.Builds[0]?.Nature, s.Builds[1]?.Nature);
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
@@ -309,7 +331,11 @@ else if (data is not null && dataSet is not null)
             EVs = new StatSet { Speed = EvRules.Full(dataSet.EvSystem) },
         };
         if (pokemon.FixedItemId is { } fixedItemId) build.Item = data.FindItem(fixedItemId) ?? build.Item;
-        else if (pokemon.SpeciesId == MoveEffects.OgerponSpeciesId) build.Item = data.FindItem(2102);   // 通常のオーガポンの既定は、みどりのめん
+        else if (pokemon.SpeciesId == MoveEffects.OgerponSpeciesId)
+        {
+            // 通常のオーガポンの既定は、みどりのめん。チームのメンバーなら、チームで持たせた持ち物のまま（ほかのすがたのお面だけ直す）
+            build.Item = member.Entry is null ? data.FindItem(2102) : MoveEffects.NormalizeOgerponItem(pokemon, build.Item, data);
+        }
         s.Builds[side] = build;
     }
 
