@@ -592,6 +592,9 @@ body {
 }
 
 .cmd-build .cmd-f-poke { flex: 1 1 7rem; }
+/* set -r: ポケモンの欄は短くし、性格（名前で探す欄・▲▼・選択解除）はポイントの右に並べる */
+.cmd-build .cmd-f-poke.cmd-f-poke-short { flex: 0 0 11rem; }
+.cmd-build .cmd-f-nature.cmd-f-nature-inline { flex: 1 1 28rem; }
 .cmd-build .cmd-f-move { flex: 1 1 7rem; }
 .cmd-build .cmd-f-weather { flex: 0 0 6.2rem; }
 .cmd-build .cmd-f-terrain { flex: 0 0 8.4rem; }
@@ -615,7 +618,9 @@ body {
     .cmd-build .cmd-f-opt,
     .cmd-build .cmd-f-num,
     .cmd-build .cmd-f-damage,
-    .cmd-build .cmd-f-evs {
+    .cmd-build .cmd-f-evs,
+    .cmd-build .cmd-f-poke.cmd-f-poke-short,
+    .cmd-build .cmd-f-nature.cmd-f-nature-inline {
         flex: 1 1 100%;
     }
 

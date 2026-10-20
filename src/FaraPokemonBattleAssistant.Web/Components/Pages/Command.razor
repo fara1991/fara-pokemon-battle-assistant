@@ -48,7 +48,7 @@ else if (data is not null)
 
                 @if (Has(Field.Subject))
                 {
-                    <div class="cmd-f-poke">
+                    <div class="cmd-f-poke @(s.Kind == "set -r" ? "cmd-f-poke-short" : "")">
                         <label class="form-label">@SubjectLabel</label>
                         <SearchableSelect TItem="Pokemon" Items="data.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
                             SelectedValue="@(s.Subject?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Subject = data.FindPokemon(ParseId(v)); BuildText(); })" Placeholder="例: ガブリアス">
@@ -103,7 +103,7 @@ else if (data is not null)
                 }
                 @if (Has(Field.Nature))
                 {
-                    <div class="cmd-f-nature">
+                    <div class="cmd-f-nature @(s.Kind == "set -r" ? "cmd-f-nature-inline" : "")">
                         <label class="form-label">@(s.Kind == "add -m" ? "性格" : "性格（任意）")</label>
                         @if (s.Kind == "set -r")
                         {
