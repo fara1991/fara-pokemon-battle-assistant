@@ -349,10 +349,11 @@ else if (data is not null && dataSet is not null)
         if (IsDisposed) return;   // 読み込み中に別のページへ移っていたら、URL を書き換えたり、共有の Stage に書いたりしない
         stageReady = true;
         // ポケモン一覧から開いたとき（?attacker=ID / ?defender=ID）は、そのポケモンを入れてから URL を戻す
-        if (AttackerQuery is > 0 || DefenderQuery is > 0)
+        if (AttackerQuery is not null || DefenderQuery is not null)
         {
-            if (AttackerQuery is > 0 and var a) OnAttackerChanged(a.ToString());
-            if (DefenderQuery is > 0 and var d) OnDefenderChanged(d.ToString());
+            // 数字でない・存在しない ID は無視する（保存してあった攻撃側・防御側を消さない）
+            if (QueryPokemonId(AttackerQuery) is { } a) OnAttackerChanged(a.ToString());
+            if (QueryPokemonId(DefenderQuery) is { } d) OnDefenderChanged(d.ToString());
             Nav.NavigateTo("damage-calculator", replace: true);
         }
     }
@@ -390,8 +391,12 @@ else if (data is not null && dataSet is not null)
             s.ResultCrit?.RangeText, s.ResultCrit?.KnockOut.ToString(), s.ResultCrit?.KnockOut.IsGuaranteed ?? false);
     }
 
-    [SupplyParameterFromQuery(Name = "attacker")] public int? AttackerQuery { get; set; }
-    [SupplyParameterFromQuery(Name = "defender")] public int? DefenderQuery { get; set; }
+    // 数字でない値（?attacker=abc）を int? で受けると、Blazor が例外を出してアプリ全体がエラー画面になるので、文字列で受ける
+    [SupplyParameterFromQuery(Name = "attacker")] public string? AttackerQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "defender")] public string? DefenderQuery { get; set; }
+
+    private int? QueryPokemonId(string? query) =>
+        int.TryParse(query, out var id) && id > 0 && data?.FindPokemon(id) is not null ? id : null;
 
     protected override Task OnAppChangedAsync() => LoadDataSet();
 
@@ -532,8 +537,9 @@ else if (data is not null && dataSet is not null)
     private void OnMoveChanged(string value)
     {
         s.Move = data?.FindMove(ParseId(value));
-        if (s.Attacker is not null) ApplyDefaultEvs(s.Attacker, s.Move, true);
-        if (s.Defender is not null) ApplyDefaultEvs(s.Defender, s.Move, false);
+        // 登録から選んだ構成は、登録した努力値のまま（技に合わせた既定の振り方で、書き換えない）
+        if (s.Attacker is not null && s.AttackerRosterKey is null) ApplyDefaultEvs(s.Attacker, s.Move, true);
+        if (s.Defender is not null && s.DefenderRosterKey is null) ApplyDefaultEvs(s.Defender, s.Move, false);
     }
 
     private void OnDefenderChanged(string value)
@@ -645,7 +651,8 @@ else if (data is not null && dataSet is not null)
         if (text.Length == 0) return;
         var asPercent = s.ObservedIsPercent;
         // 入力欄は数値だけ（% を付けて打っても読めるようにしておく）
-        if (!double.TryParse(text.TrimEnd('%', '％'), out var observed) || observed <= 0)
+        if (!double.TryParse(text.TrimEnd('%', '％'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var observed)
+            || !double.IsFinite(observed) || observed <= 0 || observed > 99999)
         {
             s.EstimateText = asPercent ? "受けたダメージ割合は、数値（例: 45）で入力してください。" : "受けたダメージ量は、数値（例: 93）で入力してください。";
             return;
@@ -825,10 +832,54 @@ else if (data is not null && dataSet is not null)
         return parts.Count == 0 ? "名前だけ" : string.Join("　", parts);
     }
 
+    /// <summary>残り HP（%）の入力。空欄・不正な値は無視して、前の値の表示に戻す。</summary>
+    private void SetHpPercent(PokemonBuild build, object? value)
+    {
+        if (int.TryParse(value?.ToString(), out var percent)) build.HpPercent = Math.Clamp(percent, 1, 100);
+        else hpInputRevision++;
+    }
+
+    /// <summary>残り HP（実数値）の入力。空欄・不正な値は無視して、前の値の表示に戻す。</summary>
+    private void SetCurrentHp(PokemonBuild build, object? value)
+    {
+        if (int.TryParse(value?.ToString(), out var hp)) build.CurrentHp = Math.Clamp(hp, 1, build.MaxHp);
+        else hpInputRevision++;
+    }
+
+    /// <summary>入力欄が空欄・不正な値のまま残らないよう、入力欄を作り直すための番号（値が変わらないと、描画が欄を書き換えないため）。</summary>
+    private int hpInputRevision;
+
+    private bool registering;
+    /// <summary>相手チームに反映した推定（estimateKey）。同じ推定でもう一度押しても、数えない。</summary>
+    private string? registeredEstimateKey;
+
     /// <summary>この推定（範囲でもよい）を、対戦中の相手に反映する。同じ相手の前の推定があれば、重なる範囲に絞り込む。</summary>
     private async Task RegisterRivalAsync(EvEstimator.Estimate e)
     {
-        if (data is null || s.Defender is null || s.Attacker is null || s.Move is null) return;
+        if (registering) return;   // 保存中にもう一度押されても、二重に反映しない
+        // 同じ推定は、相手チームにその相手がいるあいだだけ「反映済み」とする（相手が外されたあとは、もう一度反映できる）
+        if (registeredEstimateKey is not null && registeredEstimateKey == estimateKey
+            && s.Defender is not null && RivalFor(s.Defender.Pokemon) is not null)
+        {
+            rivalMessage = "この推定は、すでに相手チームに反映しました（同じ推定を、もう一度数えません）。";
+            rivalMessageIsError = false;
+            return;
+        }
+        registering = true;
+        try
+        {
+            registeredEstimateKey = await RegisterRivalCoreAsync(e) && !rivalMessageIsError ? estimateKey : registeredEstimateKey;
+        }
+        finally
+        {
+            registering = false;
+        }
+    }
+
+    /// <returns>反映の処理まで進んだか（入力がそろっていないときは false）。</returns>
+    private async Task<bool> RegisterRivalCoreAsync(EvEstimator.Estimate e)
+    {
+        if (data is null || s.Defender is null || s.Attacker is null || s.Move is null) return false;
         var pokemon = s.Defender.Pokemon;
         var note = $"{s.Attacker.Pokemon.Name} {s.Move.Name} {(e.ObservedAsPercent ? $"{e.ObservedDamage}%" : e.ObservedDamage.ToString())}";
         (bool Applied, string? Problem) applied = (false, null);
@@ -858,15 +909,17 @@ else if (data is not null && dataSet is not null)
         {
             rivalMessage = $"保存できませんでした: {ex.Message}";
             rivalMessageIsError = true;
-            return;
+            return false;
         }
         await RefreshRivalsAsync();
         rivalMessage = tooMany ?? applied.Problem ?? (rivals.Count(r => r.PokemonId == pokemon.Id) > 0 ? $"{pokemon.Name}を対戦中の相手に反映しました" : "");
         rivalMessageIsError = tooMany is not null || applied.Problem is not null;
+        return true;
     }
 
     private async Task RemoveRivalAsync(RivalPokemon rival)
     {
+        registeredEstimateKey = null;   // 外したあとは、同じ推定をもう一度反映できる
         try
         {
             await Repo.ChangeRivalsAsync(App.DataSetKey, roster => { var n = roster.Rivals.RemoveAll(r => r.Id == rival.Id); return (n > 0, n > 0); });
@@ -1175,11 +1228,11 @@ else if (data is not null && dataSet is not null)
                 <div class="hp-editor">
                     <input type="range" class="form-range hp-range" min="1" max="100" value="@build.HpPercent" style="--hp:@(build.HpPercent)%" data-level="@(build.HpPercent > 50 ? "high" : build.HpPercent > 20 ? "mid" : "low")" aria-label="残り HP（%）" @oninput="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
                     <div class="input-group input-group-sm hp-input">
-                        <input type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
+                        <input @key="@("hp-percent-" + hpInputRevision)" type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => SetHpPercent(build, e.Value))" />
                         <span class="input-group-text">%</span>
                     </div>
                     <div class="input-group input-group-sm hp-input">
-                        <input type="number" class="form-control" min="1" max="@build.MaxHp" value="@build.CurrentHp" aria-label="残り HP（実数値）" @onchange="@(e => build.CurrentHp = Math.Clamp(ParseId(e.Value), 1, build.MaxHp))" />
+                        <input @key="@("hp-current-" + hpInputRevision)" type="number" class="form-control" min="1" max="@build.MaxHp" value="@build.CurrentHp" aria-label="残り HP（実数値）" @onchange="@(e => SetCurrentHp(build, e.Value))" />
                         <span class="input-group-text">/ @build.MaxHp</span>
                     </div>
                 </div>

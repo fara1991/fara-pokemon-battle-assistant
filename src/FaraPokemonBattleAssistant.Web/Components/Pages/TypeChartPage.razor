@@ -312,14 +312,16 @@
         s = PageStates.Get<State>("types");
         await LoadAsync();
         // ポケモン一覧から開いたとき（?pokemon=ID）は、そのポケモンを選んでから URL を戻す
-        if (!IsDisposed && data is not null && PokemonQuery is > 0 and var id)
+        if (!IsDisposed && data is not null && PokemonQuery is not null)
         {
-            OnSelectedChanged(id.ToString());
+            // 数字でない・存在しない ID は無視する
+            if (int.TryParse(PokemonQuery, out var id) && id > 0 && data.FindPokemon(id) is not null) OnSelectedChanged(id.ToString());
             Nav.NavigateTo("type-chart", replace: true);
         }
     }
 
-    [SupplyParameterFromQuery(Name = "pokemon")] public int? PokemonQuery { get; set; }
+    // 数字でない値（?pokemon=abc）を int? で受けると、Blazor が例外を出してアプリ全体がエラー画面になるので、文字列で受ける
+    [SupplyParameterFromQuery(Name = "pokemon")] public string? PokemonQuery { get; set; }
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 
@@ -342,6 +344,7 @@
             s.PokemonId = 0;
             s.AbilityId = 0;
             s.AttackTypes.Clear();
+            s.DefenseTypes.Clear();   // ゲームによってタイプの種類が違う（第 1 世代にフェアリーは無い）ので、前のゲームの選択を残さない
         }
         Refresh();
     }

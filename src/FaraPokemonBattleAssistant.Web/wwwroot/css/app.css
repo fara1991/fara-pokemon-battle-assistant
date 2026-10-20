@@ -810,7 +810,7 @@ body {
     padding: 0.6rem 1.25rem 0.7rem 1.25rem;
     position: fixed;
     width: 100%;
-    z-index: 1000;
+    z-index: 2100;   /* 結果バー（1040）・対戦画面（1020）・トースト（2000）より前に出す */
 }
 
 #blazor-error-ui .dismiss {
@@ -2434,6 +2434,16 @@ button.compact-cell {
 @media (min-width: 768px) and (min-height: 561px) {
     .bv-bottom:not(.bv-bottom-moves) > .bv-mine { position: absolute; left: 0; bottom: 0; }
     .bv-bottom:not(.bv-bottom-moves) > .bv-msg { width: min(44rem, calc(100% - 42rem)); min-width: 22rem; }
+}
+/* 幅 768〜1229px（iPad の横向きなど）は、中央寄せだと、左下の自分の枠（幅 19rem）と技のメッセージが重なる。自分の枠の右に置く */
+@media (min-width: 768px) and (max-width: 1229.98px) and (min-height: 561px) {
+    .bv-bottom:not(.bv-bottom-moves) > .bv-mine ~ .bv-msg {
+        align-self: flex-start;
+        margin-left: calc(min(19rem, 46%) + 0.75rem);
+        width: calc(100% - min(19rem, 46%) - 0.75rem);
+        min-width: 0;
+        max-width: 44rem;
+    }
 }
 
 /* スマホ: 右下の「いちばん上へ」ボタン（index.html の #scroll-top。スクロールすると出る） */
