@@ -3,6 +3,7 @@ using FaraPokemonBattleAssistant.Core.Models;
 using FaraPokemonBattleAssistant.Core.Roster;
 using FaraPokemonBattleAssistant.Web.Services;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace FaraPokemonBattleAssistant.Web.Shared;
 
@@ -85,14 +86,17 @@ public abstract class RosterPageBase : AppPageBase
     }
 
     /// <summary>登録データを変更する操作を実行する。失敗したら理由を出し、最新の内容を読み直す。</summary>
-    protected async Task MutateAsync(Func<Task> action)
+    /// <returns>例外なく実行できたか（失敗のメッセージは、ここで出す）。実行中で飛ばしたときも false。</returns>
+    protected async Task<bool> MutateAsync(Func<Task> action)
     {
         // 実行中に同じ操作がもう一度押されても、二重に実行しない
-        if (mutating) return;
+        if (mutating) return false;
         mutating = true;
+        var succeeded = false;
         try
         {
             await action();
+            succeeded = true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -102,6 +106,22 @@ public abstract class RosterPageBase : AppPageBase
         {
             await RefreshRosterAsync();
             mutating = false;
+        }
+        return succeeded;
+    }
+
+    [Inject] protected IJSRuntime Js { get; set; } = default!;
+
+    /// <summary>取り消せない操作の前に、ブラウザの確認ダイアログを出す。「キャンセル」・出せないときは false。</summary>
+    protected async Task<bool> ConfirmAsync(string text)
+    {
+        try
+        {
+            return await Js.InvokeAsync<bool>("confirm", text);
+        }
+        catch (JSException)
+        {
+            return false;
         }
     }
 

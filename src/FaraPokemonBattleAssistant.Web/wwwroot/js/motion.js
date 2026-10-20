@@ -256,7 +256,11 @@
         var root = document.getElementById("app") || document.body;
         new MutationObserver(function (records) {
             // 選んでいる印を動かしたこと自体では、もう一度見ない
-            var own = records.every(function (r) { return r.target.classList && r.target.classList.contains("nav-indicator"); });
+            // 背景のコートは毎フレーム style が変わるので、それも見直さない（見直すと、毎フレーム画面全体を測って、電池と CPU を使い続ける）
+            var own = records.every(function (r) {
+                var t = r.target;
+                return t.classList && (t.classList.contains("nav-indicator") || (t.closest && t.closest(".bg-scene")));
+            });
             if (!own) scan();
         }).observe(root, {
             childList: true, subtree: true, attributes: true,

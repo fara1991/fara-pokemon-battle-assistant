@@ -304,18 +304,31 @@ else
         return m.Power <= 0 ? $"{category} -" : $"{category} {m.Power}";
     }
 
+    /// <summary>
+    /// 相手チームの 1 件を変更する。保存に失敗したとき（メッセージは MutateAsync が出す）と、他の場所で先に消されていたときは false を返し、
+    /// 呼び出し側は「〜しました」と出さずに戻る。
+    /// </summary>
+    private async Task<bool> ChangeRivalsAsync(Func<DataSetRoster, (bool Result, bool Changed)> apply, string targetName)
+    {
+        var found = false;
+        var ran = await MutateAsync(async () => found = await Repo.ChangeRivalsAsync(App.DataSetKey, apply));
+        if (!ran) return false;
+        if (!found) Show($"{targetName}は、他の場所で先に変更されたようです。最新の内容を表示しました", true);
+        return found;
+    }
+
     private async Task TogglePickedAsync(RivalPokemon rival)
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         var picked = !rival.Picked;
-        await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r =>
+        if (!await ChangeRivalsAsync(r =>
         {
             var target = r.Rivals.FirstOrDefault(x => x.Id == rival.Id);
             if (target is null) return (false, false);
             target.Picked = picked;
             target.Updated = DateTimeOffset.Now.ToString("o");
             return (true, true);
-        }));
+        }, rival.PokemonName)) return;
         Show(picked ? $"{rival.PokemonName}を選出にしました（履歴で選出した相手として残ります）" : $"{rival.PokemonName}の選出を外しました", false);
     }
 
@@ -333,7 +346,7 @@ else
         if (newPokemon is null) return;
         var pokemon = newPokemon;
         var added = false;
-        await MutateAsync(async () =>
+        var ran = await MutateAsync(async () =>
         {
             added = await Repo.ChangeRivalsAsync(App.DataSetKey, r =>
             {
@@ -342,6 +355,7 @@ else
                 return (true, true);
             });
         });
+        if (!ran) return;   // エラーは MutateAsync が出した
         Show(added ? $"{pokemon.Name}を対戦中の相手に追加しました" : $"{pokemon.Name}は追加できませんでした（すでにいるか、{PokeCommand.MaxRivals} 体います）", !added);
         if (added) { newPokemon = null; newPokemonId = ""; }
     }
@@ -349,7 +363,7 @@ else
     private async Task RemoveRivalAsync(RivalPokemon rival)
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
-        await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r => { var n = r.Rivals.RemoveAll(x => x.Id == rival.Id); return (n > 0, n > 0); }));
+        if (!await ChangeRivalsAsync(r => { var n = r.Rivals.RemoveAll(x => x.Id == rival.Id); return (n > 0, n > 0); }, rival.PokemonName)) return;
         if (editingId == rival.Id) editingId = null;
         Show($"{rival.PokemonName}を対戦中の相手から外しました（履歴には残しません）", false);
     }
@@ -400,7 +414,7 @@ else
         // 姿を変えたときは、その姿が持てない特性を消す
         if (form is not null && abilityId is { } id && data!.AbilitiesOf(form).All(a => a.Id != id)) abilityId = null;
         var moveIds = editMoves.Select(m => int.TryParse(m, out var mid) ? mid : 0).Where(mid => mid > 0).Distinct().Take(RegisteredPokemon.MaxMoves).ToList();
-        await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r =>
+        if (!await ChangeRivalsAsync(r =>
         {
             var target = r.Rivals.FirstOrDefault(x => x.Id == rival.Id);
             if (target is null) return (false, false);
@@ -418,7 +432,7 @@ else
             target.ItemId = form?.FixedItemId is not null ? null : itemId;
             target.Updated = DateTimeOffset.Now.ToString("o");
             return (true, true);
-        }));
+        }, rival.PokemonName)) return;   // 失敗したときは、編集中の入力を残す
         editingId = null;
         Show($"{rival.PokemonName}を更新しました", false);
     }
@@ -426,8 +440,9 @@ else
     private async Task EndMatchAsync()
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
+        if (!await ConfirmAsync($"試合を終えます。対戦中の相手 {roster?.Rivals.Count ?? 0} 体が履歴に移り、対戦中の相手は空になります（元に戻せません）。よろしいですか？")) return;
         EndMatchResult? ended = null;
-        await MutateAsync(async () => ended = await Repo.EndMatchAsync(App.DataSetKey, memo, DateTimeOffset.Now));
+        if (!await MutateAsync(async () => ended = await Repo.EndMatchAsync(App.DataSetKey, memo, DateTimeOffset.Now))) return;
         editingId = null;
         if (ended is null) return;
         memo = "";
@@ -437,7 +452,8 @@ else
     private async Task RemoveMatchAsync(RivalMatch match)
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
-        await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r => { var n = r.History.RemoveAll(x => x.Id == match.Id); return (n > 0, n > 0); }));
+        if (!await ConfirmAsync($"履歴 #{match.Id} を削除します（元に戻せません）。よろしいですか？")) return;
+        if (!await ChangeRivalsAsync(r => { var n = r.History.RemoveAll(x => x.Id == match.Id); return (n > 0, n > 0); }, $"履歴 #{match.Id}")) return;
         Show($"履歴 #{match.Id} を削除しました", false);
     }
 }

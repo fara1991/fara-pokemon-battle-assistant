@@ -317,6 +317,12 @@
         // 検索付きセレクトの ↑↓・Enter で、ページのスクロールなどを起こさない。
         // Blazor の @onkeydown:preventDefault は前回の描画時の値で決まり、次のキーに効いてしまうので、ここで止める
         document.addEventListener("keydown", function (e) {
+            // 日本語入力の変換中（確定の Enter 含む）のキーは、候補の選択・コマンドの実行に使わない。
+            // Safari などは、変換を確定する Enter を key="Enter"・keyCode=229 で送ってくる
+            if ((e.isComposing || e.keyCode === 229) && e.target.closest && e.target.closest(".searchable-select, #cmd-input")) {
+                e.stopImmediatePropagation();
+                return;
+            }
             if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") && e.target.closest && e.target.closest(".searchable-select")) e.preventDefault();
         }, true);
         // 無効にした項目（aria-disabled="true"。未対応の世代のメニューなど）は、クリック・中クリック・タップ・Enter で何も起こさない

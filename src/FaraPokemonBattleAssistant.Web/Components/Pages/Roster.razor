@@ -381,6 +381,8 @@ else if (data is not null && roster is not null && dataSet is not null)
     private async Task RemovePokemonAsync(int id)
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
+        var name = roster?.Pokemon.FirstOrDefault(p => p.Id == id)?.PokemonName ?? "";
+        if (!await ConfirmAsync($"#{id} {name} を削除します。チームからも外れ、元に戻せません。よろしいですか？")) return;
         if (s.EditingId == id) ClearForm();
         var before = roster?.Teams.Select(t => t.Number).ToList() ?? new List<int>();
         await MutateAsync(async () =>

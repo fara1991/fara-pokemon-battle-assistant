@@ -471,18 +471,26 @@ else if (data is not null)
         }
         data = await Catalog.GetDataSetAsync(App.DataSetKey);
         usage = await data.GetUsageAsync(App.Format);
-        try
-        {
-            var entries = (await Repo.GetAsync()).For(App.DataSetKey).Pokemon;
-            registeredPokemon = entries.Select(e => data.FindPokemon(e.PokemonId)).OfType<Pokemon>().DistinctBy(p => p.Id).ToList();
-        }
-        catch
-        {
-            registeredPokemon = Array.Empty<Pokemon>();
-        }
+        await RefreshRegisteredAsync();
         if (s.Attacker is not null && registeredPokemon.All(p => p.Id != s.Attacker.Id)) { s.Attacker = null; s.Move = null; }
         if (switched) ParseText();
         RefreshMoves();
+    }
+
+    /// <summary>「登録したポケモンから選ぶ」の候補を、今の登録データから作り直す（コマンドで登録・削除したあとにも呼ぶ）。</summary>
+    private async Task RefreshRegisteredAsync()
+    {
+        try
+        {
+            var entries = (await Repo.GetAsync()).For(App.DataSetKey).Pokemon;
+            registeredPokemon = entries.Select(e => data!.FindPokemon(e.PokemonId)).OfType<Pokemon>().DistinctBy(p => p.Id).ToList();
+        }
+        catch (Exception ex)
+        {
+            // 登録を読めなくても、コマンドは使える（候補の欄だけ空になる）
+            Console.Error.WriteLine($"登録したポケモンを読み込めませんでした: {ex.Message}");
+            registeredPokemon = Array.Empty<Pokemon>();
+        }
     }
 
     private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
@@ -966,13 +974,26 @@ else if (data is not null)
             {
                 // 登録データを変えるコマンドの結果は、画面右上のトーストで知らせる
                 s.Output = "";
-                if (result.Success) Toast.Success(result.Message); else Toast.Error(result.Message);
+                if (result.Success)
+                {
+                    Toast.Success(result.Message);
+                    await RefreshRegisteredAsync();   // 登録・削除したポケモンを、攻撃側の候補にも反映する
+                    if (s.Attacker is not null && registeredPokemon.All(p => p.Id != s.Attacker.Id)) { s.Attacker = null; s.Move = null; }
+                    RefreshMoves();
+                }
+                else Toast.Error(result.Message);
             }
             else
             {
                 s.Success = result.Success;
                 s.Output = result.Message;
             }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // データセット一覧の取得に失敗したときなど。画面全体をエラー画面にせず、結果の欄に出す
+            s.Success = false;
+            s.Output = $"失敗しました: {ex.Message}";
         }
         finally
         {
