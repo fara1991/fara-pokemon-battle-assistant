@@ -1025,11 +1025,6 @@ else if (data is not null && dataSet is not null)
     private RenderFragment RenderBuildEditor(PokemonBuild build, bool isAttacker) => __builder =>
     {
         var stats = StatCalculator.CalculateAll(build);
-        var items = isAttacker ? attackerItems : defenderItems;
-        var abilities = data!.AbilitiesOf(build.Pokemon);
-        var evStats = EvStats(isAttacker);
-        var boostStats = BoostStats(isAttacker);
-        var side = isAttacker ? "atk" : "def";
         var unknown = !isAttacker && s.EstimateMode;   // 推定では、相手のポイント・性格は求める側（不明）
         if (unknown)
         {
@@ -1048,6 +1043,30 @@ else if (data is not null && dataSet is not null)
         }
         @* PC では 2 列に並べて、ページをスクロールせずに見えるようにする *@
         <div class="build-grid">
+            @RenderItemField(build, isAttacker)
+            @RenderAbilityField(build)
+            @RenderTeraField(build)
+            @RenderDynamaxField(build, isAttacker)
+            @RenderEvField(build, isAttacker)
+            @RenderBoostField(build, isAttacker)
+            @RenderStatusField(build)
+            @RenderHpField(build, isAttacker)
+        </div>
+        <div class="stats-summary">
+            <div>
+                実数値：@foreach (var (stat, i) in Enum.GetValues<Stat>().Select((st, idx) => (st, idx)))
+                {
+                    if (i > 0) { <span>-</span> }
+                    <span class="@StatColor(build, stat)">@(StatNames.Letter(stat))@(stats[stat])</span>
+                }
+            </div>
+        </div>
+    };
+
+    /// <summary>持ち物の欄（メガシンカ・お面のすがたは固定）。</summary>
+    private RenderFragment RenderItemField(PokemonBuild build, bool isAttacker) => __builder =>
+    {
+        var items = isAttacker ? attackerItems : defenderItems;
             <div class="form-group mb-3">
                 <label>持ち物 <Help Title="持ち物">@(isAttacker ? "攻撃側はダメージに関係する持ち物（こだわり系・いのちのたま・タイプ強化など）を先に並べます。ほかの持ち物も選べます。" : "防御側は B・D に関係する持ち物（とつげきチョッキ・しんかのきせきなど）を先に並べます。ほかの持ち物も選べます。")メガシンカ後のポケモンはメガストーンで固定です。</Help></label>
                 @if (build.Pokemon.FixedItemId is not null)
@@ -1072,6 +1091,11 @@ else if (data is not null && dataSet is not null)
                     </div>
                 }
             </div>
+    };
+
+    private RenderFragment RenderAbilityField(PokemonBuild build) => __builder =>
+    {
+        var abilities = data!.AbilitiesOf(build.Pokemon);
             <div class="form-group mb-3">
                 <label>特性 <Help Title="特性">そのポケモンが持てる特性だけを表示します。特性が 1 つしかないポケモン（メガシンカ後など）は固定です。</Help></label>
                 @if (OgerponTeraAbility(build) is { } embodyAspect)
@@ -1092,6 +1116,11 @@ else if (data is not null && dataSet is not null)
                     </div>
                 }
             </div>
+    };
+
+    /// <summary>テラスタルの欄（テラスタルのあるゲームだけ）。</summary>
+    private RenderFragment RenderTeraField(PokemonBuild build) => __builder =>
+    {
             @if (dataSet!.HasTerastal)
             {
                 <div class="form-group mb-3">
@@ -1111,6 +1140,12 @@ else if (data is not null && dataSet is not null)
                     }
                 </div>
             }
+    };
+
+    /// <summary>ダイマックスの切り替え（ダイマックスのあるゲームだけ）。</summary>
+    private RenderFragment RenderDynamaxField(PokemonBuild build, bool isAttacker) => __builder =>
+    {
+        var side = isAttacker ? "atk" : "def";
             @if (dataSet.HasDynamax)
             {
                 <div class="form-check form-switch build-check">
@@ -1118,6 +1153,13 @@ else if (data is not null && dataSet is not null)
                     <label class="form-check-label" for="dmax-@side">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></label>
                 </div>
             }
+    };
+
+    /// <summary>努力値（ポイント）の欄。選んだ技に関係する能力だけ。推定では相手の分は出さない。</summary>
+    private RenderFragment RenderEvField(PokemonBuild build, bool isAttacker) => __builder =>
+    {
+        var evStats = EvStats(isAttacker);
+        var unknown = !isAttacker && s.EstimateMode;
             @if (evStats.Count > 0 && !unknown)
             {
                 <div class="form-group @(evStats.Count > 1 ? "build-wide" : "")">
@@ -1139,6 +1181,12 @@ else if (data is not null && dataSet is not null)
                     </div>
                 </div>
             }
+    };
+
+    /// <summary>ランク補正の欄。</summary>
+    private RenderFragment RenderBoostField(PokemonBuild build, bool isAttacker) => __builder =>
+    {
+        var boostStats = BoostStats(isAttacker);
             @if (boostStats.Count > 0)
             {
                 <div class="form-group mb-2">
@@ -1159,6 +1207,11 @@ else if (data is not null && dataSet is not null)
                     </div>
                 </div>
             }
+    };
+
+    /// <summary>状態異常の欄。</summary>
+    private RenderFragment RenderStatusField(PokemonBuild build) => __builder =>
+    {
             <div class="form-group mb-2">
                 <label>状態異常 <Help Title="状態異常">やけどは物理技のダメージ 0.5 倍（こんじょう・からげんきは除く）。どく・もうどくは毎ターンの定数ダメージを確定数に含めます。まひはすばやさ 0.5 倍です。</Help></label>
                 <select class="form-select form-select-sm" value="@build.Status" @onchange="@(e => build.Status = ParseEnum(e.Value, StatusCondition.None))">
@@ -1168,6 +1221,11 @@ else if (data is not null && dataSet is not null)
                     }
                 </select>
             </div>
+    };
+
+    /// <summary>残り HP の欄（スライダー・%・実数値）。</summary>
+    private RenderFragment RenderHpField(PokemonBuild build, bool isAttacker) => __builder =>
+    {
             <div class="form-group build-wide">
                 <label>残り HP <Help Title="残り HP">@(isAttacker ? "もうか・しんりょく・げきりゅう・むしのしらせは HP が 1/3 以下で対応タイプの技が 1.5 倍になります。" : "確定数を今の HP から数えます。マルチスケイル・ファントムガードは HP 満タンのときだけ効きます。")スライダーと % は割合、右の欄は実数値（例: 133 / 135）で指定できます。どちらを変えても、もう一方に反映されます。</Help></label>
                 <div class="hp-editor">
@@ -1182,16 +1240,6 @@ else if (data is not null && dataSet is not null)
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="stats-summary">
-            <div>
-                実数値：@foreach (var (stat, i) in Enum.GetValues<Stat>().Select((st, idx) => (st, idx)))
-                {
-                    if (i > 0) { <span>-</span> }
-                    <span class="@StatColor(build, stat)">@(StatNames.Letter(stat))@(stats[stat])</span>
-                }
-            </div>
-        </div>
     };
 
     /// <summary>計算結果の中身（結果カードと、狭い画面の下のバーで使う）。</summary>
