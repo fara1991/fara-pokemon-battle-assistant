@@ -183,306 +183,344 @@ public sealed class DamageCommand
         if (!move.IsDamaging)
             return Fail($"{move.Name} はダメージを与える技ではありません。");
 
-        var evSystem = data.Info.EvSystem;
-        var attackerPreset = options.BuildProvider?.Invoke(attackerMatch.Value!, true);
-        var defenderPreset = options.BuildProvider?.Invoke(defenderMatch.Value!, false);
-        var attacker = attackerPreset?.Clone() ?? new PokemonBuild(attackerMatch.Value!, evSystem);
-        var defender = defenderPreset?.Clone() ?? new PokemonBuild(defenderMatch.Value!, evSystem);
-        attacker.EvSystem = evSystem;
-        defender.EvSystem = evSystem;
-        var format = options.Format;
-        var isCritical = options.IsCritical;
-        var isZMove = false;
-        var attackerEvSet = attackerPreset is not null;
-        var defenderEvSet = defenderPreset is not null;
-        var attackerNatureSet = attackerPreset is not null;
-        var defenderNatureSet = defenderPreset is not null;
-        var attackerItemSet = attackerPreset is not null;
-        var defenderItemSet = defenderPreset is not null;
-        var defenderNoEv = false;
-        var attackerAbilitySet = attackerPreset?.Ability is not null;
-        var defenderAbilitySet = defenderPreset?.Ability is not null;
-        if (moveRank != 0) attacker.Boosts[move.AttackStatUsed] = moveRank;
-        var weather = Weather.None;
-        var terrain = Terrain.None;
-        var screen = false;
-        var reflect = false;
-        var lightScreen = false;
-        var attackerTeraToMoveType = false;
-        var warnings = new List<string>();
-
-        var isPhysical = move.Category == MoveCategory.Physical;
-        var offenseStat = move.AttackStatUsed;
-        var defenseStat = move.DefenseStatUsed;
-
+        var p = new DamageParse(data, options, move, attackerMatch.Value!, defenderMatch.Value!, moveRank);
         foreach (var rawToken in tokens.Skip(3))
         {
-            var token = rawToken;
-            var (forcedAttacker, bareToken) = SplitSide(token);
-            token = bareToken;
-            if (token.Length == 0) continue;
-
-            var normalized = NameNormalizer.Normalize(token);
-
-            if (normalized is "急所" or "きゅうしょ" or "crit")
-            {
-                isCritical = true;
-                continue;
-            }
-            if (normalized is "z" or "z技" or "zわざ" or "zmove")
-            {
-                isZMove = true;
-                continue;
-            }
-            if (normalized is "りふれくたー" or "reflect")
-            {
-                reflect = true;
-                continue;
-            }
-            if (normalized is "ひかりのかべ" or "光の壁" or "lightscreen")
-            {
-                lightScreen = true;
-                continue;
-            }
-            if (normalized is "壁" or "かべ" or "おーろらべーる" or "screen")
-            {
-                screen = true;
-                continue;
-            }
-            // 残り HP のオプション（HP50% など）は無くなった。入力されても、何も言わずに読み飛ばす
-            if (IgnoredHpToken.IsMatch(normalized)) continue;
-            if (StatusNames.Parse(normalized) is { } status)
-            {
-                // 既定: やけど・まひは攻撃側（自分の火力/素早さ）、どく・もうどくは防御側（定数ダメージで確定数が変わる）
-                var toAttacker = forcedAttacker ?? status is StatusCondition.Burn or StatusCondition.Paralysis;
-                if (toAttacker) attacker.Status = status; else defender.Status = status;
-                continue;
-            }
-            if (TryParseWeather(normalized) is { } w) { weather = w; continue; }
-            if (TryParseTerrain(normalized) is { } t) { terrain = t; continue; }
-            if (TryParseTera(normalized, out var teraType))
-            {
-                if (teraType is null)
-                {
-                    if (forcedAttacker == false) warnings.Add("防御側のテラスタイプを指定してください（例: 防:テラスみず）");
-                    else attackerTeraToMoveType = true;
-                }
-                else if (forcedAttacker == false) defender.TeraType = teraType;
-                else attacker.TeraType = teraType;
-                continue;
-            }
-            if (IsNoItemWord(normalized))
-            {
-                if (forcedAttacker == true && attackerPreset is not null)
-                {
-                    warnings.Add("攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります（持ち物なしは反映しません）");
-                    continue;
-                }
-                if (forcedAttacker == false) { defender.Item = null; defenderItemSet = true; }
-                else if (forcedAttacker == true) { attacker.Item = null; attackerItemSet = true; }
-                else if (attackerPreset is not null) { defender.Item = null; defenderItemSet = true; }   // 登録済みの攻撃側の持ち物は、登録で決まる
-                else { attacker.Item = null; defender.Item = null; attackerItemSet = defenderItemSet = true; }
-                continue;
-            }
-            if (normalized is "ダイマ" or "だいま" or "ダイマックス" or "だいまっくす" or "dmax" or "dynamax")
-            {
-                if (forcedAttacker == false) defender.IsDynamax = true; else attacker.IsDynamax = true;
-                continue;
-            }
-            if (normalized is "ダブル" or "だぶる" or "double" or "doubles" or "dbl") { format = BattleFormat.Doubles; continue; }
-            if (normalized is "シングル" or "しんぐる" or "single" or "singles") { format = BattleFormat.Singles; continue; }
-            if (normalized is "無振り" or "むふり" or "むぶり" or "noev")
-            {
-                if (forcedAttacker == true) { attacker.EVs = new StatSet(); attackerEvSet = true; }
-                else { defenderNoEv = true; defenderEvSet = true; }
-                continue;
-            }
-
-            var level = LevelToken.Match(token);
-            if (level.Success)
-            {
-                var lv = Math.Clamp(int.Parse(level.Groups[1].Value), 1, 100);
-                if (forcedAttacker != false) attacker.Level = lv;
-                if (forcedAttacker != true) defender.Level = lv;
-                continue;
-            }
-
-            var boost = BoostToken.Match(token);
-            if (boost.Success)
-            {
-                var stage = int.Parse(boost.Groups[2].Value) * (boost.Groups[1].Value == "-" ? -1 : 1);
-                if (forcedAttacker == false) defender.Boosts[defenseStat] = stage;
-                else attacker.Boosts[offenseStat] = stage;
-                continue;
-            }
-
-            if (EvToken.IsMatch(token))
-            {
-                foreach (Match pair in EvPair.Matches(token))
-                {
-                    var stat = StatNames.Parse(pair.Groups[1].Value.ToUpperInvariant())!.Value;
-                    var value = Math.Clamp(int.Parse(pair.Groups[2].Value), 0, EvRules.MaxPerStat(evSystem));
-                    var toAttacker = forcedAttacker ?? stat is Stat.Attack or Stat.SpAttack or Stat.Speed;
-                    if (toAttacker)
-                    {
-                        if (!attackerEvSet) { attacker.EVs = new StatSet(); attackerEvSet = true; }
-                        attacker.EVs[stat] = value;
-                    }
-                    else
-                    {
-                        if (!defenderEvSet) { defender.EVs = new StatSet(); defenderEvSet = true; }
-                        defender.EVs[stat] = value;
-                    }
-                }
-                continue;
-            }
-
-            // 「B↑A↓」「B↑」「A↓」のような、上がる・下がる能力での性格指定
-            if (NatureArrowToken.Match(token) is { Success: true } arrow)
-            {
-                var up = arrow.Groups[1].Success ? StatNames.Parse(arrow.Groups[1].Value.ToUpperInvariant()) : null;
-                var downText = arrow.Groups[2].Success ? arrow.Groups[2].Value : arrow.Groups[3].Success ? arrow.Groups[3].Value : null;
-                var down = downText is not null ? StatNames.Parse(downText.ToUpperInvariant()) : null;
-                var arrowNature = up is not null && down is not null ? data.Natures.FirstOrDefault(n => n.IncreasedStat == up && n.DecreasedStat == down)
-                    : up is not null ? NatureSelection.WithIncreased(data.Natures, null, up, physical: move.Category != MoveCategory.Special)
-                    : down is not null ? NatureSelection.WithDecreased(data.Natures, null, down, physical: move.Category != MoveCategory.Special)
-                    : null;
-                if (arrowNature is not null && up != Stat.HP && down != Stat.HP)
-                {
-                    var toAttacker = forcedAttacker ?? (up ?? down) is Stat.Attack or Stat.SpAttack or Stat.Speed;
-                    if (toAttacker) { attacker.Nature = arrowNature; attackerNatureSet = true; }
-                    else { defender.Nature = arrowNature; defenderNatureSet = true; }
-                    continue;
-                }
-            }
-
-            var nature = natureResolver.Resolve(token);
-            if (nature.IsResolved)
-            {
-                var n = nature.Value!;
-                var toAttacker = forcedAttacker ?? n.IncreasedStat is Stat.Attack or Stat.SpAttack or Stat.Speed or null;
-                if (toAttacker) { attacker.Nature = n; attackerNatureSet = true; }
-                else { defender.Nature = n; defenderNatureSet = true; }
-                continue;
-            }
-
-            var item = itemResolver.Resolve(token);
-            if (item.IsResolved)
-            {
-                var it = item.Value!;
-                // 登録済みの攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まる。持ち物名は（前置きがなくても）防御側（相手）に付ける
-                var toAttacker = forcedAttacker ?? (attackerPreset is null && !it.IsDefensive);
-                if (toAttacker && attackerPreset is not null)
-                {
-                    warnings.Add($"攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります（{it.Name}は反映しません）");
-                    continue;
-                }
-                if (toAttacker) { attacker.Item = it; attackerItemSet = true; }
-                else { defender.Item = it; defenderItemSet = true; }
-                continue;
-            }
-
-            var ability = abilityResolver.Resolve(token);
-            if (ability.IsResolved)
-            {
-                var ab = ability.Value!;
-                var attackerCan = attacker.Pokemon.AbilityIds.Contains(ab.Id);
-                var defenderCan = defender.Pokemon.AbilityIds.Contains(ab.Id);
-                var toAttacker = forcedAttacker ?? (attackerCan && !defenderCan ? true
-                    : defenderCan && !attackerCan ? false
-                    : !AbilityEffects.IsDefensive(ab.Identifier));
-                if (toAttacker) { attacker.Ability = ab; attackerAbilitySet = true; }
-                else { defender.Ability = ab; defenderAbilitySet = true; }
-                continue;
-            }
-
+            if (ApplyOptionToken(p, rawToken)) continue;
+            var (_, token) = SplitSide(rawToken);
             if (await ItemExistsElsewhereAsync(_catalog, dataSetKey, token, ct).ConfigureAwait(false))
-                warnings.Add($"「{rawToken}」は{data.Info.Name}にない持ち物のため無視");
+                p.warnings.Add($"「{rawToken}」は{p.data.Info.Name}にない持ち物のため無視");
             else
-                warnings.Add($"「{rawToken}」は無視");
+                p.warnings.Add($"「{rawToken}」は無視");
         }
 
-        // --- 既定値
-        UsageData? usage = null;
-        if (options.UseUsageDefaults)
+        await ApplyDefaultsAsync(p, ct).ConfigureAwait(false);
+        var request = new DamageRequest
         {
-            usage = await data.GetUsageAsync(format, ct).ConfigureAwait(false);
+            Attacker = p.attacker,
+            Move = p.move,
+            Defender = p.defender,
+            Format = p.format,
+            IsCritical = p.isCritical,
+            IsZMove = p.isZMove,
+            Weather = p.weather,
+            Terrain = p.terrain,
+            Screen = p.screen,
+            Reflect = p.reflect,
+            LightScreen = p.lightScreen,
+            HitCountOverride = p.options.HitCount,
+        };
+        var result = new DamageCalculator(p.data.TypeChart, p.data.Info.Generation).Calculate(request);
+
+        var message = Format(request, result, p.data.Info, p.warnings);
+        if (message.Length > p.options.MaxLength)
+            message = message[..(p.options.MaxLength - 1)] + "…";
+
+        return new DamageCommandResult { Success = true, Message = message, Request = request, Damage = result };
+    }
+
+    /// <summary>
+    /// 技・防御側より後ろの 1 つの指定（急所・天候・努力値・性格・持ち物・特性など）を読み取って反映する。
+    /// どれにも当てはまらなければ false（呼び出し側が「無視」の注意を出す）。
+    /// </summary>
+    private static bool ApplyOptionToken(DamageParse p, string rawToken)
+    {
+        var token = rawToken;
+        var (forcedAttacker, bareToken) = SplitSide(token);
+        token = bareToken;
+        if (token.Length == 0) return true;
+
+        var normalized = NameNormalizer.Normalize(token);
+
+        if (normalized is "急所" or "きゅうしょ" or "crit")
+        {
+            p.isCritical = true;
+            return true;
+        }
+        if (normalized is "z" or "z技" or "zわざ" or "zmove")
+        {
+            p.isZMove = true;
+            return true;
+        }
+        if (normalized is "りふれくたー" or "reflect")
+        {
+            p.reflect = true;
+            return true;
+        }
+        if (normalized is "ひかりのかべ" or "光の壁" or "lightscreen")
+        {
+            p.lightScreen = true;
+            return true;
+        }
+        if (normalized is "壁" or "かべ" or "おーろらべーる" or "screen")
+        {
+            p.screen = true;
+            return true;
+        }
+        // 残り HP のオプション（HP50% など）は無くなった。入力されても、何も言わずに読み飛ばす
+        if (IgnoredHpToken.IsMatch(normalized)) return true;
+        if (StatusNames.Parse(normalized) is { } status)
+        {
+            // 既定: やけど・まひは攻撃側（自分の火力/素早さ）、どく・もうどくは防御側（定数ダメージで確定数が変わる）
+            var toAttacker = forcedAttacker ?? status is StatusCondition.Burn or StatusCondition.Paralysis;
+            if (toAttacker) p.attacker.Status = status; else p.defender.Status = status;
+            return true;
+        }
+        if (TryParseWeather(normalized) is { } w) { p.weather = w; return true; }
+        if (TryParseTerrain(normalized) is { } t) { p.terrain = t; return true; }
+        if (TryParseTera(normalized, out var teraType))
+        {
+            if (teraType is null)
+            {
+                if (forcedAttacker == false) p.warnings.Add("防御側のテラスタイプを指定してください（例: 防:テラスみず）");
+                else p.attackerTeraToMoveType = true;
+            }
+            else if (forcedAttacker == false) p.defender.TeraType = teraType;
+            else p.attacker.TeraType = teraType;
+            return true;
+        }
+        if (IsNoItemWord(normalized))
+        {
+            if (forcedAttacker == true && p.attackerPreset is not null)
+            {
+                p.warnings.Add("攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります（持ち物なしは反映しません）");
+                return true;
+            }
+            if (forcedAttacker == false) { p.defender.Item = null; p.defenderItemSet = true; }
+            else if (forcedAttacker == true) { p.attacker.Item = null; p.attackerItemSet = true; }
+            else if (p.attackerPreset is not null) { p.defender.Item = null; p.defenderItemSet = true; }   // 登録済みの攻撃側の持ち物は、登録で決まる
+            else { p.attacker.Item = null; p.defender.Item = null; p.attackerItemSet = p.defenderItemSet = true; }
+            return true;
+        }
+        if (normalized is "ダイマ" or "だいま" or "ダイマックス" or "だいまっくす" or "dmax" or "dynamax")
+        {
+            if (forcedAttacker == false) p.defender.IsDynamax = true; else p.attacker.IsDynamax = true;
+            return true;
+        }
+        if (normalized is "ダブル" or "だぶる" or "double" or "doubles" or "dbl") { p.format = BattleFormat.Doubles; return true; }
+        if (normalized is "シングル" or "しんぐる" or "single" or "singles") { p.format = BattleFormat.Singles; return true; }
+        if (normalized is "無振り" or "むふり" or "むぶり" or "noev")
+        {
+            if (forcedAttacker == true) { p.attacker.EVs = new StatSet(); p.attackerEvSet = true; }
+            else { p.defenderNoEv = true; p.defenderEvSet = true; }
+            return true;
+        }
+
+        var level = LevelToken.Match(token);
+        if (level.Success)
+        {
+            var lv = Math.Clamp(int.Parse(level.Groups[1].Value), 1, 100);
+            if (forcedAttacker != false) p.attacker.Level = lv;
+            if (forcedAttacker != true) p.defender.Level = lv;
+            return true;
+        }
+
+        var boost = BoostToken.Match(token);
+        if (boost.Success)
+        {
+            var stage = int.Parse(boost.Groups[2].Value) * (boost.Groups[1].Value == "-" ? -1 : 1);
+            if (forcedAttacker == false) p.defender.Boosts[p.defenseStat] = stage;
+            else p.attacker.Boosts[p.offenseStat] = stage;
+            return true;
+        }
+
+        return ApplyValueToken(p, token, forcedAttacker);
+    }
+
+    /// <summary>努力値・性格・持ち物・特性のように、名前や数値で書く指定を反映する。どれにも当てはまらなければ false。</summary>
+    private static bool ApplyValueToken(DamageParse p, string token, bool? forcedAttacker)
+    {
+        if (EvToken.IsMatch(token))
+        {
+            foreach (Match pair in EvPair.Matches(token))
+            {
+                var stat = StatNames.Parse(pair.Groups[1].Value.ToUpperInvariant())!.Value;
+                var value = Math.Clamp(int.Parse(pair.Groups[2].Value), 0, EvRules.MaxPerStat(p.evSystem));
+                var toAttacker = forcedAttacker ?? stat is Stat.Attack or Stat.SpAttack or Stat.Speed;
+                if (toAttacker)
+                {
+                    if (!p.attackerEvSet) { p.attacker.EVs = new StatSet(); p.attackerEvSet = true; }
+                    p.attacker.EVs[stat] = value;
+                }
+                else
+                {
+                    if (!p.defenderEvSet) { p.defender.EVs = new StatSet(); p.defenderEvSet = true; }
+                    p.defender.EVs[stat] = value;
+                }
+            }
+            return true;
+        }
+
+        // 「B↑A↓」「B↑」「A↓」のような、上がる・下がる能力での性格指定
+        if (NatureArrowToken.Match(token) is { Success: true } arrow)
+        {
+            var up = arrow.Groups[1].Success ? StatNames.Parse(arrow.Groups[1].Value.ToUpperInvariant()) : null;
+            var downText = arrow.Groups[2].Success ? arrow.Groups[2].Value : arrow.Groups[3].Success ? arrow.Groups[3].Value : null;
+            var down = downText is not null ? StatNames.Parse(downText.ToUpperInvariant()) : null;
+            var arrowNature = up is not null && down is not null ? p.data.Natures.FirstOrDefault(n => n.IncreasedStat == up && n.DecreasedStat == down)
+                : up is not null ? NatureSelection.WithIncreased(p.data.Natures, null, up, physical: p.move.Category != MoveCategory.Special)
+                : down is not null ? NatureSelection.WithDecreased(p.data.Natures, null, down, physical: p.move.Category != MoveCategory.Special)
+                : null;
+            if (arrowNature is not null && up != Stat.HP && down != Stat.HP)
+            {
+                var toAttacker = forcedAttacker ?? (up ?? down) is Stat.Attack or Stat.SpAttack or Stat.Speed;
+                if (toAttacker) { p.attacker.Nature = arrowNature; p.attackerNatureSet = true; }
+                else { p.defender.Nature = arrowNature; p.defenderNatureSet = true; }
+                return true;
+            }
+        }
+
+        var nature = p.natureResolver.Resolve(token);
+        if (nature.IsResolved)
+        {
+            var n = nature.Value!;
+            var toAttacker = forcedAttacker ?? n.IncreasedStat is Stat.Attack or Stat.SpAttack or Stat.Speed or null;
+            if (toAttacker) { p.attacker.Nature = n; p.attackerNatureSet = true; }
+            else { p.defender.Nature = n; p.defenderNatureSet = true; }
+            return true;
+        }
+
+        var item = p.itemResolver.Resolve(token);
+        if (item.IsResolved)
+        {
+            var it = item.Value!;
+            // 登録済みの攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まる。持ち物名は（前置きがなくても）防御側（相手）に付ける
+            var toAttacker = forcedAttacker ?? (p.attackerPreset is null && !it.IsDefensive);
+            if (toAttacker && p.attackerPreset is not null)
+            {
+                p.warnings.Add($"攻撃側の持ち物は、育成ポケモン・自分チームの登録で決まります（{it.Name}は反映しません）");
+                return true;
+            }
+            if (toAttacker) { p.attacker.Item = it; p.attackerItemSet = true; }
+            else { p.defender.Item = it; p.defenderItemSet = true; }
+            return true;
+        }
+
+        var ability = p.abilityResolver.Resolve(token);
+        if (ability.IsResolved)
+        {
+            var ab = ability.Value!;
+            var attackerCan = p.attacker.Pokemon.AbilityIds.Contains(ab.Id);
+            var defenderCan = p.defender.Pokemon.AbilityIds.Contains(ab.Id);
+            var toAttacker = forcedAttacker ?? (attackerCan && !defenderCan ? true
+                : defenderCan && !attackerCan ? false
+                : !AbilityEffects.IsDefensive(ab.Identifier));
+            if (toAttacker) { p.attacker.Ability = ab; p.attackerAbilitySet = true; }
+            else { p.defender.Ability = ab; p.defenderAbilitySet = true; }
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>指定されなかった項目（努力値・性格・持ち物・特性・テラスタイプ）に、使用率などの既定値を入れる。</summary>
+    private static async Task ApplyDefaultsAsync(DamageParse p, CancellationToken ct)
+    {
+        UsageData? usage = null;
+        if (p.options.UseUsageDefaults)
+        {
+            usage = await p.data.GetUsageAsync(p.format, ct).ConfigureAwait(false);
             if (usage.IsEmpty) usage = null;
         }
 
-        if (!attackerEvSet)
-            attacker.EVs[offenseStat] = Math.Min(options.DefaultAttackerOffenseEv, EvRules.Full(evSystem));
-        if (!defenderEvSet)
+        if (!p.attackerEvSet)
+            p.attacker.EVs[p.offenseStat] = Math.Min(p.options.DefaultAttackerOffenseEv, EvRules.Full(p.evSystem));
+        if (!p.defenderEvSet)
         {
-            defender.EVs[Stat.HP] = Math.Min(options.DefaultDefenderHpEv, EvRules.Full(evSystem));
-            defender.EVs[defenseStat] = Math.Min(options.DefaultDefenderDefenseEv, EvRules.Full(evSystem));
+            p.defender.EVs[Stat.HP] = Math.Min(p.options.DefaultDefenderHpEv, EvRules.Full(p.evSystem));
+            p.defender.EVs[p.defenseStat] = Math.Min(p.options.DefaultDefenderDefenseEv, EvRules.Full(p.evSystem));
         }
-        else if (defenderNoEv)
+        else if (p.defenderNoEv)
         {
-            defender.EVs = new StatSet();
+            p.defender.EVs = new StatSet();
         }
 
-        if (!attackerNatureSet)
-            attacker.Nature = usage?.TopNature(attacker.Pokemon.Id) ?? data.FindNature("まじめ") ?? data.Natures.FirstOrDefault(n => n.IsNeutral);
-        if (!defenderNatureSet)
-            defender.Nature = usage?.TopNature(defender.Pokemon.Id) ?? data.FindNature("まじめ") ?? data.Natures.FirstOrDefault(n => n.IsNeutral);
+        if (!p.attackerNatureSet)
+            p.attacker.Nature = usage?.TopNature(p.attacker.Pokemon.Id) ?? p.data.FindNature("まじめ") ?? p.data.Natures.FirstOrDefault(n => n.IsNeutral);
+        if (!p.defenderNatureSet)
+            p.defender.Nature = usage?.TopNature(p.defender.Pokemon.Id) ?? p.data.FindNature("まじめ") ?? p.data.Natures.FirstOrDefault(n => n.IsNeutral);
         // メガシンカ後の姿は、持ち物がメガストーンで確定（使用率の持ち物より優先する）
-        if (!attackerItemSet && attacker.Pokemon.FixedItemId is { } attackerStone && data.FindItem(attackerStone) is { } attackerStoneItem)
-            attacker.Item = attackerStoneItem;
-        else if (!attackerItemSet && usage is not null)
-            attacker.Item = usage.TopItem(attacker.Pokemon.Id);
+        if (!p.attackerItemSet && p.attacker.Pokemon.FixedItemId is { } attackerStone && p.data.FindItem(attackerStone) is { } attackerStoneItem)
+            p.attacker.Item = attackerStoneItem;
+        else if (!p.attackerItemSet && usage is not null)
+            p.attacker.Item = usage.TopItem(p.attacker.Pokemon.Id);
         // 防御側は対戦中の相手なので、使用率の持ち物は入れない（書いた持ち物かメガストーンだけ。不明なら持ち物なしで計算し、表示にも出さない）
-        if (!defenderItemSet && options.DefenderItem is { } knownDefenderItem)
-            defender.Item = knownDefenderItem;
-        else if (!defenderItemSet && defender.Pokemon.FixedItemId is { } defenderStone && data.FindItem(defenderStone) is { } defenderStoneItem)
-            defender.Item = defenderStoneItem;
+        if (!p.defenderItemSet && p.options.DefenderItem is { } knownDefenderItem)
+            p.defender.Item = knownDefenderItem;
+        else if (!p.defenderItemSet && p.defender.Pokemon.FixedItemId is { } defenderStone && p.data.FindItem(defenderStone) is { } defenderStoneItem)
+            p.defender.Item = defenderStoneItem;
         // 通常のオーガポンは、使用率の持ち物がほかのすがたのお面でも、みどりのめんにする
-        if (!attackerItemSet) attacker.Item = MoveEffects.NormalizeOgerponItem(attacker.Pokemon, attacker.Item, data);
-        if (!attackerAbilitySet)
-            attacker.Ability = usage?.DefaultAbility(attacker.Pokemon) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(attacker.Pokemon), null);
-        if (!defenderAbilitySet)
-            defender.Ability = usage?.DefaultAbility(defender.Pokemon, AbilityEffects.Side.Defender) ?? AbilityEffects.ChooseDefault(data.AbilitiesOf(defender.Pokemon), null, AbilityEffects.Side.Defender);
-        if (attackerTeraToMoveType)
-            attacker.TeraType = AbilityEffects.SkinType(attacker.Ability?.Identifier ?? "") is { } skin && move.Type == "Normal" ? skin : move.Type;
+        if (!p.attackerItemSet) p.attacker.Item = MoveEffects.NormalizeOgerponItem(p.attacker.Pokemon, p.attacker.Item, p.data);
+        if (!p.attackerAbilitySet)
+            p.attacker.Ability = usage?.DefaultAbility(p.attacker.Pokemon) ?? AbilityEffects.ChooseDefault(p.data.AbilitiesOf(p.attacker.Pokemon), null);
+        if (!p.defenderAbilitySet)
+            p.defender.Ability = usage?.DefaultAbility(p.defender.Pokemon, AbilityEffects.Side.Defender) ?? AbilityEffects.ChooseDefault(p.data.AbilitiesOf(p.defender.Pokemon), null, AbilityEffects.Side.Defender);
+        if (p.attackerTeraToMoveType)
+            p.attacker.TeraType = AbilityEffects.SkinType(p.attacker.Ability?.Identifier ?? "") is { } skin && p.move.Type == "Normal" ? skin : p.move.Type;
         // テラスタルしたオーガポンのテラスタイプは、お面のタイプで決まる（表示も計算に合わせる）
-        foreach (var ogerpon in new[] { attacker, defender })
+        foreach (var ogerpon in new[] { p.attacker, p.defender })
             if (ogerpon.Pokemon.SpeciesId == MoveEffects.OgerponSpeciesId && ogerpon.IsTerastallized) ogerpon.TeraType = ogerpon.Pokemon.Types.Last();
 
-        if (!data.CanLearn(attacker.Pokemon.Id, move.Id))
-            warnings.Add($"{attacker.Pokemon.Name}は{move.Name}を覚えません");
-        foreach (var b in new[] { attacker, defender })
+        if (!p.data.CanLearn(p.attacker.Pokemon.Id, p.move.Id))
+            p.warnings.Add($"{p.attacker.Pokemon.Name}は{p.move.Name}を覚えません");
+        foreach (var b in new[] { p.attacker, p.defender })
         {
             if (b.Pokemon.IsProvisional)
-                warnings.Add($"{b.Pokemon.Name}は{data.Info.Name}未収録のため第9世代データで計算");
+                p.warnings.Add($"{b.Pokemon.Name}は{p.data.Info.Name}未収録のため第9世代データで計算");
         }
 
-        if (isZMove && !data.Info.HasZMove)
+        if (p.isZMove && !p.data.Info.HasZMove)
         {
-            warnings.Add("Z技は第7世代だけ");
-            isZMove = false;
+            p.warnings.Add("Z技は第7世代だけ");
+            p.isZMove = false;
         }
-        var request = new DamageRequest
+    }
+
+    /// <summary>!dmg の指定を読み取る途中の状態（攻撃側・防御側の構成と、どの項目が指定済みか、場の状態）。</summary>
+    private sealed class DamageParse
+    {
+        public DamageParse(PokemonDataSet data, DamageCommandOptions options, Move move, Pokemon attackerPokemon, Pokemon defenderPokemon, int moveRank)
         {
-            Attacker = attacker,
-            Move = move,
-            Defender = defender,
-            Format = format,
-            IsCritical = isCritical,
-            IsZMove = isZMove,
-            Weather = weather,
-            Terrain = terrain,
-            Screen = screen,
-            Reflect = reflect,
-            LightScreen = lightScreen,
-            HitCountOverride = options.HitCount,
-        };
-        var result = new DamageCalculator(data.TypeChart, data.Info.Generation).Calculate(request);
+            this.data = data;
+            this.options = options;
+            this.move = move;
+            evSystem = data.Info.EvSystem;
+            attackerPreset = options.BuildProvider?.Invoke(attackerPokemon, true);
+            defenderPreset = options.BuildProvider?.Invoke(defenderPokemon, false);
+            attacker = attackerPreset?.Clone() ?? new PokemonBuild(attackerPokemon, evSystem);
+            defender = defenderPreset?.Clone() ?? new PokemonBuild(defenderPokemon, evSystem);
+            attacker.EvSystem = evSystem;
+            defender.EvSystem = evSystem;
+            format = options.Format;
+            isCritical = options.IsCritical;
+            attackerEvSet = attackerNatureSet = attackerItemSet = attackerPreset is not null;
+            defenderEvSet = defenderNatureSet = defenderItemSet = defenderPreset is not null;
+            attackerAbilitySet = attackerPreset?.Ability is not null;
+            defenderAbilitySet = defenderPreset?.Ability is not null;
+            if (moveRank != 0) attacker.Boosts[move.AttackStatUsed] = moveRank;
+            offenseStat = move.AttackStatUsed;
+            defenseStat = move.DefenseStatUsed;
+            natureResolver = new NameResolver<Nature>(data.Natures, n => n.Name);
+            itemResolver = new NameResolver<Item>(data.Items, i => i.Name);
+            abilityResolver = new NameResolver<Ability>(data.Abilities, a => a.Name);
+        }
 
-        var message = Format(request, result, data.Info, warnings);
-        if (message.Length > options.MaxLength)
-            message = message[..(options.MaxLength - 1)] + "…";
-
-        return new DamageCommandResult { Success = true, Message = message, Request = request, Damage = result };
+        public readonly PokemonDataSet data;
+        public readonly DamageCommandOptions options;
+        public readonly Move move;
+        public readonly EvSystem evSystem;
+        public readonly PokemonBuild? attackerPreset, defenderPreset;
+        public readonly PokemonBuild attacker, defender;
+        public readonly Stat offenseStat, defenseStat;
+        public readonly NameResolver<Nature> natureResolver;
+        public readonly NameResolver<Item> itemResolver;
+        public readonly NameResolver<Ability> abilityResolver;
+        public readonly List<string> warnings = new();
+        public BattleFormat format;
+        public bool isCritical, isZMove, screen, reflect, lightScreen;
+        public bool attackerEvSet, defenderEvSet, attackerNatureSet, defenderNatureSet, attackerItemSet, defenderItemSet;
+        public bool attackerAbilitySet, defenderAbilitySet, defenderNoEv, attackerTeraToMoveType;
+        public Weather weather = Weather.None;
+        public Terrain terrain = Terrain.None;
     }
 
     public static string Format(DamageRequest request, DamageResult result, DataSetInfo dataSet, IReadOnlyList<string>? warnings = null)
