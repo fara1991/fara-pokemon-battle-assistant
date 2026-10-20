@@ -1,10 +1,9 @@
 @page "/damage-calculator"
-@inherits AppPageBase
+@inherits CalcPageBase
 @using FaraPokemonBattleAssistant.Core.Roster
 @inject DataCatalog Catalog
 @inject RosterRepository Repo
 @inject NavigationManager Nav
-@inject BattleStage Stage
 
 <PageTitle>ダメージ計算機 | Pokémon Battle Assistant</PageTitle>
 
@@ -79,11 +78,11 @@ else if (data is not null && dataSet is not null)
                             SelectedValueChanged="@OnMoveChanged"
                             Dropdown="true"
                             Placeholder="技名を入力...">
-                            <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@CategoryText(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                            <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@MoveText.Category(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                         </SearchableSelect>
                         @if (s.Move is not null)
                         {
-                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @CategoryText(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@MaxZText()@(s.Move.UsesPhysicalDefense ? "（相手の B で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")@StabText()</div>
+                            <div class="small text-muted mt-1"><TypeIcon Type="@s.Move.Type" Small="true" /> @MoveText.Category(s.Move) 威力 @(s.Move.Power > 0 ? s.Move.Power.ToString() : "-")@MaxZText()@(s.Move.UsesPhysicalDefense ? "（相手の B で計算）" : "")@(s.Move.IsFixedDamage ? "（固定ダメージ技のため計算できません）" : "")@StabText()</div>
                         }
                         @if (dataSet.HasZMove && s.Move is { IsDamaging: true })
                         {
@@ -336,9 +335,6 @@ else if (data is not null && dataSet is not null)
     private IReadOnlyList<Item> defenderItems = Array.Empty<Item>();
     private IReadOnlyList<RosterChoiceGroup> rosterGroups = Array.Empty<RosterChoiceGroup>();
 
-    /// <summary>読み込みと、もう一方のページで選んだポケモン・性格の引き継ぎが終わったか。終わる前の描画で、前回の内容を共有の Stage に書かない。</summary>
-    private bool stageReady;
-
     protected override async Task OnAppReadyAsync()
     {
         s = PageStates.Get<State>("damage");
@@ -361,17 +357,10 @@ else if (data is not null && dataSet is not null)
     // 選んでいる攻撃側（手前）・防御側（奥）を、背景のバトルフィールドに立たせる
     protected override void OnAfterRender(bool firstRender)
     {
-        if (stageReady) Stage.ShareRosterMode(s.DataSetKey, RosterOn(s.UseRosterAttacker), RosterOn(s.UseRosterDefender), s.AttackerRosterKey, s.AttackerMega, s.DefenderRosterKey, s.DefenderMega);
-        if (stageReady) Stage.Show(s.DataSetKey, s.Attacker?.Pokemon, s.Defender?.Pokemon, s.Attacker?.Nature, s.Defender?.Nature);
+        ShareToStage();
         Stage.SetScene(this, BuildScene());
         Stage.SetConditions(this, s.Weather, s.Terrain);
         Stage.ShareField(s.Weather, s.Terrain);
-    }
-
-    public override void Dispose()
-    {
-        Stage.ClearScene(this);
-        base.Dispose();
     }
 
     /// <summary>「対戦画面で表示」に出す内容（選んでいる技 1 つ分の結果）。結果が出ていないときは null。</summary>
@@ -395,12 +384,20 @@ else if (data is not null && dataSet is not null)
     [SupplyParameterFromQuery(Name = "attacker")] public string? AttackerQuery { get; set; }
     [SupplyParameterFromQuery(Name = "defender")] public string? DefenderQuery { get; set; }
 
-    private int? QueryPokemonId(string? query) =>
-        int.TryParse(query, out var id) && id > 0 && data?.FindPokemon(id) is not null ? id : null;
-
     protected override Task OnAppChangedAsync() => LoadDataSet();
 
-    private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var id) ? id : 0;
+    // ---- CalcPageBase（もう一方のページへの引き継ぎ）。側 0 = 攻撃側、側 1 = 防御側
+    protected override PokemonDataSet? CalcData => data;
+    protected override IReadOnlyList<RosterChoiceGroup> RosterChoices => rosterGroups;
+    protected override string CalcDataSetKey => s.DataSetKey;
+    protected override bool GetUseRoster(int side) => side == 0 ? s.UseRosterAttacker : s.UseRosterDefender;
+    protected override void SetUseRoster(int side, bool value) { if (side == 0) s.UseRosterAttacker = value; else s.UseRosterDefender = value; }
+    protected override string? GetRosterKey(int side) => side == 0 ? s.AttackerRosterKey : s.DefenderRosterKey;
+    protected override Pokemon? GetMega(int side) => side == 0 ? s.AttackerMega : s.DefenderMega;
+    protected override PokemonBuild? GetBuild(int side) => side == 0 ? s.Attacker : s.Defender;
+    protected override void PickRosterChoice(int side, RosterChoice choice, Pokemon? mega) => PickFromRoster(choice, side == 0, mega);
+    protected override void SelectPokemon(int side, int pokemonId) { if (side == 0) OnAttackerChanged(pokemonId.ToString()); else OnDefenderChanged(pokemonId.ToString()); }
+
     private static T ParseEnum<T>(object? value, T fallback) where T : struct => Enum.TryParse<T>(value?.ToString(), out var v) ? v : fallback;
 
     private async Task LoadDataSet()
@@ -445,25 +442,8 @@ else if (data is not null && dataSet is not null)
             if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
             RefreshAttackerLists();
             RefreshDefenderLists();
-            // 素早さ比較で選んだポケモンを入れる（ポケモン1 → 攻撃側、ポケモン2 → 防御側。「登録から選ぶ」の欄はそのまま）
-            if (Stage.DataSetKey == key)
-            {
-                // 「登録から選ぶ」のオン・オフも引き継ぐ
-                if (Stage.UseRosterMine is { } rosterMine) s.UseRosterAttacker = rosterMine;
-                if (Stage.UseRosterFoe is { } rosterFoe) s.UseRosterDefender = rosterFoe;
-                // オンのときは、素早さ比較で選んだ登録・メガシンカの姿も入れる
-                if (RosterOn(s.UseRosterAttacker) && Stage.RosterKeyMine is { } keyMine && FindChoice(keyMine) is { } choiceMine
-                    && (s.AttackerRosterKey != keyMine || s.AttackerMega?.Id != Stage.RosterMegaMine?.Id))
-                    PickFromRoster(choiceMine, true, Stage.RosterMegaMine);
-                if (RosterOn(s.UseRosterDefender) && Stage.RosterKeyFoe is { } keyFoe && FindChoice(keyFoe) is { } choiceFoe
-                    && (s.DefenderRosterKey != keyFoe || s.DefenderMega?.Id != Stage.RosterMegaFoe?.Id))
-                    PickFromRoster(choiceFoe, false, Stage.RosterMegaFoe);
-                if (!RosterOn(s.UseRosterAttacker) && Stage.PickedMine is { } mine && s.Attacker?.Pokemon.Id != mine.Id) OnAttackerChanged(mine.Id.ToString());
-                if (!RosterOn(s.UseRosterDefender) && Stage.PickedFoe is { } foe && s.Defender?.Pokemon.Id != foe.Id) OnDefenderChanged(foe.Id.ToString());
-                // 素早さ比較で選んだ性格も引き継ぐ
-                if (!RosterOn(s.UseRosterAttacker) && Stage.PickedMineNature is { } mineNature && s.Attacker is { } a0 && a0.Pokemon.Id == Stage.PickedMine?.Id) a0.Nature = mineNature;
-                if (!RosterOn(s.UseRosterDefender) && Stage.PickedFoeNature is { } foeNature && s.Defender is { } d0 && d0.Pokemon.Id == Stage.PickedFoe?.Id) d0.Nature = foeNature;
-            }
+            // もう一方のページ（素早さ比較）で選んだポケモン・性格・「登録から選ぶ」を入れる
+            ImportFromStage(key);
         }
         catch (Exception ex)
         {
@@ -481,12 +461,6 @@ else if (data is not null && dataSet is not null)
         <span class="text-muted ms-auto small">@FormatStats(p.BaseStats)</span>
     };
 
-    private static string CategoryText(Move m) => m.Category switch
-    {
-        MoveCategory.Physical => "物理",
-        MoveCategory.Special => "特殊",
-        _ => "変化",
-    };
 
     private PokemonBuild NewBuild(Pokemon pokemon, bool isAttacker)
     {
@@ -498,21 +472,8 @@ else if (data is not null && dataSet is not null)
             // 天候・フィールドを作る特性やダメージが上がる特性を優先（場の状態と技の並び順に反映される）
             Ability = usage?.DefaultAbility(pokemon, side) ?? (data is null ? null : AbilityEffects.ChooseDefault(data.AbilitiesOf(pokemon), null, side)),
         };
-        ApplyFixedChoices(build);
+        if (data is not null) PickedBuild.ApplyFixedChoices(build, data);
         return build;
-    }
-
-    /// <summary>メガシンカ後はメガストーン固定、特性が 1 つなら固定。</summary>
-    private void ApplyFixedChoices(PokemonBuild build)
-    {
-        if (data is null) return;
-        if (build.Pokemon.FixedItemId is { } fixedItemId)
-            build.Item = data.FindItem(fixedItemId) ?? build.Item;
-        else
-            build.Item = MoveEffects.NormalizeOgerponItem(build.Pokemon, build.Item, data);   // 通常のオーガポンは、ほかのすがたのお面ではなく、みどりのめん
-        var abilities = data.AbilitiesOf(build.Pokemon);
-        if (abilities.Count == 1) build.Ability = abilities[0];
-        else if (build.Ability is not null && !abilities.Contains(build.Ability)) build.Ability = abilities.FirstOrDefault();
     }
 
     private void OnAttackerChanged(string value)
@@ -562,14 +523,9 @@ else if (data is not null && dataSet is not null)
     private void PickFromRoster(RosterChoice choice, bool isAttacker, Pokemon? mega = null, bool keepMove = false)
     {
         if (data is null) return;
-        var build = RosterRepository.ToBuild(choice.Entry, data, choice.Item);
-        if (build is null) return;
         // メガシンカの前後の切り替えでは、いまの入力（ランク補正・状態異常・HP など）を引き継ぐ
-        var current = isAttacker ? s.Attacker : s.Defender;
-        if (keepMove && current is not null)
-            build = mega is null ? RosterRepository.ToBaseBuild(current, choice.Entry, data, choice.Item) : RosterRepository.ToMegaBuild(current, mega, data);
-        else if (mega is not null) build = RosterRepository.ToMegaBuild(build, mega, data);
-        ApplyFixedChoices(build);
+        var build = PickedBuild.FromChoice(choice, mega, keepMove ? (isAttacker ? s.Attacker : s.Defender) : null, data);
+        if (build is null) return;
         ApplyFieldFromAbility(build);
         if (isAttacker)
         {
@@ -587,16 +543,6 @@ else if (data is not null && dataSet is not null)
             RefreshDefenderLists();
         }
     }
-
-    /// <summary>「登録から選ぶ」が実際に効いているか（登録が 1 つも無いときは、スイッチが出ず、普通の入力欄になる）。</summary>
-    private bool RosterOn(bool use) => use && rosterGroups.Count > 0;
-
-    private RosterChoice? FindChoice(string? key) =>
-        key is null ? null : rosterGroups.SelectMany(g => g.Choices).FirstOrDefault(c => c.Key == key);
-
-    /// <summary>選んだ登録ポケモンのメガシンカ後の姿（メガシンカしないポケモンなら空）。</summary>
-    private IReadOnlyList<Pokemon> MegaFormsOf(string? key) =>
-        data is not null && FindChoice(key) is { } c && data.FindPokemon(c.Entry.PokemonId) is { } p ? RosterRepository.MegaFormsOf(data, p) : Array.Empty<Pokemon>();
 
     /// <summary>登録ポケモンの、メガシンカする前・後を切り替える（技は今のまま）。</summary>
     private void SetMega(bool isAttacker, Pokemon? mega)

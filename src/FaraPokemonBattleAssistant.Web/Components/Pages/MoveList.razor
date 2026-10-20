@@ -38,7 +38,7 @@
                     <SearchableSelect TItem="Move" Items="allMoves" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
                         SelectedValue="@(f.MoveId == 0 ? "" : f.MoveId.ToString())" SelectedValueChanged="@PickMove"
                         Dropdown="true" EmptyOption="指定なし" Placeholder="技名を入力...">
-                        <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@CategoryText(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                        <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@MoveText.Category(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                     </SearchableSelect>
                 </div>
             </div>
@@ -90,7 +90,7 @@
                 <div class="dex-row mv-row" role="row" @onclick="() => s.SelectedId = s.SelectedId == m.Id ? 0 : m.Id">
                     <div class="mv-name">@m.Name</div>
                     <div class="mv-type"><TypeIcon Type="@m.Type" Small="true" /></div>
-                    <div class="mv-cat">@CategoryText(m)</div>
+                    <div class="mv-cat">@MoveText.Category(m)</div>
                     <div class="mv-num" data-label="威力">@NumText(m.Power)</div>
                     <div class="mv-num" data-label="命中">@NumText(m.Accuracy)</div>
                     <div class="mv-num" data-label="PP">@NumText(m.PP)</div>
@@ -247,12 +247,6 @@
         Refresh();
     }
 
-    private static string CategoryText(Move m) => m.Category switch
-    {
-        MoveCategory.Physical => "物理",
-        MoveCategory.Special => "特殊",
-        _ => "変化",
-    };
 
     /// <summary>威力・命中・PP。0 は「-」（変化技の威力・必中技の命中など）。</summary>
     private static string NumText(int value) => value > 0 ? value.ToString() : "-";

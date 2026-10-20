@@ -11,6 +11,9 @@ public abstract class AppPageBase : ComponentBase, IDisposable
     [Inject] protected AppState App { get; set; } = default!;
     [Inject] protected PageStateStore PageStates { get; set; } = default!;
 
+    /// <summary>入力欄の値（文字列）を ID にする。数字でなければ 0。</summary>
+    protected static int ParseId(object? value) => int.TryParse(value?.ToString(), out var id) ? id : 0;
+
     private bool disposed;
 
     /// <summary>ページが閉じられたか（読み込みの待ち時間のあいだに別のページへ移ったときの後始末の判定に使う）。</summary>
