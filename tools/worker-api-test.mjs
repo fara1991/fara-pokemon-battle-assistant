@@ -224,6 +224,7 @@ try {
   const hkey = newKey();
   const foe = (id, name) => ({ Id: id, PokemonId: 1, PokemonName: name });
   check("キーなしの history は 401", (await req("GET", `${H}?dataSet=Champions`)).status === 401);
+  check("dataSet なしで id・limit・before を付けると 400", (await req("GET", `${H}?id=1`, hkey)).status === 400 && (await req("GET", `${H}?limit=5`, hkey)).status === 400);
   const noSets = await req("GET", H, hkey);
   check("dataSet の無い GET history は、履歴のあるゲームの一覧（空）", noSets.status === 200 && same(noSets.json?.dataSets, []), noSets.text);
   check("予約語の dataSet は 400", (await req("GET", `${H}?dataSet=__proto__`, hkey)).status === 400);

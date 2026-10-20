@@ -12,12 +12,17 @@ public sealed partial class RemoteRosterStore : IMatchHistory
     private const int MatchesPerPost = 100;
     /// <summary>まとめて足すときの 1 回の本文の目安（サーバーの上限は 256 KB。余裕を見る）。</summary>
     private const int MaxBatchBytes = 200 * 1024;
-    /// <summary>1 試合の上限（サーバーと同じ。超えるものは、推定の根拠のメモなどを省いて送る）。</summary>
-    private const int MaxMatchBytes = 60 * 1024;
+    /// <summary>1 試合の上限（サーバーは 64 KB。余裕を 1 KB 見る）。超えるものだけ、推定の根拠（Scans）を省いて送る。</summary>
+    private const int MaxMatchBytes = 63 * 1024;
+    /// <summary>メモの文字数の上限（サーバーと同じ）。</summary>
+    private const int MaxMemoLength = 500;
     /// <summary>一覧の 1 回の件数の範囲（サーバーと同じ）。</summary>
     public const int MaxPageSize = 200;
 
     private static readonly JsonSerializerOptions HistoryReadOptions = new() { PropertyNameCaseInsensitive = true };
+
+    /// <summary>直近の <see cref="SaveAsync"/> で、サーバーの上限に収めるため内容を省いた試合の数。</summary>
+    public int HistoryTrimmed { get; private set; }
 
     public ValueTask<IMatchHistory?> GetRemoteHistoryAsync(CancellationToken ct = default) =>
         ValueTask.FromResult<IMatchHistory?>(this);
@@ -83,7 +88,7 @@ public sealed partial class RemoteRosterStore : IMatchHistory
 
     public async Task<RivalMatch> AppendAsync(string dataSetKey, RivalMatch match, CancellationToken ct = default)
     {
-        using var content = BuildHistoryContent(dataSetKey, "match", MatchNode(match));
+        using var content = BuildHistoryContent(dataSetKey, "match", FitToServerLimit(MatchNode(match), out _, out _));
         using var response = await SendAsync(HttpMethod.Post, HistoryUri(null), content, ct).ConfigureAwait(false);
         await ThrowIfHistoryLimitAsync(response, ct).ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.Created) throw await UnavailableAsync(response, ct).ConfigureAwait(false);
@@ -98,14 +103,18 @@ public sealed partial class RemoteRosterStore : IMatchHistory
     /// 試合をまとめて足す（データの移し替え用）。古い順に並べて送り、Id はサーバーが割り当て直す。
     /// 1 回の本文が大きくなりすぎないよう、件数（100）と大きさ（約 200 KB）のどちらかで区切る。
     /// 途中で失敗したら、そこまでに足した分は残る（呼び出し側は、新しいキーを捨てる）。
+    /// サーバーの 1 試合の上限（64 KB）・メモの上限（500 文字）を超える試合は、推定の根拠（Scans）を省き、メモを切って送る。
+    /// 戻り値は、そうして内容を省いた試合の数（呼び出し側が利用者に知らせる）。
     /// </summary>
-    public async Task AppendManyAsync(string dataSetKey, IReadOnlyList<RivalMatch> matches, CancellationToken ct = default)
+    public async Task<int> AppendManyAsync(string dataSetKey, IReadOnlyList<RivalMatch> matches, CancellationToken ct = default)
     {
         var batch = new JsonArray();
         var bytes = 0;
+        var trimmed = 0;
         foreach (var match in matches)
         {
-            var node = FitToServerLimit(MatchNode(match), out var size);
+            var node = FitToServerLimit(MatchNode(match), out var size, out var wasTrimmed);
+            if (wasTrimmed) trimmed++;
             if (batch.Count > 0 && (batch.Count >= MatchesPerPost || bytes + size > MaxBatchBytes))
             {
                 await PostBatchAsync(dataSetKey, batch, ct).ConfigureAwait(false);
@@ -116,6 +125,7 @@ public sealed partial class RemoteRosterStore : IMatchHistory
             bytes += size;
         }
         if (batch.Count > 0) await PostBatchAsync(dataSetKey, batch, ct).ConfigureAwait(false);
+        return trimmed;
     }
 
     private async Task PostBatchAsync(string dataSetKey, JsonArray batch, CancellationToken ct)
@@ -161,17 +171,24 @@ public sealed partial class RemoteRosterStore : IMatchHistory
     }
 
     /// <summary>
-    /// 1 試合がサーバーの上限（64 KB）を超えるときは、推定の根拠（Scans）を省いて収める
-    /// （以前のブラウザ保存には 1 試合の上限が無く、データの移し替えが永久に断られてしまうのを防ぐ）。
+    /// サーバーの上限（1 試合 64 KB・メモ 500 文字）を超える試合だけ、推定の根拠（Scans）を省き、メモを切って収める
+    /// （以前のブラウザ保存には上限が無く、データの移し替えが永久に断られてしまうのを防ぐ）。上限に収まる試合は、そのまま送る。
     /// </summary>
-    private static JsonNode FitToServerLimit(JsonNode node, out int size)
+    private static JsonNode FitToServerLimit(JsonNode node, out int size, out bool trimmed)
     {
+        trimmed = false;
+        if (node["Memo"]?.GetValue<string>() is { } memo && memo.Length > MaxMemoLength)
+        {
+            node["Memo"] = memo[..MaxMemoLength];
+            trimmed = true;
+        }
         size = Encoding.UTF8.GetByteCount(node.ToJsonString(ItemOptions));
         if (size <= MaxMatchBytes) return node;
         if (node["Foes"] is JsonArray foes)
         {
             foreach (var foe in foes.OfType<JsonObject>()) foe.Remove("Scans");
             size = Encoding.UTF8.GetByteCount(node.ToJsonString(ItemOptions));
+            trimmed = true;
         }
         return node;
     }

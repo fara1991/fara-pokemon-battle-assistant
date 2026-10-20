@@ -391,7 +391,10 @@ async function handleApi(request, env, url) {
 async function handleHistory(request, url, stub) {
   if (request.method === "POST") return postHistory(request, stub);
   // ゲームを指定しない GET は、履歴のあるゲームの一覧
-  if (request.method === "GET" && url.searchParams.get("dataSet") === null) return respond(stub.listHistoryDataSets());
+  if (request.method === "GET" && url.searchParams.get("dataSet") === null) {
+    if (["id", "limit", "before"].some((name) => url.searchParams.has(name))) invalid("invalid_query", "id・limit・before を使うときは dataSet も指定してください");
+    return respond(stub.listHistoryDataSets());
+  }
   const dataSet = checkDataSet(url.searchParams.get("dataSet"));
   if (request.method === "GET") {
     const id = queryInt(url, "id", 1, MAX_ID);

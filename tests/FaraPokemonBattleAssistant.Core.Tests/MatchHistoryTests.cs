@@ -165,6 +165,24 @@ public class MatchHistoryTests
     }
 
     [Fact]
+    public async Task Only_matches_over_the_server_limit_lose_content_and_the_count_is_returned()
+    {
+        var (server, _) = NewCloud();
+        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        // 62 KB（サーバーの 64 KB に収まる）は、そのまま移る。80 KB は省く。メモが 501 文字の試合は切る
+        var okMatch = BigMatch(62);
+        var tooBig = BigMatch(80);
+        var longMemo = new RivalMatch { Memo = new string('あ', 501), Foes = { new RivalPokemon { Id = 1, PokemonName = "a" } } };
+        var trimmed = await store.AppendManyAsync(Ds, new[] { okMatch, tooBig, longMemo });
+        Assert.Equal(2, trimmed);
+        var saved = server.State.For(Ds).History;
+        Assert.NotEmpty(saved[0].Foes.Single().Scans);                              // 62 KB の試合の根拠は残る
+        Assert.Empty(saved[1].Foes.Single().Scans);                                 // 80 KB の試合だけ、根拠を省く
+        Assert.Equal(500, saved[2].Memo.Length);                                    // メモは 500 文字まで
+        Assert.Equal(0, await store.AppendManyAsync(Ds, new[] { okMatch }));
+    }
+
+    [Fact]
     public async Task Cloud_end_match_keeps_rivals_that_were_added_while_it_was_running()
     {
         var (server, repo) = NewCloud();

@@ -162,10 +162,11 @@ public sealed partial class RemoteRosterStore : IRosterStore
         var rivalKeys = keys.Where(k => state.DataSets[k] is { } r && (r.Rivals.Count > 0 || r.History.Count > 0)).ToList();
         if (rivalKeys.Count > 0) await PutAsync(_rivalEndpoint, state, rivalKeys, RosterPart.Rival, ct).ConfigureAwait(false);
         // 履歴は登録データとは別の API。古い順に足す（Id はサーバーが割り当て直す）
+        HistoryTrimmed = 0;
         foreach (var key in rivalKeys)
         {
             var history = state.DataSets[key].History.OrderBy(m => m.Id).ToList();
-            if (history.Count > 0) await AppendManyAsync(key, history, ct).ConfigureAwait(false);
+            if (history.Count > 0) HistoryTrimmed += await AppendManyAsync(key, history, ct).ConfigureAwait(false);
         }
     }
 

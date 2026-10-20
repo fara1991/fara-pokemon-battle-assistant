@@ -170,11 +170,13 @@ public sealed class CloudSync : IRosterStore
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
                 "このブラウザの登録データが壊れているため、新しく共有を始められません。すでにアクセスキーがあるなら、アクセスキーで参加してください（このブラウザの登録データは削除されます）", ex);
         }
+        var trimmed = 0;
         if (HasData(local))
-            await MoveToNewKeyAsync(remote, RosterRepository.Serialize(local));
+            trimmed = await MoveToNewKeyAsync(remote, RosterRepository.Serialize(local));
         else
             await remote.LoadAsync(); // つながるか確かめる
         await SwitchToAsync(key, remote);
+        if (trimmed > 0) LastNotice = TrimmedNotice(trimmed);
         await _local.ClearAsync();
     }
 
@@ -216,8 +218,9 @@ public sealed class CloudSync : IRosterStore
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
                 "クラウドの相手チームを読み込めなかったため、キーを作り直せません。時間をおいて、もう一度試してください");
         // 登録データ（文書）が空でも、履歴だけがあるゲームがありうるので、履歴の写しは文書の有無によらず行う
-        await MoveToNewKeyAsync(remote, json, old);
+        var trimmed = await MoveToNewKeyAsync(remote, json, old);
         await SwitchToAsync(key, remote);
+        if (trimmed > 0) LastNotice = TrimmedNotice(trimmed);
         try
         {
             await old.DeleteAsync();
@@ -285,13 +288,20 @@ public sealed class CloudSync : IRosterStore
 
     /// <param name="json">移す登録データ。null（登録データが空）ならつながるかだけ確かめる。</param>
     /// <param name="copyHistoryFrom">キーの作り直しのとき、古いキーの置き場（履歴を新しいキーへ写す。<paramref name="json"/> には履歴が入っていないため）。データ共有の開始では null（履歴は <paramref name="json"/> の中）。</param>
-    private static async Task MoveToNewKeyAsync(RemoteRosterStore remote, string? json, RemoteRosterStore? copyHistoryFrom = null)
+    /// <returns>履歴のうち、サーバーの上限（1 試合 64 KB・メモ 500 文字）に収めるため、内容を省いた試合の数。</returns>
+    private static async Task<int> MoveToNewKeyAsync(RemoteRosterStore remote, string? json, RemoteRosterStore? copyHistoryFrom = null)
     {
         try
         {
-            if (json is not null) await remote.SaveAsync(json);
+            var trimmed = 0;
+            if (json is not null)
+            {
+                await remote.SaveAsync(json);
+                trimmed += remote.HistoryTrimmed;
+            }
             else await remote.LoadAsync(); // つながるか確かめる
-            if (copyHistoryFrom is not null) await CopyHistoryAsync(copyHistoryFrom, remote);
+            if (copyHistoryFrom is not null) trimmed += await CopyHistoryAsync(copyHistoryFrom, remote);
+            return trimmed;
         }
         catch
         {
@@ -304,20 +314,25 @@ public sealed class CloudSync : IRosterStore
     /// 古いキーの履歴を、全部のゲーム分、新しいキーへ写す。写したあと、古いキーの履歴の件数が写す前と同じで、新しいキーの件数とも合うことを確かめる
     /// （合わなければ失敗にして、古いキーを消さない。写している間に、別の端末や BOT が古いキーに足した試合が消えないように）。
     /// </summary>
-    private static async Task CopyHistoryAsync(RemoteRosterStore source, RemoteRosterStore target)
+    private static async Task<int> CopyHistoryAsync(RemoteRosterStore source, RemoteRosterStore target)
     {
         var before = await source.DataSetTotalsAsync();
+        var trimmed = 0;
         foreach (var (dataSetKey, total) in before)
         {
             var matches = await ReadAllHistoryOldestFirstAsync(source, dataSetKey, total);
-            await target.AppendManyAsync(dataSetKey, matches);
+            trimmed += await target.AppendManyAsync(dataSetKey, matches);
         }
         var after = await source.DataSetTotalsAsync();
         var copied = await target.DataSetTotalsAsync();
         if (!SameTotals(before, after) || !SameTotals(before, copied))
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
                 "キーの作り直しの間に履歴の件数が変わった（または写せなかった）ため、中止しました。配信用BOTなどを止めてから、もう一度試してください");
+        return trimmed;
     }
+
+    private static string TrimmedNotice(int count) =>
+        $"試合の履歴のうち {count} 件は、サーバーの上限（1 試合 64 KB・メモ 500 文字）に収めるため、推定の根拠（スキャンの記録）を省くか、メモを切って移しました";
 
     private static bool SameTotals(IReadOnlyDictionary<string, int> a, IReadOnlyDictionary<string, int> b) =>
         a.Count == b.Count && a.All(x => b.TryGetValue(x.Key, out var other) && other == x.Value);

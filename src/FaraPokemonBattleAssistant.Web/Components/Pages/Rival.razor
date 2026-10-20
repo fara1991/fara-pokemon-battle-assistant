@@ -253,9 +253,9 @@ else
         if (!reset && historyLoading) return;
         var version = ++historyVersion;
         var key = App.DataSetKey;
-        if (reset || historyDataSetKey != key)
+        if (historyDataSetKey != key)
         {
-            // 読み込み中・失敗したときに、前のゲームの履歴が残らないようにする
+            // ゲームが変わったら、読み込み中・失敗したときに、前のゲームの履歴が残らないようにする（同じゲームの読み直しでは、一覧を空にしない）
             historyItems = new();
             historyTotal = 0;
             historyHasMore = false;
@@ -284,11 +284,11 @@ else
 
     private async Task TrimHistoryAsync()
     {
-        if (Mutating || historyDataSetKey != App.DataSetKey) return;
+        if (Mutating || historyDataSetKey is not { } key || key != App.DataSetKey) return;
         if (keepLatest < 0) keepLatest = 0;
         if (!await ConfirmAsync($"新しい {keepLatest} 件を残して、古い履歴を削除します（元に戻せません）。よろしいですか？")) return;
         var removed = 0;
-        if (!await MutateAsync(async () => removed = await Repo.TrimHistoryAsync(App.DataSetKey, keepLatest))) return;
+        if (!await MutateAsync(async () => removed = await Repo.TrimHistoryAsync(key, keepLatest))) return;
         Show($"古い履歴 {removed} 件を削除しました", false);
     }
 
@@ -523,10 +523,10 @@ else
 
     private async Task RemoveMatchAsync(RivalMatch match)
     {
-        if (Mutating || historyDataSetKey != App.DataSetKey) return;   // 実行中の操作があるあいだ・表示中の履歴が今のゲームのものでないときは、何もしない
+        if (Mutating || historyDataSetKey is not { } key || key != App.DataSetKey) return;   // 実行中の操作があるあいだ・表示中の履歴が今のゲームのものでないときは、何もしない
         if (!await ConfirmAsync($"履歴 #{match.Id} を削除します（元に戻せません）。よろしいですか？")) return;
         var removed = false;
-        if (!await MutateAsync(async () => removed = await Repo.RemoveMatchAsync(App.DataSetKey, match.Id))) return;
+        if (!await MutateAsync(async () => removed = await Repo.RemoveMatchAsync(key, match.Id))) return;
         Show(removed ? $"履歴 #{match.Id} を削除しました" : $"履歴 #{match.Id} はすでにありません", !removed);
     }
 }

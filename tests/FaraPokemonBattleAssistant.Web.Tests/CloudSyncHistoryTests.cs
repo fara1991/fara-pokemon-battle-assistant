@@ -119,6 +119,41 @@ public class CloudSyncHistoryTests
     }
 
     [Fact]
+    public async Task Rotating_the_key_keeps_the_scan_notes_of_a_match_that_fits_the_server_limit()
+    {
+        var js = new FakeJsRuntime();
+        var server = new KeyRoutedServer();
+        var oldKey = RemoteRosterStore.GenerateKey();
+        var cloud = new RemoteRosterStore(new HttpClient(server), Base, oldKey);
+        var scans = new RivalPokemon { Id = 1, PokemonName = "a", Scans = { new RivalScan { Defense = "Defense", Notes = { new string('x', 62 * 1024) } } } };
+        await cloud.AppendAsync(Ds, new RivalMatch { Memo = "62KB", Foes = { scans } });     // 単発の追記（end）と同じ経路
+        var sync = NewSync(js, server);
+        await sync.JoinAsync(oldKey);
+
+        Assert.True(await sync.RotateAsync());
+
+        var copied = server.For(sync.Key!).State.For(Ds).History.Single();
+        Assert.NotEmpty(copied.Foes.Single().Scans);                                // 推定の根拠は、黙って消えない
+        Assert.Null(sync.LastNotice);
+    }
+
+    [Fact]
+    public async Task Starting_sharing_tells_the_user_when_a_match_had_to_be_trimmed()
+    {
+        var js = new FakeJsRuntime();
+        var set = new DataSetRoster { NextMatchId = 2 };
+        set.History.Add(new RivalMatch { Id = 1, Foes = { new RivalPokemon { Id = 1, PokemonName = "a", Scans = { new RivalScan { Defense = "Defense", Notes = { new string('x', 80 * 1024) } } } } } });
+        js.Storage["fara-pokemon-battle-assistant.roster"] = RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = set } });
+        var server = new KeyRoutedServer();
+        var sync = NewSync(js, server);
+
+        await sync.StartNewAsync();
+
+        Assert.Contains("1 件", sync.LastNotice);
+        Assert.Empty(server.For(sync.Key!).State.For(Ds).History.Single().Foes.Single().Scans);
+    }
+
+    [Fact]
     public async Task Rotating_the_key_also_copies_history_of_a_game_that_has_no_roster_document()
     {
         // 登録データ（文書）が空で、履歴だけがあるゲーム（外部の API 利用など）
