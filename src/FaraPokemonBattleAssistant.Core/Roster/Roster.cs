@@ -429,7 +429,17 @@ public sealed class RosterRepository
     private async Task<RosterState> LoadCoreAsync(CancellationToken ct)
     {
         if (_state is not null) return _state;
-        var state = Deserialize(await _store.LoadAsync(ct).ConfigureAwait(false));
+        RosterState state;
+        try
+        {
+            state = Deserialize(await _store.LoadAsync(ct).ConfigureAwait(false));
+        }
+        catch (JsonException ex)
+        {
+            // 保存先の内容が壊れている（別のバージョンのクライアントなどが型違いの値を書いた場合など）。素の JsonException を各画面に漏らさず、読めなかった扱いにする
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "保存されている登録データの形式が正しくないため、読み込めませんでした", ex);
+        }
         _state = state;
         return state;
     }
