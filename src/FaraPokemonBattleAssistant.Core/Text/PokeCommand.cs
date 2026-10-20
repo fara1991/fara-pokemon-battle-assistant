@@ -17,7 +17,7 @@ public sealed class PokeCommandOptions
 /// <summary>
 /// <c>!pokech</c> / <c>!pokesv</c> / <c>!pokess</c> で始まるコマンド群。接頭辞でデータセットが決まる。
 /// <list type="bullet">
-/// <item><c>add -m 名前 H A B C D S 性格 [特性]</c> 登録、<c>ls -m [名前]</c> 一覧、<c>detail -m ID</c> 詳細、<c>rm -m ID</c> 削除</item>
+/// <item><c>add -m 名前 H A B C D S 性格 [特性] [技]</c> 登録、<c>ls -m [名前]</c> 一覧、<c>detail -m ID</c> 詳細、<c>rm -m ID</c> 削除</item>
 /// <item><c>add -t 番号 ID [持ち物]</c>、<c>rm -t 番号 [名前]</c>、<c>use -t 番号</c>、<c>ls -t</c>、<c>detail -t 番号</c>、<c>help</c> 一覧</item>
 /// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>scan 攻撃側 技±ランク 相手 受けたダメージ[%]</c> 相手の振り方の推定、<c>faster 自分 相手</c> 素早さ比較</item>
 /// </list>
@@ -74,7 +74,7 @@ public sealed partial class PokeCommand
     public static string CommandList(IEnumerable<DataSetInfo> dataSets)
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
-        return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] / set -m ID・名前 … / ls・detail・rm\n" +
+        return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] [技] / set -m ID・名前 … / ls・detail・rm\n" +
                "自分チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm\n" +
                "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 持ち物 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除）\n" +
                "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了）\n" +
@@ -180,7 +180,7 @@ public sealed partial class PokeCommand
     {
         if (!options.AllowMutations) return Fail("登録は配信者・モデレーターのみ行えます");
         var system = ds.EvSystem;
-        var usageText = $"書式: !{ds.CommandPrefix} add -m 名前 H A B C D S 性格 [特性]、または add -m 名前 H32B32C2 性格 [特性]（書いていない能力は 0。{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）";
+        var usageText = $"書式: !{ds.CommandPrefix} add -m 名前 H A B C D S 性格 [特性] [技]、または add -m 名前 H32B32C2 性格 [特性] [技]（書いていない能力は 0。{EvRules.Label(system)}は各 0〜{EvRules.MaxPerStat(system)}、合計 {EvRules.MaxTotal(system)} まで）";
         if (args.Count < 2) return Fail(usageText);
 
         // 持ち物は登録では指定しない（チームに入れるときに指定する）

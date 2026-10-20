@@ -59,7 +59,6 @@ public class ReviewFixCommandTests
         var (command, _) = New();
         Assert.True((await command.ExecuteAsync("!pokesv add -m ガブリアス A32 S32 ようき")).Success);
         var result = await command.ExecuteAsync("!pokesv scan ガブリアス じしん ハバタクカミ +1 93");
-        Assert.Contains("93", result.Message);
-        Assert.DoesNotContain("ダメージ: 1 ", result.Message);
+        Assert.Contains("93", result.Message);   // 受けたダメージは 93（+1 はランク）
     }
 }

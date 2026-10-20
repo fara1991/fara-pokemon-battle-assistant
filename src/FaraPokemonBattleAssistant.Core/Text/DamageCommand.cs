@@ -706,7 +706,7 @@ public sealed class DamageCommand
             if (info.Key == current.Info.Key) continue;
             PokemonDataSet other;
             try { other = await _catalog.GetDataSetAsync(info.Key, ct).ConfigureAwait(false); }
-            catch (Exception ex) when (ex is not OperationCanceledException) { continue; }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested) { continue; }
             var match = new NameResolver<Pokemon>(other.Pokemon, p => p.Name, PokemonAliases(other)).Resolve(query);
             if (match.IsResolved)
                 return $"（{match.Value!.Name}は「{info.Name}」のデータにあります。現在は「{current.Info.Name}」です。コマンドに {info.Key.ToLowerInvariant()} を足すか、データを切り替えてください）";

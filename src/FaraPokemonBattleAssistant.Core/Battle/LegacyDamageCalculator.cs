@@ -220,8 +220,7 @@ internal sealed partial class LegacyDamageCalculator
         if (request.ParentalChild)
         {
             // おやこあいの 2 回目（第 6 世代 1/2、第 7 世代 1/4）
-            baseDamage = DamageCalculator.PokeRound(baseDamage * (_gen >= 7 ? 1024 : 2048) / 4096.0);
-            modifiers.Add($"おやこあい(2回目{(_gen >= 7 ? "1/4" : "1/2")})");
+            baseDamage = DamageCalculator.PokeRound(baseDamage * (_gen >= 7 ? 1024 : 2048) / 4096.0);   // 表示は DamageCalculator のまとめの行で出す
         }
         if (weather == Weather.Sun && moveType == "Fire" || weather == Weather.Rain && moveType == "Water")
         {

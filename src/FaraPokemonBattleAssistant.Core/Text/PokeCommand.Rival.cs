@@ -441,12 +441,12 @@ public sealed partial class PokeCommand
 
     // ------------------------------------------------------------------ 育成ポケモンの更新
 
-    /// <summary>set -m 登録ID または名前 [振り方] [性格] [特性] : 登録済みの育成ポケモンの、指定した項目だけ更新。</summary>
+    /// <summary>set -m 登録ID または名前 [振り方] [性格] [特性] [技] : 登録済みの育成ポケモンの、指定した項目だけ更新。</summary>
     private async Task<DamageCommandResult> SetMyAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("更新は配信者・モデレーターのみ行えます");
         if (args.Count < 2)
-            return Fail($"書式: !{ds.CommandPrefix} set -m 登録IDか名前 [H32 A10 …] [性格 / B↑A↓] [特性]");
+            return Fail($"書式: !{ds.CommandPrefix} set -m 登録IDか名前 [H32 A10 …] [性格 / B↑A↓] [特性] [技]");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         // 登録ID（#1 / 1）のほか、名前でも指定できる（同じポケモンが複数登録されていれば、登録IDを案内する）
         if (!int.TryParse(args[0].TrimStart('#'), out var id))
