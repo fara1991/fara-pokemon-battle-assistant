@@ -121,6 +121,11 @@ function isId(v) {
   return Number.isSafeInteger(v) && v >= 1 && v <= MAX_ID;
 }
 
+/** 次に振る ID（最大 + 1）。ID の最大値の次まで。 */
+function isNextId(v) {
+  return Number.isSafeInteger(v) && v >= 1 && v <= MAX_ID + 1;
+}
+
 /**
  * 検証の失敗（400）。Durable Object の呼び出しをまたぐと例外の型が分からなくなるので、
  * 投げた側（同じ実行環境の中）で {@link catchInvalid} によって 400 の応答に直す。
@@ -176,7 +181,7 @@ function parsePutBody(bytes) {
 function validatePokemons(key, value) {
   const { pokemon, nextId } = value;
   if (!Array.isArray(pokemon)) invalid("invalid_pokemon", `${key}.pokemon は配列にしてください`);
-  if (nextId !== undefined && nextId !== null && !isId(nextId))
+  if (nextId !== undefined && nextId !== null && !isNextId(nextId))
     invalid("invalid_next_id", `${key}.nextId は 1 以上の整数にしてください`);
   const ids = new Set();
   for (const p of pokemon) {
@@ -194,7 +199,7 @@ function validateRivals(key, value) {
   if (!Array.isArray(rivals)) invalid("invalid_rivals", `${key}.rivals は配列にしてください`);
   if (!Array.isArray(history)) invalid("invalid_history", `${key}.history は配列にしてください`);
   for (const [name, v] of [["nextId", nextId], ["nextMatchId", nextMatchId]]) {
-    if (v !== undefined && v !== null && !isId(v)) invalid("invalid_next_id", `${key}.${name} は 1 以上の整数にしてください`);
+    if (v !== undefined && v !== null && !isNextId(v)) invalid("invalid_next_id", `${key}.${name} は 1 以上の整数にしてください`);
   }
   const ids = new Set();
   for (const r of rivals) {

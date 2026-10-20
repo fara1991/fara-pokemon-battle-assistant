@@ -315,7 +315,7 @@ public sealed class RemoteRosterStore : IRosterStore
         foreach (var team in roster.Teams.GroupBy(t => t.Number).Select(g => g.First()))
         {
             var slots = team.Slots.Where(s => ids.Contains(s.EntryId)).GroupBy(s => s.EntryId).Select(g => g.First()).Take(6).ToList();
-            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots });
+            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots, Extra = team.Extra });
         }
         return teams;
     }

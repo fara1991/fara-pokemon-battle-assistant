@@ -400,13 +400,13 @@ else if (data is not null && dataSet is not null)
 
     private async Task LoadDataSet()
     {
+        // ゲームを素早く切り替えたとき、古い読み込みが後から終わって、別のゲームのデータで上書きしないよう、
+        // 読み込み中の値は変数に持ち、最新の読み込みのときだけ、まとめて画面の値にする
+        var version = ++loadVersion;
+        var key = App.DataSetKey;
         try
         {
             loadError = "";
-            // ゲームを素早く切り替えたとき、古い読み込みが後から終わって、別のゲームのデータで上書きしないよう、
-            // 読み込み中の値は変数に持ち、最新の読み込みのときだけ、まとめて画面の値にする
-            var version = ++loadVersion;
-            var key = App.DataSetKey;
             var info = App.DataSet;
             var loaded = await Catalog.GetDataSetAsync(key);
             var loadedUsage = await loaded.GetUsageAsync(App.Format);
@@ -421,9 +421,9 @@ else if (data is not null && dataSet is not null)
             rivals = loadedRivals;
             // 図鑑順（メガシンカ後の姿は元の姿のすぐ後ろ）
             pokemonList = data.Pokemon.OrderBy(p => p, Comparer<Pokemon>.Create(Pokedex.CompareDex)).ToList();
-            if (s.DataSetKey != App.DataSetKey)
+            if (s.DataSetKey != key)
             {
-                s.DataSetKey = App.DataSetKey;
+                s.DataSetKey = key;
                 s.AttackerRosterKey = s.DefenderRosterKey = null;
                 s.AttackerMega = s.DefenderMega = null;
                 s.Attacker = null;
@@ -441,7 +441,7 @@ else if (data is not null && dataSet is not null)
             RefreshAttackerLists();
             RefreshDefenderLists();
             // 素早さ比較で選んだポケモンを入れる（ポケモン1 → 攻撃側、ポケモン2 → 防御側。「登録から選ぶ」の欄はそのまま）
-            if (Stage.DataSetKey == App.DataSetKey)
+            if (Stage.DataSetKey == key)
             {
                 // 「登録から選ぶ」のオン・オフも引き継ぐ
                 if (Stage.UseRosterMine is { } rosterMine) s.UseRosterAttacker = rosterMine;
@@ -462,6 +462,7 @@ else if (data is not null && dataSet is not null)
         }
         catch (Exception ex)
         {
+            if (version != loadVersion) return;   // 古い読み込みの失敗は、最新の読み込みに任せる
             data = null;   // 前のゲームのデータのまま描画・計算しない
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
         }

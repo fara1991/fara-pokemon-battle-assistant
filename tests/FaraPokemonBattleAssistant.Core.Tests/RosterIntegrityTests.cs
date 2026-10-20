@@ -50,7 +50,8 @@ public class RosterIntegrityTests
         var state = RosterRepository.Deserialize(json);
         Assert.True(state.DataSets.ContainsKey("gen9"));   // 大文字小文字を区別しない
         var roster = state.For("GEN9");
-        Assert.Equal(6, roster.NextId);                     // 今ある最大の ID（5）の次
+        Assert.Equal(new[] { 5, 6 }, roster.Pokemon.Select(p => p.Id).ToArray());   // 重なった ID は、2 つ目に新しい ID を振る
+        Assert.Equal(7, roster.NextId);
         Assert.Equal(4, roster.NextRivalId);
     }
 
@@ -128,5 +129,41 @@ public class RosterIntegrityTests
             ? FakeRosterServer.Json(HttpStatusCode.OK, """{"revision":0,"dataSets":{"Gen9":{"nextId":99999999999,"pokemon":[]}}}""") : null;
         var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.LoadAsync());
         Assert.Equal(RosterUnavailableReason.InvalidResponse, ex.Reason);
+    }
+
+    [Fact]
+    public void Keys_that_differ_only_by_case_are_merged_and_null_lists_are_tolerated()
+    {
+        var json = """
+        {"Version":1,"DataSets":{
+          "Gen9":{"NextId":2,"Pokemon":[{"Id":1,"PokemonId":445,"PokemonName":"ガブリアス","Nature":"ようき"}]},
+          "gen9":{"NextId":3,"Pokemon":[{"Id":2,"PokemonId":6,"PokemonName":"リザードン","Nature":"ようき"}],"Rivals":null,"History":null}}}
+        """;
+        var state = RosterRepository.Deserialize(json);
+        var roster = state.For("Gen9");
+        Assert.Equal(2, roster.Pokemon.Count);   // 片方を黙って捨てない
+        Assert.Empty(roster.Rivals);
+        Assert.Equal(3, roster.NextId);
+        Assert.NotNull(RosterRepository.Deserialize("""{"Version":1,"DataSets":null}""").DataSets);
+    }
+
+    [Fact]
+    public async Task Team_unknown_fields_are_sent_to_the_server()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync(Ds);
+        var key = RemoteRosterStore.GenerateKey();
+        var server = new FakeRosterServer { ExpectedKey = key };
+        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", key);
+        var state = new RosterState();
+        var roster = state.For(Ds);
+        roster.Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonId = 445, PokemonName = "ガブリアス", Nature = "ようき" });
+        roster.NextId = 2;
+        var team = new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 } } };
+        team.Extra = new Dictionary<string, JsonElement> { ["Label"] = JsonDocument.Parse("\"エース\"").RootElement.Clone() };
+        roster.Teams.Add(team);
+        await store.SavePartAsync(state, Ds, RosterPart.Pokemon);
+        await store.SavePartAsync(state, Ds, RosterPart.Teams);
+        var put = server.Bodies.Last(b => b is not null && b.Contains("teams"));
+        Assert.Contains("エース", put);   // チームの新しい項目が、保存のたびに落ちない
     }
 }

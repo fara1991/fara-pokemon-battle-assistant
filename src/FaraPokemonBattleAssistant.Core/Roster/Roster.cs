@@ -263,9 +263,48 @@ public sealed class DataSetRoster
     /// </summary>
     public void RepairIds()
     {
-        if (Pokemon.Count > 0) NextId = Math.Max(NextId, Pokemon.Max(p => p.Id) + 1);
-        if (Rivals.Count > 0) NextRivalId = Math.Max(NextRivalId, Rivals.Max(r => r.Id) + 1);
-        if (History.Count > 0) NextMatchId = Math.Max(NextMatchId, History.Max(m => m.Id) + 1);
+        Normalize();
+        // 重なった ID は、2 つ目以降に新しい ID を振る（そのままだと、クラウドへ移すときに重複として断られる。チームの枠は最初のものを指したまま）
+        NextId = RenumberDuplicates(Pokemon, p => p.Id, (p, id) => p.Id = id, NextId);
+        NextRivalId = RenumberDuplicates(Rivals, r => r.Id, (r, id) => r.Id = id, NextRivalId);
+        NextMatchId = RenumberDuplicates(History, m => m.Id, (m, id) => m.Id = id, NextMatchId);
+    }
+
+    /// <summary>読み込んだ JSON が null を書いていても、空の一覧として扱う。</summary>
+    internal void Normalize()
+    {
+        Pokemon ??= new();
+        Teams ??= new();
+        Rivals ??= new();
+        History ??= new();
+    }
+
+    /// <summary>ID の重複を直し、次に振る ID（今ある最大の ID の次より小さくならない）を返す。</summary>
+    private static int RenumberDuplicates<T>(List<T> items, Func<T, int> getId, Action<T, int> setId, int next)
+    {
+        var seen = new HashSet<int>();
+        var max = items.Count == 0 ? 0 : items.Max(getId);
+        var nextId = (int)Math.Min(int.MaxValue - 1L, Math.Max((long)next, max + 1L));
+        foreach (var item in items)
+        {
+            if (seen.Add(getId(item))) continue;
+            setId(item, nextId);
+            seen.Add(nextId++);
+        }
+        return nextId;
+    }
+
+    /// <summary>大文字小文字だけ違うキーで分かれていたデータを、このゲームのデータに足す（ID は <see cref="RepairIds"/> が直す）。</summary>
+    internal void MergeFrom(DataSetRoster other)
+    {
+        Pokemon.AddRange(other.Pokemon);
+        Rivals.AddRange(other.Rivals);
+        History.AddRange(other.History);
+        foreach (var team in other.Teams.Where(t => Teams.All(x => x.Number != t.Number))) Teams.Add(team);
+        NextId = Math.Max(NextId, other.NextId);
+        NextRivalId = Math.Max(NextRivalId, other.NextRivalId);
+        NextMatchId = Math.Max(NextMatchId, other.NextMatchId);
+        ActiveTeam ??= other.ActiveTeam;
     }
 }
 
@@ -374,8 +413,14 @@ public sealed class RosterRepository
         var state = string.IsNullOrWhiteSpace(json) ? new RosterState() : JsonSerializer.Deserialize<RosterState>(json!, JsonOptions) ?? new RosterState();
         // 読み込むと、ゲームのキーの比較（大文字小文字を区別しない）が標準に戻るので作り直す。ID の採番は、今ある ID より後にそろえる
         var sets = new Dictionary<string, DataSetRoster>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (key, set) in state.DataSets)
-            sets.TryAdd(key, set ?? new DataSetRoster());
+        foreach (var (key, set) in state.DataSets ?? new())
+        {
+            var loaded = set ?? new DataSetRoster();
+            loaded.Normalize();
+            // 大文字小文字だけ違うキーが 2 つあるときは、中身を 1 つにまとめる（片方を捨てない）
+            if (sets.TryGetValue(key, out var existing)) existing.MergeFrom(loaded);
+            else sets[key] = loaded;
+        }
         state.DataSets = sets;
         foreach (var set in sets.Values) set.RepairIds();
         return state;

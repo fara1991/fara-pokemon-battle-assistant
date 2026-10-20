@@ -136,7 +136,7 @@ public sealed class CachingDataSource : IDataSource
             else
             {
                 // 一時ファイルに書いてから置き換える（書き途中で止まった、途中までの CSV を「新しいキャッシュ」として読まないため）
-                var temp = cachePath + ".tmp";
+                var temp = cachePath + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
                 await File.WriteAllTextAsync(temp, text, cancellationToken).ConfigureAwait(false);
                 File.Move(temp, cachePath, overwrite: true);
                 if (File.Exists(missingMarker))
