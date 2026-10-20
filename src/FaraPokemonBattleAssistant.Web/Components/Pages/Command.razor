@@ -832,69 +832,80 @@ else if (data is not null)
         var pokemonResolver = DamageCommand.CreatePokemonResolver(data);
         Pokemon? PokemonAt(int i) => i < tokens.Count ? pokemonResolver.Resolve(tokens[i]).Value : null;
 
+        if (ParseManagementText(kind, tokens, PokemonAt)) return;
+        ParseDamageText(kind, tokens, PokemonAt);
+    }
+
+    /// <summary>登録・相手・チーム・履歴などの管理コマンドを読み取って選択欄に反映する。管理コマンドでなければ false。</summary>
+    private bool ParseManagementText(string kind, List<string> tokens, Func<int, Pokemon?> pokemonAt)
+    {
         switch (kind)
         {
             case "add -m":
-                s.Subject = PokemonAt(0);
+                s.Subject = pokemonAt(0);
                 ParseSpecTokens(tokens.Skip(1).ToList());
-                return;
+                return true;
             case "ls -m":
             case "ls -h":
             case "detail -r":
             case "rm -r":
-                s.Subject = PokemonAt(0);
-                return;
+                s.Subject = pokemonAt(0);
+                return true;
             case "set -m":
                 if (tokens.Count > 0 && int.TryParse(tokens[0].TrimStart('#'), out _)) { s.EntryId = tokens[0].TrimStart('#'); s.Subject = null; }
-                else { s.EntryId = ""; s.Subject = PokemonAt(0); }
+                else { s.EntryId = ""; s.Subject = pokemonAt(0); }
                 ParseSpecTokens(tokens.Skip(1).ToList());
-                return;
+                return true;
             case "add -r":
                 Array.Clear(s.Rivals);
                 for (int i = 0, n = 0; i < tokens.Count && n < 6; i++)
-                    if (PokemonAt(i) is { } rp) s.Rivals[n++] = rp;
-                return;
+                    if (pokemonAt(i) is { } rp) s.Rivals[n++] = rp;
+                return true;
             case "set -r":
-                s.Subject = PokemonAt(0);
+                s.Subject = pokemonAt(0);
                 ParseSpecTokens(tokens.Skip(1).ToList());
                 ParseRivalMoves(tokens.Skip(1).ToList());
                 ParseRivalItem(tokens.Skip(1).ToList());
-                return;
+                return true;
             case "detail -h":
             case "rm -h":
                 s.EntryId = NumberOrEmpty(tokens, 0);
-                return;
+                return true;
             case "end":
                 s.Memo = string.Join(" ", tokens);
-                return;
+                return true;
             case "clear -r":
             case "ls -r":
-                return;
+                return true;
             case "detail -m":
             case "rm -m":
                 s.EntryId = NumberOrEmpty(tokens, 0);
-                return;
+                return true;
             case "add -t":
                 s.TeamNo = NumberOrEmpty(tokens, 0);
                 s.EntryId = NumberOrEmpty(tokens, 1);
                 s.ItemName = tokens.Count > 2 && new NameResolver<Item>(data.Items, i => i.Name).Resolve(tokens[2]).Value is { } item ? item.Name : "";
-                return;
+                return true;
             case "rm -t":
                 s.TeamNo = NumberOrEmpty(tokens, 0);
-                s.Subject = PokemonAt(1);
-                return;
+                s.Subject = pokemonAt(1);
+                return true;
             case "use -t":
             case "detail -t":
                 s.TeamNo = NumberOrEmpty(tokens, 0);
-                return;
+                return true;
             case "unuse -t":
             case "ls -t":
             case "help":
-                return;
+                return true;
         }
+        return false;
+    }
 
-        // dmg / calc / faster
-        s.Attacker = PokemonAt(0);
+    /// <summary>dmg / scan / faster の、ポケモン・技・天候などを読み取って選択欄に反映する。</summary>
+    private void ParseDamageText(string kind, List<string> tokens, Func<int, Pokemon?> pokemonAt)
+    {
+        s.Attacker = pokemonAt(0);
         RefreshMoves();
         s.Weather = Weather.None;
         s.Terrain = Terrain.None;
@@ -902,7 +913,7 @@ else if (data is not null)
         List<string> rest;
         if (kind == "faster")
         {
-            s.Defender = PokemonAt(1);
+            s.Defender = pokemonAt(1);
             rest = tokens.Skip(2).ToList();
         }
         else
@@ -919,7 +930,7 @@ else if (data is not null)
                 s.Move = null;
                 s.MoveRank = 0;
             }
-            s.Defender = PokemonAt(2);
+            s.Defender = pokemonAt(2);
             s.Damage = "";
             rest = tokens.Skip(3).ToList();
             if (kind == "scan" && rest.Count > 0)
