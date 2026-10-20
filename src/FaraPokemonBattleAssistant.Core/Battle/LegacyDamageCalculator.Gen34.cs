@@ -106,7 +106,6 @@ internal sealed partial class LegacyDamageCalculator
             st.DefAbility = "";
         }
 
-        st.MoveType = st.Move.Type;
         if (_gen == 4 && st.AtkAbility == "normalize")
         {
             st.MoveType = "Normal";
@@ -114,8 +113,6 @@ internal sealed partial class LegacyDamageCalculator
         }
         // 第 3 世代のウェザーボール: 天候があるとタイプが変わり（物理・特殊も変わったタイプで決まる）、威力ではなくダメージが 2 倍。
         // 2 倍は急所と同じところ（基礎ダメージに +2 した後、タイプ一致・相性・乱数の前）で掛かる
-        st.WeatherBallDoubled = false;
-        st.Category = st.Move.Category;
         if (_gen == 3 && st.Move.Id == MoveEffects.MoveIdWeatherBall && MoveEffects.WeatherBallType(st.Weather) is { } weatherBallType)
         {
             st.MoveType = weatherBallType;
