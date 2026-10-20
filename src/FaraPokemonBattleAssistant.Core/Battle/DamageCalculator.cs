@@ -274,258 +274,363 @@ public sealed class DamageCalculator
         return request;
     }
 
+    /// <summary>第 8 世代以降の計算の途中経過。段階ごとの関数が、順に値を埋めていく。</summary>
+    private sealed class ModernState
+    {
+        public ModernState(DamageRequest request)
+        {
+            Request = request;
+            Attacker = request.Attacker;
+            Defender = request.Defender;
+            Move = request.Move;
+            DefenderHp = Defender.MaxHp;
+            // ダイマックス技は技が置き換わるので、技ごとの効果（威力・使う能力・壁を壊すなど）は無い
+            MoveId = Attacker.IsDynamax ? 0 : Move.Id;
+            MoveType = Move.Type;
+            Target = Move.Target;
+            Weather = request.Weather;
+            Terrain = request.Terrain;
+            AttackerItem = Attacker.Item;
+            DefenderItem = Defender.Item;
+        }
+
+        public DamageRequest Request { get; }
+        public PokemonBuild Attacker { get; }
+        public PokemonBuild Defender { get; }
+        public Move Move { get; }
+        public int DefenderHp { get; }
+        public int MoveId { get; }
+        public List<string> Modifiers { get; } = new();
+
+        public string AttackerAbility = "", DefenderAbility = "", AttackerAbilityName = "", DefenderAbilityName = "";
+        public Weather Weather;
+        public Terrain Terrain;
+        public Item? AttackerItem, DefenderItem;
+        public Stat? AttackerSeedBoost, DefenderSeedBoost;
+        public bool IsCritical, IsPhysical, HitsPhysical, AttackerGrounded, DefenderGrounded;
+        public Stat AttackStatKind, DefenseStatKind;
+        public string MoveType;
+        public bool HasAte;
+        public bool Reflect, LightScreen;
+        public double Effectiveness = 1.0;
+        public MoveTarget Target;
+        public int Power;
+        public bool IsTeraStab;
+        public int StabMod = 4096;
+        public bool ApplyBurn;
+    }
+
     /// <summary>
     /// 第 8 世代以降の計算。補正の分け方（威力・攻撃・防御・最後）と掛ける順番は、公開されているダメージ計算ツール（@smogon/calc の gen789）に合わせる
-    /// （補正は 1 つ掛けるごとに丸めるので、順番が違うと 1 ずれることがある）。
+    /// （補正は 1 つ掛けるごとに丸めるので、順番が違うと 1 ずれることがある）。段階ごとに関数を分けているが、呼ぶ順番は計算の順番そのもの。
     /// </summary>
     private DamageResult CalculateModern(DamageRequest request, bool parentalChild = false, bool multiHit = false)
     {
-        var attacker = request.Attacker;
-        var defender = request.Defender;
-        var move = request.Move;
-        var modifiers = new List<string>();
-        var defenderHp = defender.MaxHp;
-        if (defender.IsDynamax) modifiers.Add("防御側ダイマックス(HP2倍)");
+        var st = new ModernState(request);
+        if (st.Defender.IsDynamax) st.Modifiers.Add("防御側ダイマックス(HP2倍)");
+        if (!st.Move.IsDamaging)
+            return Empty(st.DefenderHp, 1.0, st.Move.Type, "変化技");
 
-        if (!move.IsDamaging)
-            return Empty(defenderHp, 1.0, move.Type, "変化技");
+        ResolveAbilitiesAndField(st);
+        ResolveSeedsAndStats(st);
+        ResolveMoveType(st);
+        ResolveScreens(st);
+        var blocked = ResolveEffectiveness(st) ?? CheckImmunity(st);
+        if (blocked is not null) return blocked;
 
-        var attackerAbility = attacker.Ability?.Identifier ?? "";
-        var defenderAbility = defender.Ability?.Identifier ?? "";
-        var atkName = attacker.Ability?.Name ?? "";
+        ResolvePower(st, multiHit);
+        var attackStat = ComputeAttackStat(st);
+        var defenseStat = ComputeDefenseStat(st);
+        var baseDamage = ComputeBaseDamage(st, attackStat, defenseStat, parentalChild);
+        ResolveStabAndBurn(st);
+        return BuildModernResult(st, baseDamage, attackStat, defenseStat);
+    }
+
+    /// <summary>特性による天候・防御側の特性の無視、急所の無効を決める。</summary>
+    private static void ResolveAbilitiesAndField(ModernState st)
+    {
+        var attacker = st.Attacker;
+        var defender = st.Defender;
+        var modifiers = st.Modifiers;
+        st.AttackerAbility = attacker.Ability?.Identifier ?? "";
+        st.DefenderAbility = defender.Ability?.Identifier ?? "";
+        st.AttackerAbilityName = attacker.Ability?.Name ?? "";
 
         // ノーてんき・エアロック: どちらかが持っていれば天候の効果が無い
-        var weather = request.Weather;
-        if (weather != Weather.None && (AbilityEffects.NegatesWeather(attackerAbility) || AbilityEffects.NegatesWeather(defenderAbility)))
+        if (st.Weather != Weather.None && (AbilityEffects.NegatesWeather(st.AttackerAbility) || AbilityEffects.NegatesWeather(st.DefenderAbility)))
         {
-            modifiers.Add($"{(AbilityEffects.NegatesWeather(attackerAbility) ? atkName : defender.Ability!.Name)}(天候の効果なし)");
-            weather = Weather.None;
+            modifiers.Add($"{(AbilityEffects.NegatesWeather(st.AttackerAbility) ? st.AttackerAbilityName : defender.Ability!.Name)}(天候の効果なし)");
+            st.Weather = Weather.None;
         }
-        var terrain = request.Terrain;
 
         // かたやぶり系は防御側の特性を無視する（シャドーシールド・プリズムアーマーなど無視できない特性もある）
-        if (AbilityEffects.IgnoresTargetAbility(attackerAbility) && AbilityEffects.IsIgnorable(defenderAbility))
+        if (AbilityEffects.IgnoresTargetAbility(st.AttackerAbility) && AbilityEffects.IsIgnorable(st.DefenderAbility))
         {
-            modifiers.Add($"{atkName}(相手の特性を無視)");
-            defenderAbility = "";
+            modifiers.Add($"{st.AttackerAbilityName}(相手の特性を無視)");
+            st.DefenderAbility = "";
         }
-        var defName = defenderAbility.Length > 0 ? defender.Ability!.Name : "";
+        st.DefenderAbilityName = st.DefenderAbility.Length > 0 ? defender.Ability!.Name : "";
+    }
 
+    /// <summary>フィールドのシード、急所、使う能力、地面にいるかを決める。</summary>
+    private static void ResolveSeedsAndStats(ModernState st)
+    {
+        var move = st.Move;
+        var modifiers = st.Modifiers;
         // フィールドのシード: そのフィールドなら防御（エレキ・グラス）か特防（サイコ・ミスト）が 1 段階上がり、持ち物は無くなる
-        var attackerItem = attacker.Item;
-        var defenderItem = defender.Item;
-        var defenderSeedBoost = (Stat?)null;
-        if (SeedStat(defenderItem, terrain) is { } seedStat)
+        if (SeedStat(st.DefenderItem, st.Terrain) is { } seedStat)
         {
-            defenderSeedBoost = seedStat;
-            modifiers.Add($"{defenderItem!.Name}({StatNames.Letter(seedStat)}+1)");
-            defenderItem = null;
+            st.DefenderSeedBoost = seedStat;
+            modifiers.Add($"{st.DefenderItem!.Name}({StatNames.Letter(seedStat)}+1)");
+            st.DefenderItem = null;
         }
-        var attackerSeedBoost = SeedStat(attackerItem, terrain);
-        if (attackerSeedBoost is not null) attackerItem = null;
+        st.AttackerSeedBoost = SeedStat(st.AttackerItem, st.Terrain);
+        if (st.AttackerSeedBoost is not null) st.AttackerItem = null;
 
         // シェルアーマー・カブトアーマー: 急所に当たらない
-        var isCritical = request.IsCritical && defenderAbility is not ("battle-armor" or "shell-armor");
-        if (request.IsCritical && !isCritical) modifiers.Add($"{defName}(急所に当たらない)");
+        st.IsCritical = st.Request.IsCritical && st.DefenderAbility is not ("battle-armor" or "shell-armor");
+        if (st.Request.IsCritical && !st.IsCritical) modifiers.Add($"{st.DefenderAbilityName}(急所に当たらない)");
 
-        var isPhysical = move.Category == MoveCategory.Physical;
-        var attackStatKind = move.AttackStatUsed;
-        var defenseStatKind = move.DefenseStatUsed;
-        var hitsPhysical = defenseStatKind == Stat.Defense;
+        st.IsPhysical = move.Category == MoveCategory.Physical;
+        st.AttackStatKind = move.AttackStatUsed;
+        st.DefenseStatKind = move.DefenseStatUsed;
+        st.HitsPhysical = st.DefenseStatKind == Stat.Defense;
         if (move.UsesPhysicalDefense) modifiers.Add($"{move.Name}(相手のBで計算)");
 
-        var attackerGrounded = IsGrounded(attacker, attackerAbility, attackerItem);
-        var defenderGrounded = IsGrounded(defender, defenderAbility, defenderItem);
-        // ダイマックス技は技が置き換わるので、技ごとの効果（威力・使う能力・壁を壊すなど）は無い
-        var moveId = attacker.IsDynamax ? 0 : move.Id;
+        st.AttackerGrounded = IsGrounded(st.Attacker, st.AttackerAbility, st.AttackerItem);
+        st.DefenderGrounded = IsGrounded(st.Defender, st.DefenderAbility, st.DefenderItem);
+    }
 
-        // --- 技タイプ（ウェザーボール・だいちのはどう・レイジングブル、スキン系・ノーマルスキン）
-        var moveType = move.Type;
-        var hasAte = false;
+    /// <summary>技タイプ（ウェザーボール・だいちのはどう・レイジングブル、スキン系・ノーマルスキン）。</summary>
+    private void ResolveMoveType(ModernState st)
+    {
+        var move = st.Move;
+        var attacker = st.Attacker;
+        var modifiers = st.Modifiers;
         var noTypeChange = move.Id is MoveEffects.MoveIdWeatherBall or MoveEffects.MoveIdTerrainPulse;
-        if (move.Id == MoveEffects.MoveIdWeatherBall && MoveEffects.WeatherBallType(weather) is { } weatherBallType)
+        if (move.Id == MoveEffects.MoveIdWeatherBall && MoveEffects.WeatherBallType(st.Weather) is { } weatherBallType)
         {
-            moveType = weatherBallType;
-            modifiers.Add($"{move.Name}({FieldNames.Japanese(weather, _generation)}で{TypeNames.ToJapanese(moveType)}タイプ{(attacker.IsDynamax ? "" : "・威力2倍")})");
+            st.MoveType = weatherBallType;
+            modifiers.Add($"{move.Name}({FieldNames.Japanese(st.Weather, _generation)}で{TypeNames.ToJapanese(st.MoveType)}タイプ{(attacker.IsDynamax ? "" : "・威力2倍")})");
         }
-        else if (move.Id == MoveEffects.MoveIdTerrainPulse && attackerGrounded && MoveEffects.TerrainPulseType(terrain) is { } terrainPulseType)
+        else if (move.Id == MoveEffects.MoveIdTerrainPulse && st.AttackerGrounded && MoveEffects.TerrainPulseType(st.Terrain) is { } terrainPulseType)
         {
-            moveType = terrainPulseType;
-            modifiers.Add($"{move.Name}({FieldNames.Japanese(terrain)}で{TypeNames.ToJapanese(moveType)}タイプ{(attacker.IsDynamax ? "" : "・威力2倍")})");
+            st.MoveType = terrainPulseType;
+            modifiers.Add($"{move.Name}({FieldNames.Japanese(st.Terrain)}で{TypeNames.ToJapanese(st.MoveType)}タイプ{(attacker.IsDynamax ? "" : "・威力2倍")})");
         }
         else if (move.Id == MoveEffects.MoveIdRagingBull)
-            moveType = MoveEffects.RagingBullType(attacker.Pokemon, moveType);
+            st.MoveType = MoveEffects.RagingBullType(attacker.Pokemon, st.MoveType);
         else if (move.Id == MoveEffects.MoveIdIvyCudgel)
-            moveType = MoveEffects.IvyCudgelType(attacker.Pokemon, moveType);
-        var skinType = noTypeChange ? null : AbilityEffects.SkinType(attackerAbility);
-        if (skinType is not null && moveType == "Normal")
+            st.MoveType = MoveEffects.IvyCudgelType(attacker.Pokemon, st.MoveType);
+        var skinType = noTypeChange ? null : AbilityEffects.SkinType(st.AttackerAbility);
+        if (skinType is not null && st.MoveType == "Normal")
         {
-            moveType = skinType;
-            hasAte = true;
-            modifiers.Add($"{atkName}({TypeNames.ToJapanese(skinType)}タイプ化)");
+            st.MoveType = skinType;
+            st.HasAte = true;
+            modifiers.Add($"{st.AttackerAbilityName}({TypeNames.ToJapanese(skinType)}タイプ化)");
         }
-        else if (attackerAbility == "normalize" && !noTypeChange)
+        else if (st.AttackerAbility == "normalize" && !noTypeChange)
         {
-            moveType = "Normal";
-            hasAte = true;
-            modifiers.Add($"{atkName}(ノーマルタイプ化)");
+            st.MoveType = "Normal";
+            st.HasAte = true;
+            modifiers.Add($"{st.AttackerAbilityName}(ノーマルタイプ化)");
         }
+    }
 
-        // --- 壁（かわらわり・サイコファング・レイジングブルは壁を壊す。すりぬけは無視。壁は技の分類で決まる）
+    /// <summary>壁（かわらわり・サイコファング・レイジングブルは壁を壊す。すりぬけは無視。壁は技の分類で決まる）。</summary>
+    private void ResolveScreens(ModernState st)
+    {
         // （Screen はオーロラベール・チャットの「壁」。物理・特殊の両方に効く）
-        var reflect = request.Reflect || request.Screen;
-        var lightScreen = request.LightScreen || request.Screen;
-        if (attackerAbility == "infiltrator") reflect = lightScreen = false;
-        if ((reflect || lightScreen) && moveId != 0 && MoveEffects.BreaksScreens(move, _generation))
+        st.Reflect = st.Request.Reflect || st.Request.Screen;
+        st.LightScreen = st.Request.LightScreen || st.Request.Screen;
+        if (st.AttackerAbility == "infiltrator") st.Reflect = st.LightScreen = false;
+        if ((st.Reflect || st.LightScreen) && st.MoveId != 0 && MoveEffects.BreaksScreens(st.Move, _generation))
         {
-            reflect = lightScreen = false;
-            modifiers.Add($"{move.Name}(壁を壊す)");
+            st.Reflect = st.LightScreen = false;
+            st.Modifiers.Add($"{st.Move.Name}(壁を壊す)");
         }
+    }
 
-        // --- 相性（きもったま・しんがんはノーマル・かくとう技がゴーストに当たる）
-        var defenderTypes = defender.DefensiveTypes;
-        var ghostRevealed = attackerAbility is "scrappy" or "minds-eye";
+    /// <summary>相性（きもったま・しんがんはノーマル・かくとう技がゴーストに当たる）。効果が無ければその結果を返す。</summary>
+    private DamageResult? ResolveEffectiveness(ModernState st)
+    {
+        var modifiers = st.Modifiers;
+        var defenderTypes = st.Defender.DefensiveTypes;
+        var ghostRevealed = st.AttackerAbility is "scrappy" or "minds-eye";
         // ねらいのまと: 効果が無いタイプにも等倍で当たる
-        var ringTarget = defenderItem?.Id == ItemIdRingTarget && defenderAbility != "klutz";
+        var ringTarget = st.DefenderItem?.Id == ItemIdRingTarget && st.DefenderAbility != "klutz";
         var effectiveness = 1.0;
         foreach (var t in defenderTypes)
         {
-            var m = _typeChart.Against(moveType, t);
-            if (m == 0 && ghostRevealed && t == "Ghost" && moveType is "Normal" or "Fighting") m = 1;
+            var m = _typeChart.Against(st.MoveType, t);
+            if (m == 0 && ghostRevealed && t == "Ghost" && st.MoveType is "Normal" or "Fighting") m = 1;
             if (m == 0 && ringTarget)
             {
                 m = 1;
-                modifiers.Add($"{defenderItem!.Name}(効果が無いタイプにも当たる)");
+                modifiers.Add($"{st.DefenderItem!.Name}(効果が無いタイプにも当たる)");
             }
             effectiveness *= m;
         }
         if (effectiveness == 0)
-            return Empty(defenderHp, 0, moveType, "効果なし");
-        if (ghostRevealed && defenderTypes.Contains("Ghost") && moveType is "Normal" or "Fighting")
-            modifiers.Add($"{atkName}(ゴーストに当たる)");
+            return Empty(st.DefenderHp, 0, st.MoveType, "効果なし");
+        if (ghostRevealed && defenderTypes.Contains("Ghost") && st.MoveType is "Normal" or "Fighting")
+            modifiers.Add($"{st.AttackerAbilityName}(ゴーストに当たる)");
 
         // テラスシェル: HP が満タンなら、どの技もいまひとつ（0.5 倍）
-        if (defenderAbility == "tera-shell" && defender.IsFullHp)
+        if (st.DefenderAbility == "tera-shell" && st.Defender.IsFullHp)
         {
             effectiveness = 0.5;
-            modifiers.Add($"{defName}(HP満タンでいまひとつ)");
+            modifiers.Add($"{st.DefenderAbilityName}(HP満タンでいまひとつ)");
         }
+        st.Effectiveness = effectiveness;
+        return null;
+    }
 
-        // --- 特性・持ち物・フィールドによる無効化
-        var immunity = AbilityEffects.ImmunityReason(defenderAbility, moveType, move, effectiveness);
+    /// <summary>特性・持ち物・フィールドによる無効化。無効ならその結果を返す。</summary>
+    private static DamageResult? CheckImmunity(ModernState st)
+    {
+        var immunity = AbilityEffects.ImmunityReason(st.DefenderAbility, st.MoveType, st.Move, st.Effectiveness);
         if (immunity is not null)
-            return Empty(defenderHp, 0, moveType, $"{defName}({immunity})");
-        if (moveType == "Ground" && defenderItem?.Id == ItemIdAirBalloon)
-            return Empty(defenderHp, 0, moveType, $"{defenderItem.Name}(じめん技無効)");
-        if (move.Priority > 0 && !attacker.IsDynamax && terrain == Terrain.Psychic && defenderGrounded)
-            return Empty(defenderHp, 0, moveType, "サイコフィールド(地面にいる相手に先制技は出ない)");
+            return Empty(st.DefenderHp, 0, st.MoveType, $"{st.DefenderAbilityName}({immunity})");
+        if (st.MoveType == "Ground" && st.DefenderItem?.Id == ItemIdAirBalloon)
+            return Empty(st.DefenderHp, 0, st.MoveType, $"{st.DefenderItem.Name}(じめん技無効)");
+        if (st.Move.Priority > 0 && !st.Attacker.IsDynamax && st.Terrain == Terrain.Psychic && st.DefenderGrounded)
+            return Empty(st.DefenderHp, 0, st.MoveType, "サイコフィールド(地面にいる相手に先制技は出ない)");
+        return null;
+    }
 
-        // --- 威力
+    /// <summary>威力（技ごとの倍率、威力の補正、テラスタルの 60 保証）。</summary>
+    private void ResolvePower(ModernState st, bool multiHit)
+    {
+        var move = st.Move;
+        var attacker = st.Attacker;
+        var defender = st.Defender;
+        var modifiers = st.Modifiers;
         var power = move.Power;
         if (attacker.IsDynamax)
         {
             power = MaxMovePower(move);
             modifiers.Add($"ダイマックス技(威力{power})");
         }
-        else if (move.Id == MoveEffects.MoveIdWeatherBall && MoveEffects.WeatherBallType(weather) is not null
-            || move.Id == MoveEffects.MoveIdTerrainPulse && attackerGrounded && terrain != Terrain.None)
+        else if (move.Id == MoveEffects.MoveIdWeatherBall && MoveEffects.WeatherBallType(st.Weather) is not null
+            || move.Id == MoveEffects.MoveIdTerrainPulse && st.AttackerGrounded && st.Terrain != Terrain.None)
             power *= 2;
         else if (MoveEffects.DoublesAgainstStatus(move, defender.Status))
         {
             power *= 2;
             modifiers.Add($"{move.Name}(相手が{StatusNames.Japanese(defender.Status)}で威力2倍)");
         }
-        else if (move.Id == MoveIdRisingVoltage && terrain == Terrain.Electric && defenderGrounded)
+        else if (move.Id == MoveIdRisingVoltage && st.Terrain == Terrain.Electric && st.DefenderGrounded)
         {
             power *= 2;
             modifiers.Add("ライジングボルト(エレキフィールドで威力2倍)");
         }
-        else if (move.Id == MoveIdPsyblade && terrain == Terrain.Electric)
+        else if (move.Id == MoveIdPsyblade && st.Terrain == Terrain.Electric)
         {
             power = power * 3 / 2;
             modifiers.Add("サイコブレイド(エレキフィールドで威力1.5倍)");
         }
-        var target = move.Target;
-        var bpMods = BasePowerModifiers(request, attacker, defender, move, moveType, power, hasAte, attackerAbility, defenderAbility,
-            attackerItem, defenderItem, weather, terrain, attackerGrounded, defenderGrounded, effectiveness, modifiers, ref target);
+        var target = st.Target;
+        var bpMods = BasePowerModifiers(st.Request, attacker, defender, move, st.MoveType, power, st.HasAte, st.AttackerAbility, st.DefenderAbility,
+            st.AttackerItem, st.DefenderItem, st.Weather, st.Terrain, st.AttackerGrounded, st.DefenderGrounded, st.Effectiveness, modifiers, ref target);
+        st.Target = target;
         power = Math.Max(1, PokeRound(power * (double)LegacyDamageCalculator.Chain(bpMods, 41, 2097152) / 4096));
         // テラスタル: テラスタイプと同じタイプの技（元のタイプにもある・先制技・連続技でない）は威力 60 未満でも 60
-        var isTeraStab = attacker.IsTerastallized && attacker.TeraType == moveType;
-        if (isTeraStab && power < 60 && move.Priority <= 0 && !multiHit && _generation >= 9)
+        st.IsTeraStab = attacker.IsTerastallized && attacker.TeraType == st.MoveType;
+        if (st.IsTeraStab && power < 60 && move.Priority <= 0 && !multiHit && _generation >= 9)
         {
             power = 60;
             modifiers.Add("テラスタル(威力60保証)");
         }
+        st.Power = power;
+    }
 
-        // --- 攻撃側の実数値（イカサマは相手の攻撃とランク、ボディプレスは自分の防御とランク。メテオビームは溜めるときに特攻 +1）
-        var attackSource = moveId == MoveEffects.MoveIdFoulPlay ? defender : attacker;
-        if (moveId == MoveEffects.MoveIdFoulPlay) modifiers.Add($"{move.Name}(相手のAで計算)");
-        if (moveId == MoveEffects.MoveIdBodyPress)
+    /// <summary>攻撃側の実数値（イカサマは相手の攻撃とランク、ボディプレスは自分の防御とランク。メテオビームは溜めるときに特攻 +1）。</summary>
+    private int ComputeAttackStat(ModernState st)
+    {
+        var attacker = st.Attacker;
+        var move = st.Move;
+        var modifiers = st.Modifiers;
+        var attackSource = st.MoveId == MoveEffects.MoveIdFoulPlay ? st.Defender : attacker;
+        if (st.MoveId == MoveEffects.MoveIdFoulPlay) modifiers.Add($"{move.Name}(相手のAで計算)");
+        if (st.MoveId == MoveEffects.MoveIdBodyPress)
         {
-            attackStatKind = Stat.Defense;
+            st.AttackStatKind = Stat.Defense;
             modifiers.Add($"{move.Name}(自分のBで計算)");
         }
-        var attackStat = StatCalculator.Calculate(attackSource, attackStatKind);
-        var attackBoost = attackSource.Boosts[attackStatKind];
-        if (attackerSeedBoost == attackStatKind && attackSource == attacker) attackBoost = Math.Min(6, attackBoost + 1);
-        if (MoveEffects.RaisesSpAttackFirst(move) && moveId != 0)
+        var attackStat = StatCalculator.Calculate(attackSource, st.AttackStatKind);
+        var attackBoost = attackSource.Boosts[st.AttackStatKind];
+        if (st.AttackerSeedBoost == st.AttackStatKind && attackSource == attacker) attackBoost = Math.Min(6, attackBoost + 1);
+        if (MoveEffects.RaisesSpAttackFirst(move) && st.MoveId != 0)
         {
             attackBoost = Math.Min(6, attackBoost + 1);
             modifiers.Add($"{move.Name}(溜めるときにC+1)");
         }
-        if (attackBoost != 0 && !(isCritical && attackBoost < 0))
+        if (attackBoost != 0 && !(st.IsCritical && attackBoost < 0))
         {
-            if (defenderAbility == "unaware") modifiers.Add($"{defName}(ランク無視)");
+            if (st.DefenderAbility == "unaware") modifiers.Add($"{st.DefenderAbilityName}(ランク無視)");
             else
             {
                 attackStat = StatCalculator.ApplyBoost(attackStat, attackBoost);
                 modifiers.Add($"攻撃側ランク{(attackBoost > 0 ? "+" : "")}{attackBoost}");
             }
         }
-        if (attackerAbility == "hustle" && isPhysical)
+        if (st.AttackerAbility == "hustle" && st.IsPhysical)
         {
             attackStat = PokeRound(attackStat * 3 / 2.0);
-            modifiers.Add($"{atkName}(A1.5倍)");
+            modifiers.Add($"{st.AttackerAbilityName}(A1.5倍)");
         }
-        var atMods = AttackModifiers(attacker, defender, move, moveType, isPhysical, attackerAbility, defenderAbility, attackerItem,
-            weather, terrain, modifiers);
-        attackStat = Math.Max(1, PokeRound(attackStat * (double)LegacyDamageCalculator.Chain(atMods, 410, 131072) / 4096));
+        var atMods = AttackModifiers(attacker, st.Defender, move, st.MoveType, st.IsPhysical, st.AttackerAbility, st.DefenderAbility, st.AttackerItem,
+            st.Weather, st.Terrain, modifiers);
+        return Math.Max(1, PokeRound(attackStat * (double)LegacyDamageCalculator.Chain(atMods, 410, 131072) / 4096));
+    }
 
-        // --- 防御側の実数値
-        var defenseStat = StatCalculator.Calculate(defender, defenseStatKind);
-        var defenseBoost = Math.Clamp(defender.Boosts[defenseStatKind] + (defenderSeedBoost == defenseStatKind ? 1 : 0), -6, 6);
-        if (defenseBoost != 0 && moveId != 0 && MoveEffects.IgnoresDefenseBoosts(move))
+    /// <summary>防御側の実数値。</summary>
+    private int ComputeDefenseStat(ModernState st)
+    {
+        var defender = st.Defender;
+        var move = st.Move;
+        var modifiers = st.Modifiers;
+        var defenderTypes = defender.DefensiveTypes;
+        var defenseStat = StatCalculator.Calculate(defender, st.DefenseStatKind);
+        var defenseBoost = Math.Clamp(defender.Boosts[st.DefenseStatKind] + (st.DefenderSeedBoost == st.DefenseStatKind ? 1 : 0), -6, 6);
+        if (defenseBoost != 0 && st.MoveId != 0 && MoveEffects.IgnoresDefenseBoosts(move))
         {
             modifiers.Add($"{move.Name}(相手のランク変化を無視)");
             defenseBoost = 0;
         }
-        if (defenseBoost != 0 && !(isCritical && defenseBoost > 0))
+        if (defenseBoost != 0 && !(st.IsCritical && defenseBoost > 0))
         {
-            if (attackerAbility == "unaware") modifiers.Add($"{atkName}(ランク無視)");
+            if (st.AttackerAbility == "unaware") modifiers.Add($"{st.AttackerAbilityName}(ランク無視)");
             else
             {
                 defenseStat = StatCalculator.ApplyBoost(defenseStat, defenseBoost);
                 modifiers.Add($"防御側ランク{(defenseBoost > 0 ? "+" : "")}{defenseBoost}");
             }
         }
-        if (weather == Weather.Sand && !hitsPhysical && defenderTypes.Contains("Rock"))
+        if (st.Weather == Weather.Sand && !st.HitsPhysical && defenderTypes.Contains("Rock"))
         {
             defenseStat = PokeRound(defenseStat * 3 / 2.0);
             modifiers.Add("砂嵐(いわタイプのD1.5倍)");
         }
         // 剣盾の「あられ」にはこおりタイプの防御上昇が無い（第 9 世代の「雪」だけ）
-        if (weather == Weather.Snow && _generation >= 9 && hitsPhysical && defenderTypes.Contains("Ice"))
+        if (st.Weather == Weather.Snow && _generation >= 9 && st.HitsPhysical && defenderTypes.Contains("Ice"))
         {
             defenseStat = PokeRound(defenseStat * 3 / 2.0);
             modifiers.Add("雪(こおりタイプのB1.5倍)");
         }
-        var dfMods = DefenseModifiers(request, attacker, defender, hitsPhysical, attackerAbility, defenderAbility, defenderItem, weather, terrain, modifiers);
-        defenseStat = Math.Max(1, PokeRound(defenseStat * (double)LegacyDamageCalculator.Chain(dfMods, 410, 131072) / 4096));
+        var dfMods = DefenseModifiers(st.Request, st.Attacker, defender, st.HitsPhysical, st.AttackerAbility, st.DefenderAbility, st.DefenderItem, st.Weather, st.Terrain, modifiers);
+        return Math.Max(1, PokeRound(defenseStat * (double)LegacyDamageCalculator.Chain(dfMods, 410, 131072) / 4096));
+    }
 
-        // --- 基礎ダメージ
-        var levelTerm = attacker.Level * 2 / 5 + 2;
-        var baseDamage = (int)((long)levelTerm * power * attackStat / defenseStat / 50 + 2);
-        if (request.Format == BattleFormat.Doubles && target != MoveTarget.Single)
+    /// <summary>基礎ダメージ（複数対象、おやこあいの 2 回目、天候、急所まで）。</summary>
+    private int ComputeBaseDamage(ModernState st, int attackStat, int defenseStat, bool parentalChild)
+    {
+        var modifiers = st.Modifiers;
+        var weather = st.Weather;
+        var levelTerm = st.Attacker.Level * 2 / 5 + 2;
+        var baseDamage = (int)((long)levelTerm * st.Power * attackStat / defenseStat / 50 + 2);
+        if (st.Request.Format == BattleFormat.Doubles && st.Target != MoveTarget.Single)
         {
             baseDamage = PokeRound(baseDamage * 3072 / 4096.0);
             modifiers.Add("複数対象(0.75倍)");
@@ -535,74 +640,84 @@ public sealed class DamageCalculator
         if (parentalChild) baseDamage = PokeRound(baseDamage * 1024 / 4096.0);
 
         // --- 天候
-        if (weather == Weather.Sun && move.Id == MoveIdHydroSteam)
+        if (weather == Weather.Sun && st.Move.Id == MoveIdHydroSteam)
         {
             baseDamage = PokeRound(baseDamage * 6144 / 4096.0);
             modifiers.Add("ハイドロスチーム(晴れで1.5倍)");
         }
-        else if (weather == Weather.Sun && moveType == "Fire" || weather == Weather.Rain && moveType == "Water")
+        else if (weather == Weather.Sun && st.MoveType == "Fire" || weather == Weather.Rain && st.MoveType == "Water")
         {
             baseDamage = PokeRound(baseDamage * 6144 / 4096.0);
             modifiers.Add($"{FieldNames.Japanese(weather)}(1.5倍)");
         }
-        else if (weather == Weather.Sun && moveType == "Water" || weather == Weather.Rain && moveType == "Fire")
+        else if (weather == Weather.Sun && st.MoveType == "Water" || weather == Weather.Rain && st.MoveType == "Fire")
         {
             baseDamage = PokeRound(baseDamage * 2048 / 4096.0);
             modifiers.Add($"{FieldNames.Japanese(weather)}(0.5倍)");
         }
 
         // --- 急所（スナイパーの 1.5 倍は最後の補正で掛ける）
-        if (isCritical)
+        if (st.IsCritical)
         {
             baseDamage = (int)Math.Floor(baseDamage * 1.5);
             modifiers.Add("急所(1.5倍)");
         }
+        return baseDamage;
+    }
 
-        // --- タイプ一致（テラスタル中: 元のタイプの技も 1.5 倍。てきおうりょくは今のタイプ（テラスタイプ）と同じ技だけ）
-        var isOriginalStab = attacker.Pokemon.HasType(moveType);
+    /// <summary>タイプ一致（テラスタル中: 元のタイプの技も 1.5 倍。てきおうりょくは今のタイプ（テラスタイプ）と同じ技だけ）と、相性・やけどの表示。</summary>
+    private static void ResolveStabAndBurn(ModernState st)
+    {
+        var attacker = st.Attacker;
+        var isOriginalStab = attacker.Pokemon.HasType(st.MoveType);
         var stabMod = 4096;
         if (isOriginalStab) stabMod += 2048;
-        if (isTeraStab) stabMod += 2048;
-        if (attackerAbility == "adaptability" && (attacker.IsTerastallized ? isTeraStab : isOriginalStab))
-            stabMod += isTeraStab && isOriginalStab ? 1024 : 2048;
-        var isStab = stabMod != 4096;
-        if (isStab) modifiers.Add($"タイプ一致({stabMod / 4096.0:0.##}倍)");
+        if (st.IsTeraStab) stabMod += 2048;
+        if (st.AttackerAbility == "adaptability" && (attacker.IsTerastallized ? st.IsTeraStab : isOriginalStab))
+            stabMod += st.IsTeraStab && isOriginalStab ? 1024 : 2048;
+        st.StabMod = stabMod;
+        if (stabMod != 4096) st.Modifiers.Add($"タイプ一致({stabMod / 4096.0:0.##}倍)");
 
-        if (effectiveness != 1.0) modifiers.Add($"タイプ相性{effectiveness:0.##}倍");
+        if (st.Effectiveness != 1.0) st.Modifiers.Add($"タイプ相性{st.Effectiveness:0.##}倍");
 
         // やけど: 物理技 0.5 倍（こんじょう・からげんきは除く）
-        var applyBurn = attacker.Status == StatusCondition.Burn && isPhysical && attackerAbility != "guts" && move.Id != MoveIdFacade;
-        if (applyBurn) modifiers.Add("やけど(物理0.5倍)");
+        st.ApplyBurn = attacker.Status == StatusCondition.Burn && st.IsPhysical && st.AttackerAbility != "guts" && st.Move.Id != MoveIdFacade;
+        if (st.ApplyBurn) st.Modifiers.Add("やけど(物理0.5倍)");
+    }
 
-        // --- 最後の補正（2 発目以降はマルチスケイル・半減きのみが無くなる）
-        var finalMod = LegacyDamageCalculator.Chain(FinalModifiers(request, attacker, defender, move, moveType, isPhysical, effectiveness, isCritical,
-            reflect, lightScreen, attackerAbility, defenderAbility, attackerItem, defenderItem, modifiers, firstHit: true), 41, 131072);
-        var laterMod = LegacyDamageCalculator.Chain(FinalModifiers(request, attacker, defender, move, moveType, isPhysical, effectiveness, isCritical,
-            reflect, lightScreen, attackerAbility, defenderAbility, attackerItem, defenderItem, new List<string>(), firstHit: false), 41, 131072);
+    /// <summary>最後の補正を掛けて 16 通りのダメージと結果を作る（2 発目以降はマルチスケイル・半減きのみが無くなる）。</summary>
+    private DamageResult BuildModernResult(ModernState st, int baseDamage, int attackStat, int defenseStat)
+    {
+        var request = st.Request;
+        var modifiers = st.Modifiers;
+        var finalMod = LegacyDamageCalculator.Chain(FinalModifiers(request, st.Attacker, st.Defender, st.Move, st.MoveType, st.IsPhysical, st.Effectiveness, st.IsCritical,
+            st.Reflect, st.LightScreen, st.AttackerAbility, st.DefenderAbility, st.AttackerItem, st.DefenderItem, modifiers, firstHit: true), 41, 131072);
+        var laterMod = LegacyDamageCalculator.Chain(FinalModifiers(request, st.Attacker, st.Defender, st.Move, st.MoveType, st.IsPhysical, st.Effectiveness, st.IsCritical,
+            st.Reflect, st.LightScreen, st.AttackerAbility, st.DefenderAbility, st.AttackerItem, st.DefenderItem, new List<string>(), firstHit: false), 41, 131072);
 
         int[] ComputeRolls(int fm)
         {
             var result = new int[16];
             for (var i = 0; i < 16; i++)
-                result[i] = LegacyDamageCalculator.FinalDamage(baseDamage, i, effectiveness, applyBurn, stabMod, fm);
+                result[i] = LegacyDamageCalculator.FinalDamage(baseDamage, i, st.Effectiveness, st.ApplyBurn, st.StabMod, fm);
             return result;
         }
         var rolls = ComputeRolls(finalMod);
         var laterRolls = laterMod == finalMod ? rolls : ComputeRolls(laterMod);
-        var koOptions = KnockOutOptions.For(request, defender, defenderHp, defenderGrounded, laterRolls, modifiers);
+        var koOptions = KnockOutOptions.For(request, st.Defender, st.DefenderHp, st.DefenderGrounded, laterRolls, modifiers);
 
         return new DamageResult
         {
             Rolls = rolls,
             LaterRolls = laterRolls,
-            DefenderHP = defenderHp,
-            TypeEffectiveness = effectiveness,
-            IsStab = isStab,
+            DefenderHP = st.DefenderHp,
+            TypeEffectiveness = st.Effectiveness,
+            IsStab = st.StabMod != 4096,
             AttackStat = attackStat,
             DefenseStat = defenseStat,
-            BasePower = power,
-            MoveType = moveType,
-            KnockOut = KnockOutCalculator.Calculate(rolls, defenderHp, koOptions),
+            BasePower = st.Power,
+            MoveType = st.MoveType,
+            KnockOut = KnockOutCalculator.Calculate(rolls, st.DefenderHp, koOptions),
             Modifiers = modifiers,
         };
     }
