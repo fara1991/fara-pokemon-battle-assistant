@@ -323,7 +323,7 @@
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 
-    private Task LoadAsync() => LoadSafelyAsync(LoadCoreAsync, () => { data = null; chart = null; });
+    private Task LoadAsync() => LoadSafelyAsync(LoadCoreAsync, () => { data = null; chart = null; pokemonList = Array.Empty<Pokemon>(); selected = null; });
 
     private async Task LoadCoreAsync()
     {

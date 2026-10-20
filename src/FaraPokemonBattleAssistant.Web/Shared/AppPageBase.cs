@@ -39,7 +39,7 @@ public abstract class AppPageBase : ComponentBase, IDisposable
             LoadError = "";
             await load();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             onFailure();
             LoadError = $"データの読み込みに失敗しました: {ex.Message}";

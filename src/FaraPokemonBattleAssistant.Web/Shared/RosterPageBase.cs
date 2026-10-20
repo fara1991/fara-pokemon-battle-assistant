@@ -28,7 +28,6 @@ public abstract class RosterPageBase : AppPageBase
 
     protected override async Task OnAppReadyAsync()
     {
-        if (IsDisposed) return;
         Sync.Changed += OnSyncChanged;
         await LoadAsync();
     }
@@ -97,6 +96,9 @@ public abstract class RosterPageBase : AppPageBase
     }
 
     private bool mutating;
+
+    /// <summary>登録データを変更する操作を実行中か。</summary>
+    protected bool Mutating => mutating;
 
     /// <summary>処理の結果は画面右上のトーストで知らせる（Services/ToastService.cs）。</summary>
     protected void Show(string text, bool isError) => Toast.Show(text, isError);

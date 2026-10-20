@@ -223,6 +223,7 @@ public sealed class PokemonDataSet
                 // 失敗した読み込みを残さない（残すと、データを読み直すまで毎回同じ失敗になる）
                 _ = loading.ContinueWith(t =>
                 {
+                    _ = t.Exception;   // 待っている人がいなくても、例外を観測済みにする
                     lock (_usage)
                     {
                         if (_usage.TryGetValue(format, out var current) && ReferenceEquals(current, t)) _usage.Remove(format);
