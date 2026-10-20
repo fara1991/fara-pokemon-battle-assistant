@@ -47,4 +47,16 @@ public class MoveDexTests
         var byType = MoveDex.Query(data, new MoveFilter { Sort = MoveSort.Type });
         Assert.True(byType.Zip(byType.Skip(1)).All(p => typeOrder.IndexOf(p.First.Type) <= typeOrder.IndexOf(p.Second.Type)));
     }
+
+    [Fact]
+    public async Task A_canceled_usage_request_does_not_break_later_requests()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        // 最初の呼び出しがキャンセルされても、読み込みを使い回す次の呼び出しは成功する
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => data.GetUsageAsync(BattleFormat.Singles, cts.Token));
+        var usage = await data.GetUsageAsync(BattleFormat.Singles);
+        Assert.NotNull(usage);
+    }
 }

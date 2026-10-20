@@ -306,6 +306,7 @@ else
 
     private async Task TogglePickedAsync(RivalPokemon rival)
     {
+        if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         var picked = !rival.Picked;
         await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r =>
         {
@@ -328,6 +329,7 @@ else
 
     private async Task AddRivalAsync()
     {
+        if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         if (newPokemon is null) return;
         var pokemon = newPokemon;
         var added = false;
@@ -346,6 +348,7 @@ else
 
     private async Task RemoveRivalAsync(RivalPokemon rival)
     {
+        if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r => { var n = r.Rivals.RemoveAll(x => x.Id == rival.Id); return (n > 0, n > 0); }));
         if (editingId == rival.Id) editingId = null;
         Show($"{rival.PokemonName}を対戦中の相手から外しました（履歴には残しません）", false);
@@ -371,6 +374,7 @@ else
 
     private async Task SaveEditAsync(RivalPokemon rival)
     {
+        if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         if (dataSet is null) return;
         var values = new Dictionary<Stat, int?>();
         foreach (var stat in EditStats)
@@ -421,6 +425,7 @@ else
 
     private async Task EndMatchAsync()
     {
+        if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         EndMatchResult? ended = null;
         await MutateAsync(async () => ended = await Repo.EndMatchAsync(App.DataSetKey, memo, DateTimeOffset.Now));
         editingId = null;
@@ -431,6 +436,7 @@ else
 
     private async Task RemoveMatchAsync(RivalMatch match)
     {
+        if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         await MutateAsync(async () => await Repo.ChangeRivalsAsync(App.DataSetKey, r => { var n = r.History.RemoveAll(x => x.Id == match.Id); return (n > 0, n > 0); }));
         Show($"履歴 #{match.Id} を削除しました", false);
     }

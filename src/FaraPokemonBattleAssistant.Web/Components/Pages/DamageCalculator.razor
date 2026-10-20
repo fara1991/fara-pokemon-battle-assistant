@@ -346,6 +346,7 @@ else if (data is not null && dataSet is not null)
         s.Weather = Stage.SharedWeather;
         s.Terrain = Stage.SharedTerrain;
         await LoadDataSet();
+        if (IsDisposed) return;   // 読み込み中に別のページへ移っていたら、URL を書き換えたり、共有の Stage に書いたりしない
         stageReady = true;
         // ポケモン一覧から開いたとき（?attacker=ID / ?defender=ID）は、そのポケモンを入れてから URL を戻す
         if (AttackerQuery is > 0 || DefenderQuery is > 0)
@@ -450,6 +451,7 @@ else if (data is not null && dataSet is not null)
         }
         catch (Exception ex)
         {
+            data = null;   // 前のゲームのデータのまま描画・計算しない
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
     }

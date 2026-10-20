@@ -9,6 +9,11 @@
     <p class="text-muted mb-0">@(data?.Info.Name ?? "")に収録されている技。条件で絞り込み、見出しを押すと並べ替えられます。</p>
 </div>
 
+@if (!string.IsNullOrEmpty(LoadError))
+{
+    <div class="alert alert-danger">@LoadError</div>
+}
+
 @if (data is not null)
 {
     var f = s.Filter;
@@ -147,7 +152,9 @@
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 
-    private async Task LoadAsync()
+    private Task LoadAsync() => LoadSafelyAsync(LoadCoreAsync, () => { data = null; allMoves = Array.Empty<Move>(); results = new(); });
+
+    private async Task LoadCoreAsync()
     {
         data = await Catalog.GetDataSetAsync(App.DataSetKey);
         if (s.DataSetKey != App.DataSetKey)

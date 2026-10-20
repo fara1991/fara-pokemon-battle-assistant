@@ -54,6 +54,9 @@ public abstract class RosterPageBase : AppPageBase
         }
         catch (Exception ex)
         {
+            // 前のゲームのデータで描画（と、削除などの操作）が続かないようにする
+            data = null;
+            roster = null;
             Show($"読み込みに失敗しました: {CloudSync.Describe(ex)}", true);
         }
     }
@@ -74,6 +77,9 @@ public abstract class RosterPageBase : AppPageBase
     /// <summary>登録データを変更する操作を実行する。失敗したら理由を出し、最新の内容を読み直す。</summary>
     protected async Task MutateAsync(Func<Task> action)
     {
+        // 実行中に同じ操作がもう一度押されても、二重に実行しない
+        if (mutating) return;
+        mutating = true;
         try
         {
             await action();
@@ -82,8 +88,17 @@ public abstract class RosterPageBase : AppPageBase
         {
             Show(CloudSync.Describe(ex), true);
         }
-        await RefreshRosterAsync();
+        finally
+        {
+            await RefreshRosterAsync();
+            mutating = false;
+        }
     }
+
+    private bool mutating;
+
+    /// <summary>登録データを変更する操作を実行中か。</summary>
+    protected bool Mutating => mutating;
 
     /// <summary>処理の結果は画面右上のトーストで知らせる（Services/ToastService.cs）。</summary>
     protected void Show(string text, bool isError) => Toast.Show(text, isError);

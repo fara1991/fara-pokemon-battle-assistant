@@ -206,6 +206,7 @@ else if (data is not null && dataSet is not null)
         s.Weather = Stage.SharedWeather;
         s.Terrain = Stage.SharedTerrain;
         await LoadAsync();
+        if (IsDisposed) return;   // 読み込み中に別のページへ移っていたら、URL を書き換えたり、共有の Stage に書いたりしない
         stageReady = true;
         // ポケモン一覧から開いたとき（?p1=ID）は、ポケモン1 に入れてから URL を戻す
         if (P1Query is > 0 and var id)
@@ -336,6 +337,7 @@ else if (data is not null && dataSet is not null)
             // 通常のオーガポンの既定は、みどりのめん。チームのメンバーなら、チームで持たせた持ち物のまま（ほかのすがたのお面だけ直す）
             build.Item = member.Entry is null ? data.FindItem(2102) : MoveEffects.NormalizeOgerponItem(pokemon, build.Item, data);
         }
+        build.TeraType = null;   // 同上（チームのメンバーの構成から作った場合）
         s.Builds[side] = build;
     }
 
@@ -350,6 +352,7 @@ else if (data is not null && dataSet is not null)
         if (keepCurrent && s.Builds[side] is { } current && build is not null)
             build = mega is null ? RosterRepository.ToBaseBuild(current, choice.Entry, data, choice.Item) : RosterRepository.ToMegaBuild(current, mega, data);
         else if (mega is not null && build is not null) build = RosterRepository.ToMegaBuild(build, mega, data);
+        if (build is not null) build.TeraType = null;   // 素早さ比較にはテラスタルの欄が無いので、登録のテラスタイプで見えない能力変化（オーガポンの S+1）を付けない
         s.Builds[side] = build;
     }
 

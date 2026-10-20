@@ -211,15 +211,28 @@ public sealed class PokemonDataSet
 
     public Task<UsageData> GetUsageAsync(BattleFormat format, CancellationToken ct = default)
     {
+        Task<UsageData> task;
         lock (_usage)
         {
-            if (!_usage.TryGetValue(format, out var task))
+            if (!_usage.TryGetValue(format, out var cached))
             {
-                task = LoadUsageAsync(format, ct);
-                _usage[format] = task;
+                // 読み込み自体は、最初に呼んだ側のキャンセルに巻き込まない（共有して使い回すため）。呼んだ側ごとに待つだけをキャンセルする
+                cached = LoadUsageAsync(format, CancellationToken.None);
+                _usage[format] = cached;
+                var loading = cached;
+                // 失敗した読み込みを残さない（残すと、データを読み直すまで毎回同じ失敗になる）
+                _ = loading.ContinueWith(t =>
+                {
+                    _ = t.Exception;   // 待っている人がいなくても、例外を観測済みにする
+                    lock (_usage)
+                    {
+                        if (_usage.TryGetValue(format, out var current) && ReferenceEquals(current, t)) _usage.Remove(format);
+                    }
+                }, CancellationToken.None, TaskContinuationOptions.NotOnRanToCompletion, TaskScheduler.Default);
             }
-            return task;
+            task = cached;
         }
+        return task.WaitAsync(ct);
     }
 
     private async Task<UsageData> LoadUsageAsync(BattleFormat format, CancellationToken ct)
