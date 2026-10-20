@@ -112,27 +112,7 @@ public sealed partial class PokeCommand
             if (DamageCommand.TryParseArrowStats(token, out var arrowUp, out var arrowDown))
             {
                 if (current is null) return (specs, $"「{token}」の前に、ポケモン名を書いてください");
-                if (arrowUp == Stat.HP || arrowDown == Stat.HP) return (specs, $"「{token}」に合う性格がありません");
-                if (arrowUp is not null && arrowDown is not null)
-                {
-                    var both = data.Natures.FirstOrDefault(n => n.IncreasedStat == arrowUp && n.DecreasedStat == arrowDown);
-                    if (both is null) return (specs, $"「{token}」に合う性格がありません");
-                    current.Nature = both;
-                }
-                else
-                {
-                    current.NatureUp = arrowUp ?? current.NatureUp;
-                    current.NatureDown = arrowDown ?? current.NatureDown;
-                    if (current.NatureUp is not null && current.NatureUp == current.NatureDown)
-                        return (specs, $"{current.Pokemon.Name}の「{StatNames.Letter(current.NatureUp.Value)}」を、上がる能力と下がる能力の両方にはできません");
-                    // 上がる・下がる能力を別々に書いて両方そろったら、その性格にまとめる
-                    if (current.NatureUp is not null && current.NatureDown is not null
-                        && data.Natures.FirstOrDefault(n => n.IncreasedStat == current.NatureUp && n.DecreasedStat == current.NatureDown) is { } together)
-                    {
-                        current.Nature = together;
-                        current.NatureUp = current.NatureDown = null;
-                    }
-                }
+                if (ApplyArrowNature(current, token, arrowUp, arrowDown, data) is { } arrowError) return (specs, arrowError);
                 continue;
             }
             // ポケモン名・略称に完全に一致するときは、次のポケモン（前方・部分一致で、直前のポケモンの技や特性に読まれないようにする）
@@ -190,18 +170,50 @@ public sealed partial class PokeCommand
             return (specs, current is null ? NotFound("ポケモン", token, pokemon.Candidates.Select(p => p.Name))
                 : $"「{token}」が{current.Pokemon.Name}の振り方・性格・特性・技・持ち物・次のポケモン名として読めません");
         }
-        // ポイントの検証
+        return (specs, ValidatePoints(specs, system));
+    }
+
+    /// <summary>B↑A↓ のような性格の指定を、直前のポケモンに反映する。読めなければエラーの文を返す（片方だけのときは、分かっている方だけを覚える）。</summary>
+    private static string? ApplyArrowNature(RivalSpec current, string token, Stat? arrowUp, Stat? arrowDown, PokemonDataSet data)
+    {
+        if (arrowUp == Stat.HP || arrowDown == Stat.HP) return $"「{token}」に合う性格がありません";
+        if (arrowUp is not null && arrowDown is not null)
+        {
+            var both = data.Natures.FirstOrDefault(n => n.IncreasedStat == arrowUp && n.DecreasedStat == arrowDown);
+            if (both is null) return $"「{token}」に合う性格がありません";
+            current.Nature = both;
+        }
+        else
+        {
+            current.NatureUp = arrowUp ?? current.NatureUp;
+            current.NatureDown = arrowDown ?? current.NatureDown;
+            if (current.NatureUp is not null && current.NatureUp == current.NatureDown)
+                return $"{current.Pokemon.Name}の「{StatNames.Letter(current.NatureUp.Value)}」を、上がる能力と下がる能力の両方にはできません";
+            // 上がる・下がる能力を別々に書いて両方そろったら、その性格にまとめる
+            if (current.NatureUp is not null && current.NatureDown is not null
+                && data.Natures.FirstOrDefault(n => n.IncreasedStat == current.NatureUp && n.DecreasedStat == current.NatureDown) is { } together)
+            {
+                current.Nature = together;
+                current.NatureUp = current.NatureDown = null;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>振り方のポイントが、1 つの能力と合計の上限に収まっているか調べる。収まっていなければエラーの文を返す。</summary>
+    private static string? ValidatePoints(List<RivalSpec> specs, EvSystem system)
+    {
         foreach (var spec in specs)
         {
             foreach (var (stat, value) in spec.Evs)
             {
                 if (value < 0 || value > EvRules.MaxPerStat(system))
-                    return (specs, $"{spec.Pokemon.Name}の{StatNames.Letter(stat)}は 0〜{EvRules.MaxPerStat(system)} にしてください");
+                    return $"{spec.Pokemon.Name}の{StatNames.Letter(stat)}は 0〜{EvRules.MaxPerStat(system)} にしてください";
             }
             if (spec.Evs.Values.Sum() > EvRules.MaxTotal(system))
-                return (specs, $"{spec.Pokemon.Name}の{EvRules.Label(system)}の合計が {EvRules.MaxTotal(system)} を超えています");
+                return $"{spec.Pokemon.Name}の{EvRules.Label(system)}の合計が {EvRules.MaxTotal(system)} を超えています";
         }
-        return (specs, null);
+        return null;
     }
 
     /// <summary>相手の性格の、上がる能力・下がる能力（性格が決まっていればその性格から。決まっていなければ、分かっている方だけ）。</summary>
@@ -538,17 +550,8 @@ public sealed partial class PokeCommand
         // scan は相手チームの登録・絞り込みを保存するので、変更系と同じく配信者・モデレーターだけ
         if (!options.AllowMutations) return Fail("scan は相手チームを登録するため、配信者・モデレーターのみ使えます");
         if (args.Count < 4) return Fail($"書式: !{ds.CommandPrefix} scan 攻撃側 技±ランク 相手 受けたダメージ（例: 93 または 45%）");
-        // 数値トークンを探す（4 番目以降の最初の数値または %）
-        var damageIndex = -1;
-        double observed = 0;
-        var asPercent = false;
-        for (var i = 3; i < args.Count; i++)
-        {
-            var pm = PercentToken.Match(args[i]);
-            if (pm.Success) { observed = double.Parse(pm.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture); asPercent = true; damageIndex = i; break; }
-            if (double.TryParse(args[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0 && double.IsFinite(v) && args[i][0] is not ('+' or '-')) { observed = v; damageIndex = i; break; }   // 「+1」はランク。符号つきの数はダメージにしない
-        }
-        if (damageIndex < 0) return Fail("受けたダメージを数値（93）か割合（45%）で指定してください");
+        if (FindObservedDamage(args) is not { } found0) return Fail("受けたダメージを数値（93）か割合（45%）で指定してください");
+        var (damageIndex, observed, asPercent) = found0;
         var scanText = $"{args[0]} {args[1]} {args[2]} {args[damageIndex]}";
         args.RemoveAt(damageIndex);
 
@@ -634,6 +637,30 @@ public sealed partial class PokeCommand
             return (0, true);
         }, ct).ConfigureAwait(false);
 
+        return FormatScanResult(ds, data, request, pokemon, header, results,
+            merged, new ScanOutcome(narrowed, knownNatureSource, tooMany, applied, rivalAdded));
+    }
+
+    /// <summary>scan の引数から、受けたダメージ（4 番目以降の最初の数値または %）を探す。見つからなければ null。</summary>
+    private static (int Index, double Observed, bool AsPercent)? FindObservedDamage(List<string> args)
+    {
+        for (var i = 3; i < args.Count; i++)
+        {
+            var pm = PercentToken.Match(args[i]);
+            if (pm.Success) return (i, double.Parse(pm.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), true);
+            if (double.TryParse(args[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0 && double.IsFinite(v) && args[i][0] is not ('+' or '-')) return (i, v, false);   // 「+1」はランク。符号つきの数はダメージにしない
+        }
+        return null;
+    }
+
+    /// <summary>scan で相手を登録・更新した結果（絞り込んだ範囲、性格の手がかり、登録できなかった理由）。</summary>
+    private sealed record ScanOutcome(RivalScan? Narrowed, RivalPokemon? KnownNatureSource, string? TooMany, (bool Applied, string? Problem) Applied, bool RivalAdded);
+
+    /// <summary>scan の結果の文（1 行目は入力、2 行目以降が実数値・持ち物・努力値の範囲）を作る。</summary>
+    private static DamageCommandResult FormatScanResult(DataSetInfo ds, PokemonDataSet data, DamageRequest request, Pokemon pokemon, string header,
+        List<(Ability? Ability, EvEstimator.Estimate Estimate)> results, EvEstimator.Estimate merged, ScanOutcome outcome)
+    {
+        var (narrowed, knownNatureSource, tooMany, applied, rivalAdded) = outcome;
         // 推定の内訳。性格が分かっていれば、その補正の範囲だけを出す
         var unit = ds.EvSystem == EvSystem.Points ? "pt" : "";
         var defenseStat = merged.DefenseStat;
