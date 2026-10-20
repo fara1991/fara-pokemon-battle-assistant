@@ -42,7 +42,7 @@
                         <SearchableSelect TItem="Move" Items="moveChoices" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
                             SelectedValue="@(MoveAt(slot) == 0 ? "" : MoveAt(slot).ToString())" SelectedValueChanged="@(v => SetMove(slot, ParseId(v)))"
                             Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）">
-                            <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@CategoryText(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                            <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@MoveText.Category(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                         </SearchableSelect>
                     </div>
                 }
@@ -209,8 +209,6 @@
         results = dex.Query(s.Filter).ToList();
     }
 
-    private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
-
     private int MoveAt(int slot) => slot < s.Filter.MoveIds.Count ? s.Filter.MoveIds[slot] : 0;
 
     private void SetMove(int slot, int moveId)
@@ -305,10 +303,4 @@
 
     private string AbilityText(Pokemon p) => data is null ? "" : string.Join("・", data.AbilitiesOf(p).Select(a => a.Name));
 
-    private static string CategoryText(Move m) => m.Category switch
-    {
-        MoveCategory.Physical => "物理",
-        MoveCategory.Special => "特殊",
-        _ => "変化",
-    };
 }

@@ -133,7 +133,6 @@ public abstract class RosterPageBase : AppPageBase
     /// <summary>処理の結果は画面右上のトーストで知らせる（Services/ToastService.cs）。</summary>
     protected void Show(string text, bool isError) => Toast.Show(text, isError);
 
-    protected static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
     protected static string FormatStats(StatSet st) => $"H{st.HP}-A{st.Attack}-B{st.Defense}-C{st.SpAttack}-D{st.SpDefense}-S{st.Speed}";
 
     /// <summary>性格の表示（補正つき。例: いじっぱり（A↑C↓））。</summary>

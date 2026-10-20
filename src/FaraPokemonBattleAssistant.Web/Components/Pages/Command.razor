@@ -495,7 +495,6 @@ else if (data is not null)
         }
     }
 
-    private static int ParseId(object? value) => int.TryParse(value?.ToString(), out var v) ? v : 0;
     private static T ParseEnum<T>(object? value, T fallback) where T : struct => Enum.TryParse<T>(value?.ToString(), out var v) ? v : fallback;
 
     private void OnAttackerChanged(string value)
