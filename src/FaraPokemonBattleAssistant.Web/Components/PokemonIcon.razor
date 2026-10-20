@@ -1,7 +1,7 @@
 @* ポケモンの画像。画像が無ければ何も表示しない。 *@
 @if (Pokemon is not null && !string.IsNullOrEmpty(Pokemon.Icon))
 {
-    <img src="@Pokemon.Icon" alt="" title="@Pokemon.Name" loading="lazy" class="poke-icon @(Small ? "poke-icon-sm" : "")" onerror="this.style.display='none'" />
+    <img src="@Pokemon.Icon" alt="" title="@Pokemon.Name" loading="lazy" class="poke-icon @(Small ? "poke-icon-sm" : "")" data-onerror="display" />
 }
 
 @code {

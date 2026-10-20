@@ -17,7 +17,6 @@
            @onfocusin="OnFocusIn"
            @onclick="OnClicked"
            @onkeydown="@OnKeyDown"
-           onfocus="this.select()"
            disabled="@Disabled"
            role="combobox"
            aria-autocomplete="list"
@@ -114,7 +113,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!showDropdown) return;
-        // PC ではスクロール枠で切れないよう、画面基準で置く（wwwroot/index.html）
+        // PC ではスクロール枠で切れないよう、画面基準で置く（wwwroot/js/page.js）
         try { await JS.InvokeVoidAsync("faraPlaceDropdown", listId); }
         catch (JSException) { }
         if (!scrollPending) return;
@@ -244,7 +243,7 @@
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
-        // ↑↓・Enter の既定動作（スクロールなど）は index.html の keydown で止めている
+        // ↑↓・Enter の既定動作（スクロールなど）は js/page.js の keydown で止めている
         openedByFocus = false;
         switch (e.Key)
         {
