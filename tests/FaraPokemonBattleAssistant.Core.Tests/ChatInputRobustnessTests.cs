@@ -46,8 +46,8 @@ public class ChatInputRobustnessTests
     }
 
     [Theory]
-    [InlineData("Lv0", "Lv1")]       // 範囲外のレベルは、範囲内に丸めて、丸めた値を表示する
-    [InlineData("Lv999", "Lv100")]
+    [InlineData("Lv0", "Lv1)")]       // 範囲外のレベルは、範囲内に丸めて、丸めた値を表示する
+    [InlineData("Lv999", "Lv100)")]
     [InlineData("A9999", "A")]       // 範囲外の努力値・ランクも例外にならない
     [InlineData("+99", "")]
     public async Task Out_of_range_values_are_clamped_without_throwing(string token, string shown)

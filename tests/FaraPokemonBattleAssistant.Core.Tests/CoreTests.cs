@@ -723,7 +723,7 @@ public class PokeCommandTests
 
 }
 
-public class DataSourceTests
+public class DataSourceTests : IDisposable
 {
     private sealed class ScriptedSource : IDataSource
     {
@@ -737,20 +737,24 @@ public class DataSourceTests
         }
     }
 
-    /// <summary>テストが作った一時フォルダー（fpa-tests）を、テストの実行が終わるときに消す。</summary>
-    private static readonly bool TempCleanupRegistered = RegisterTempCleanup();
+    /// <summary>このテストが作った一時フォルダー。テストが終わるときに（xUnit が Dispose を呼ぶ）、自分のものだけを消す。</summary>
+    private readonly List<string> _tempDirs = new();
 
-    private static bool RegisterTempCleanup()
+    private string TempDir()
     {
-        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-        {
-            try { Directory.Delete(Path.Combine(Path.GetTempPath(), "fpa-tests"), recursive: true); }
-            catch (Exception) { /* 消せなくても、テストの結果には関係しない */ }
-        };
-        return true;
+        var dir = Path.Combine(Path.GetTempPath(), "fpa-tests", Guid.NewGuid().ToString("N"));
+        _tempDirs.Add(dir);
+        return dir;
     }
 
-    private static string TempDir() => Path.Combine(Path.GetTempPath(), "fpa-tests", Guid.NewGuid().ToString("N"));
+    public void Dispose()
+    {
+        foreach (var dir in _tempDirs)
+        {
+            try { Directory.Delete(dir, recursive: true); }
+            catch (IOException) { /* 消せなくても、テストの結果には関係しない */ }
+        }
+    }
 
     [Fact]
     public async Task Caching_falls_back_to_stale_cache_on_timeout()
