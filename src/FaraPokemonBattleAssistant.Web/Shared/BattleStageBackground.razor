@@ -39,11 +39,11 @@
     @* ポケモンは床とは別に置き、足場の位置に合わせる（index.html の faraPlaceStage） *@
     @if (Stage.Foe is { Icon.Length: > 0 } foe)
     {
-        <img class="field-mon field-mon-foe" src="@foe.Icon" alt="" onerror="this.style.display='none'" />
+        <img class="field-mon field-mon-foe" src="@foe.Icon" alt="" data-onerror="display" />
     }
     @if (Stage.Mine is { Icon.Length: > 0 } mine)
     {
-        <img class="field-mon field-mon-mine" src="@mine.Icon" alt="" onerror="this.style.display='none'" />
+        <img class="field-mon field-mon-mine" src="@mine.Icon" alt="" data-onerror="display" />
     }
     <div class="field-horizon"></div>
     <div class="field-beam field-beam-1"></div>
