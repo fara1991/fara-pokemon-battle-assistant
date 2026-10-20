@@ -114,30 +114,24 @@ public static class MoveEffects
     };
 
     /// <summary>ツタこんぼうのタイプ（オーガポンはお面をつけたすがたで変わる）。</summary>
-    public static string IvyCudgelType(Pokemon attacker, string moveType) => attacker.Id switch
-    {
-        10273 => "Water",
-        10274 => "Fire",
-        10275 => "Rock",
-        _ => moveType,
-    };
+    public static string IvyCudgelType(Pokemon attacker, string moveType) => Ogerpon.CudgelType(attacker.Id) ?? moveType;
 
     /// <summary>
     /// オーガポンが、自分のすがたに合ったお面（みどりのめん・いどのめん・かまどのめん・いしずえのめん）を持っているか。
     /// 持っていると、技の威力が 1.2 倍になる（別のすがたのお面では上がらない）。
     /// </summary>
-    public static bool OgerponMaskBoosts(Pokemon attacker, Item? item) => (attacker.Id, item?.Id) is (1017, 2102) or (10273, 2106) or (10274, 2107) or (10275, 2108);
+    public static bool OgerponMaskBoosts(Pokemon attacker, Item? item) => Ogerpon.IsMatchingMask(attacker.Id, item?.Id);
 
     /// <summary>
     /// 通常のオーガポンが、ほかのすがたのお面（いどのめん・かまどのめん・いしずえのめん）を持っていたら、みどりのめんに直す
     /// （使用率の持ち物がほかのすがたのお面のことがあるため）。ほかのポケモン・すがたは、そのまま返す。
     /// </summary>
     public static Item? NormalizeOgerponItem(Pokemon pokemon, Item? item, FaraPokemonBattleAssistant.Core.Data.PokemonDataSet data) =>
-        pokemon.SpeciesId == OgerponSpeciesId && pokemon.FixedItemId is null && item?.Id is 2106 or 2107 or 2108
-            ? data.FindItem(2102) ?? item : item;
+        pokemon.SpeciesId == OgerponSpeciesId && pokemon.FixedItemId is null && Ogerpon.IsOtherMask(item?.Id)
+            ? data.FindItem(Ogerpon.TealMaskItemId) ?? item : item;
 
     /// <summary>オーガポン（みどりのめん・いどのめん・かまどのめん・いしずえのめん）の種族 ID。</summary>
-    public const int OgerponSpeciesId = 1017;
+    public const int OgerponSpeciesId = Ogerpon.SpeciesId;
 
     /// <summary>
     /// テラスタルしたオーガポンの扱いに直した構成を返す（オーガポンでない・テラスタルしていないなら、そのまま返す）。
@@ -149,13 +143,7 @@ public static class MoveEffects
     {
         note = null;
         if (build.Pokemon.SpeciesId != OgerponSpeciesId || !build.IsTerastallized) return build;
-        var stat = build.Pokemon.Id switch
-        {
-            10273 => Stat.SpDefense,
-            10274 => Stat.Attack,
-            10275 => Stat.Defense,
-            _ => Stat.Speed,
-        };
+        var stat = Ogerpon.TeraBoostStat(build.Pokemon.Id);
         var type = build.Pokemon.Types.Last();
         var result = build.Clone();
         result.TeraType = type;
@@ -221,7 +209,7 @@ public static class MoveEffects
             1660 => species != 484,                                      // だいしらたま（パルキア）
             1161 => species != 888,                                      // くちたけん（ザシアン）
             1162 => species != 889,                                      // くちたたて（ザマゼンタ）
-            2102 or 2106 or 2107 or 2108 => species != 1017,            // めん（オーガポン）
+            _ when Ogerpon.IsMask(item.Id) => species != Ogerpon.SpeciesId,   // めん（オーガポン）
             ItemIdBoosterEnergy => defender.Ability?.Identifier is not ("protosynthesis" or "quark-drive"),
             _ => true,
         };
