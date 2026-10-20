@@ -104,7 +104,7 @@ fara-pokemon-battle-assistant/
 | `rm -r 名前` | 登録ミスなどの取り消し（履歴には残さない） |
 | `clear -r` | 対戦中の相手の登録を全員解除する（履歴には残さない） |
 | `end [メモ]` | 試合を終える。対戦中の相手を全員（名前だけの相手も）履歴に移し、対戦中の相手を空にする。選出した相手・見えた技・ポイント・性格・特性・推定も一緒に残る |
-| `ls -h [名前]` / `detail -h ID` / `rm -h ID` | 試合の履歴（新しい順。名前を付けるとそのポケモンの履歴）/ 1 試合の詳細 / 削除。履歴の件数に上限はありません |
+| `ls -h [名前]` / `detail -h ID` / `rm -h ID` | 試合の履歴（新しい順。名前を付けるとそのポケモンの履歴）/ 1 試合の詳細 / 削除。履歴の件数は、クラウドではゲームごとに 10,000 件まで、ブラウザ（localStorage）では 2,000 件までです（ファイル保存の配信用BOTは上限なし）。上限に達したら `end` が断られるので、サイトの相手チーム画面で古い履歴を削除してください |
 
 登録した相手は、`dmg` の防御側に使われます。1 つに決まっていれば、その振り方で 1 行。範囲のときは「B（特殊技なら D）最小想定」「最大想定」の 2 行（耐久が最も低い想定と最も高い想定）。分かっていない部分（HP・防御）は、これまでどおり全振りで計算します。以前の `calc` は `scan` に、`foe` は `-r` に変わりました。
 
@@ -209,9 +209,9 @@ npm run test:worker                                      # データ共有 API�
 | `GET /api/my/team` | `200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}, ...}}` |
 | `PUT /api/my/team` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n または null}}}`。書いたゲームのチームと使用中チームだけを置き換えます。登録に無いポケモン・7 体以上・0 体のチーム・同じチーム番号や同じポケモンの重複・無いチームを使用中にする、は `400`（`message` に理由）で、何も保存しません。成功で `200 {"revision": n+1}` |
 | `GET /api/my/rival` | `200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "rivals": [...], "nextMatchId": n, "history": [...]}, ...}}`（対戦中の相手チームと、終わった試合の履歴）。`?historyLimit=n` で履歴を直近 n 件（古い順）にできます（0 で空）。指定しないと直近 200 件（古い版のクライアント用。全件にすると、書き戻しの本文が 256 KB を超えるため） |
-| `PUT /api/my/rival` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"rivals": [...], "nextId"?: n, "history"?: [...], "nextMatchId"?: n}}}`。書いたゲームの相手チームを置き換えます（ID は使い回しません）。`history` は省略でき、あっても**置き換えず**、「次の Id 以降の、まだ無い試合」だけを足します（古い版のクライアントが書き戻しても、消した試合が復活せず、履歴が消えません。**古い版のクライアントは履歴を消せません**）。足せなかった試合（上限・次の Id から 1,000 以上離れた Id）は、応答の `historyIgnored`（件数）で分かります。別の端末が同じ Id を先に割り当てていた試合は足されません`409` は `GET` と同じ形で現在の内容を返します（`?historyLimit=n` も使えます） |
-| `GET /api/my/history?dataSet=Champions` | `200 {"total": 件数, "items": [試合…新しい順], "hasMore": bool}`。`limit`（既定 50・最大 200）と `before`（その Id より前から）でページ送り。`&id=n` で 1 試合（`{"total", "item"}`、無ければ `404`） |
-| `POST /api/my/history` | 本文 `{"dataSet": "Champions", "match": {"Date"?, "Memo"?, "Foes": [...]}}`。Id はサーバーが割り当てます。`201 {"id": n, "total": 件数}`。**ゲームごとに 10,000 件まで**で、超えると `409`（`error` は `history_limit`）。アクセスキー 1 つあたりの履歴の合計は 64 MB まで、履歴を持てるゲームは 16 までで、これらも超えると `409`。1 試合は 64 KB まで。なお `409` は、revision の衝突（`{"revision", "dataSets"}`）と `history_limit`（`{"error", "message"}`）の 2 つの形があるので、`error` があるかで見分けてください |
+| `PUT /api/my/rival` | 本文 `{"baseRevision": n, "dataSets": {"Champions": {"rivals": [...], "nextId"?: n, "history"?: [...], "nextMatchId"?: n}}}`。書いたゲームの相手チームを置き換えます（ID は使い回しません）。`history` は省略でき、あっても**置き換えず**、「次の Id 以降の、まだ無い試合」だけを足します（古い版のクライアントが書き戻しても、消した試合が復活せず、履歴が消えません。**古い版のクライアントは履歴を消せません**）。足せなかった試合（上限・次の Id から 1,000 以上離れた Id）は、応答の `historyIgnored`（件数）で分かります。別の端末が同じ Id を先に割り当てていた試合は足されません。`409` は `GET` と同じ形で現在の内容を返します（`?historyLimit=n` も使えます） |
+| `GET /api/my/history?dataSet=Champions` | `200 {"total": 件数, "items": [試合…新しい順], "hasMore": bool}`。`dataSet` を付けない `GET /api/my/history` は、履歴のあるゲームの一覧（`{"dataSets": [{"dataSet": "champions", "total": n}]}`。キーの作り直しで履歴を写すときに使います）。`limit`（既定 50・最大 200）と `before`（その Id より前から）でページ送り。`&id=n` で 1 試合（`{"total", "item"}`、無ければ `404`） |
+| `POST /api/my/history` | 本文 `{"dataSet": "Champions", "match": {"Date"?, "Memo"?, "Foes": [...]}}`。Id はサーバーが割り当てます。`201 {"id": n, "total": 件数}`。**ゲームごとに 10,000 件まで**で、超えると `409`（`error` は `history_limit`）。アクセスキー 1 つあたりの履歴の合計は 64 MB まで、履歴を持てるゲームは 16 までで、これらも超えると `409`。1 試合は 64 KB まで。`match` の代わりに `"matches": [...]`（100 件まで。データの移し替え用）を送ると、古い順にまとめて足します（`201 {"ids": [...], "total": n}`。1 つでも上限を超えるなら何も足さずに `409`）。なお `409` は、revision の衝突（`{"revision", "dataSets"}`）と `history_limit`（`{"error", "message"}`）の 2 つの形があるので、`error` があるかで見分けてください |
 | `DELETE /api/my/history?dataSet=Champions&id=n` | 1 試合を消す（`204`、無ければ `404`）。`&keepLatest=n` なら新しい n 件を残して古い試合を消す（`200 {"deleted": n, "total": 件数}`） |
 | `DELETE /api/my/access-key` | このアクセスキーを使えなくし、その置き場（履歴も）を消す（キーの作り直し・データ共有の解除用）。`204`。以後そのキーはすべての API で `410` |
 

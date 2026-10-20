@@ -20,6 +20,9 @@ public sealed class BrowserRosterStore : IRosterStore
     /// </summary>
     public bool LoadFailed { get; private set; }
 
+    /// <summary>ブラウザの保存領域（約 5 MB）に収まるよう、試合の履歴はゲームごとに <see cref="RosterRepository.BrowserHistoryLimit"/> 件まで。</summary>
+    public int? LocalHistoryLimit => RosterRepository.BrowserHistoryLimit;
+
     public async Task<string?> LoadAsync(CancellationToken ct = default)
     {
         try
