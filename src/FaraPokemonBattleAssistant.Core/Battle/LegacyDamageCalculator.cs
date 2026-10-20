@@ -217,6 +217,11 @@ internal sealed partial class LegacyDamageCalculator
             baseDamage = DamageCalculator.PokeRound(baseDamage * 3072 / 4096.0);
             modifiers.Add("複数対象(0.75倍)");
         }
+        if (request.ParentalChild)
+        {
+            // おやこあいの 2 回目（第 6 世代 1/2、第 7 世代 1/4）
+            baseDamage = DamageCalculator.PokeRound(baseDamage * (_gen >= 7 ? 1024 : 2048) / 4096.0);   // 表示は DamageCalculator のまとめの行で出す
+        }
         if (weather == Weather.Sun && moveType == "Fire" || weather == Weather.Rain && moveType == "Water")
         {
             baseDamage = DamageCalculator.PokeRound(baseDamage * 6144 / 4096.0);
@@ -540,7 +545,7 @@ internal sealed partial class LegacyDamageCalculator
             else if (attackerItem is { Category: ItemCategory.LifeOrb }) Add(5324, $"{attackerItem.Name}(1.3倍)");
         }
 
-        if (firstHit && defenderItem is { Category: ItemCategory.ResistBerry } berry && berry.TypeBoost == moveType && (effectiveness > 1 || moveType == "Normal"))
+        if (firstHit && atkAbility != "unnerve" && defenderItem is { Category: ItemCategory.ResistBerry } berry && berry.TypeBoost == moveType && (effectiveness > 1 || moveType == "Normal"))
             Add(2048, $"{berry.Name}(1発目のみ 0.5倍)");
         return mods;
     }

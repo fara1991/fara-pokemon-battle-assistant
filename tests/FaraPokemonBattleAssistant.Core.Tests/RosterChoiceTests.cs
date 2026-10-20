@@ -209,4 +209,47 @@ public class RosterChoiceTests
         var entry = new RegisteredPokemon { PokemonId = 10274, PokemonName = "オーガポン(かまどのめん)", Nature = data.Natures.First().Name };
         Assert.Equal(2107, RosterRepository.ToBuild(entry, data)!.Item?.Id);
     }
+
+    [Fact]
+    public async Task Terastal_base_power_floor_does_not_apply_to_each_hit_of_multi_hit_moves()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart);
+        var attackerPokemon = data.Pokemon.First(p => p.Name == "ウーラオス(れんげきのかた)");
+        var surging = data.Moves.First(m => m.Id == 818);   // すいりゅうれんだ（威力 25 × 3 回）
+        var target = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem) { EVs = new StatSet { HP = 32 } };
+        PokemonBuild Make(string? tera) => new(attackerPokemon, data.Info.EvSystem) { EVs = new StatSet { Attack = 32 }, Nature = data.Natures.First(), TeraType = tera };
+        var plain = calc.Calculate(new DamageRequest { Attacker = Make(null), Move = surging, Defender = target });
+        var tera = calc.Calculate(new DamageRequest { Attacker = Make("Water"), Move = surging, Defender = target });
+        // テラスタルの一致補正（1.5 倍→2 倍）だけで、威力 60 保証（約 2.4 倍）は掛からない
+        Assert.DoesNotContain(tera.Modifiers, m => m.Contains("威力60保証"));
+        Assert.True(tera.MaxDamage < plain.MaxDamage * 2.0, $"{tera.MaxDamage} vs {plain.MaxDamage}");
+    }
+
+    [Theory]
+    [InlineData("Gen6", 1.5)]
+    [InlineData("Gen7", 1.25)]
+    public async Task Parental_bond_works_in_gen6_and_gen7(string key, double expectedRatio)
+    {
+        var data = await TestData.Catalog().GetDataSetAsync(key);
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, key == "Gen6" ? 6 : 7);
+        var mega = data.Pokemon.First(p => p.Name == "メガガルーラ");
+        var parental = data.AbilitiesOf(mega).First(a => a.Identifier == "parental-bond");
+        var move = data.Moves.First(m => m.Name == "すてみタックル");
+        var target = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem) { EVs = new StatSet { HP = 32 } };
+        PokemonBuild Make(Ability? ability) => new(mega, data.Info.EvSystem) { EVs = new StatSet { Attack = 32 }, Nature = data.Natures.First(), Ability = ability };
+        var without = calc.Calculate(new DamageRequest { Attacker = Make(null), Move = move, Defender = target });
+        var with = calc.Calculate(new DamageRequest { Attacker = Make(parental), Move = move, Defender = target });
+        Assert.Contains(with.Modifiers, m => m.Contains("おやこあい"));
+        Assert.InRange(with.MaxDamage / (double)without.MaxDamage, expectedRatio - 0.05, expectedRatio + 0.05);
+    }
+
+    [Fact]
+    public void Max_move_power_has_exceptions_for_multi_hit_moves()
+    {
+        var bulletSeed = new Move { Id = 331, Name = "タネマシンガン", Type = "Grass", Power = 25, Category = MoveCategory.Physical };
+        Assert.Equal(130, FaraPokemonBattleAssistant.Core.Battle.DamageCalculator.MaxMovePower(bulletSeed));   // 表なら 90
+        var tackle = new Move { Id = 33, Name = "たいあたり", Type = "Normal", Power = 40, Category = MoveCategory.Physical };
+        Assert.Equal(90, FaraPokemonBattleAssistant.Core.Battle.DamageCalculator.MaxMovePower(tackle));
+    }
 }

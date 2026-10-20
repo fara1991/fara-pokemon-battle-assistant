@@ -179,12 +179,14 @@ public sealed class DamageRequest
     public bool IsZMove { get; init; }
     /// <summary>2〜5 回当たる連続技の回数を決める（2 か 5 など。null なら既定の 3 回、スキルリンクは 5 回）。ほかの技では無視する。</summary>
     public int? HitCountOverride { get; init; }
+    /// <summary>おやこあいの 2 回目の攻撃として計算する（基礎ダメージが第 6 世代は 1/2、第 7 世代以降は 1/4）。</summary>
+    public bool ParentalChild { get; init; }
 
     /// <summary>その分類の技に壁が効くか。</summary>
     public bool HasScreenFor(bool physical) => Screen || (physical ? Reflect : LightScreen);
 
     /// <summary>技や防御側だけ差し替えた複製（場の条件はそのまま）。</summary>
-    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null, bool? isCritical = null, Weather? weather = null, int? hitCount = null) => new()
+    public DamageRequest With(Move? move = null, PokemonBuild? defender = null, PokemonBuild? attacker = null, bool? isCritical = null, Weather? weather = null, int? hitCount = null, bool? parentalChild = null) => new()
     {
         Attacker = attacker ?? Attacker,
         Move = move ?? Move,
@@ -198,6 +200,7 @@ public sealed class DamageRequest
         LightScreen = LightScreen,
         IsZMove = IsZMove,
         HitCountOverride = hitCount ?? HitCountOverride,
+        ParentalChild = parentalChild ?? ParentalChild,
     };
 }
 
