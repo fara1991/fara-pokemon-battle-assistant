@@ -135,6 +135,12 @@ public sealed partial class PokeCommand
                 }
                 continue;
             }
+            // ポケモン名・略称に完全に一致するときは、次のポケモン（前方・部分一致で、直前のポケモンの技や特性に読まれないようにする）
+            if (current is not null && pokemonResolver.ResolveExact(token) is { } exactPokemon)
+            {
+                specs.Add(new RivalSpec { Pokemon = exactPokemon });
+                continue;
+            }
             // 性格の名前
             var nature = natureResolver.Resolve(token);
             if (nature.IsResolved && current is not null)
@@ -463,7 +469,9 @@ public sealed partial class PokeCommand
         if (error is not null) return Fail(error);
         var spec = specs.FirstOrDefault(s => s.Pokemon.Id == pokemon.Id);
         spec?.CompleteNature(data.Natures);
-        if (spec is null || !spec.HasInfo || specs.Count > 1) return Fail("更新する内容（振り方・性格・特性）を書いてください");
+        if (spec is null || !spec.HasInfo || specs.Count > 1) return Fail("更新する内容（振り方・性格・特性・技）を書いてください");
+        if (spec.Picked) return Fail("「選出」は相手チーム（-r）にだけ付けられます");
+        if (spec.Item is not null) return Fail($"持ち物はチームに入れるときに指定してください（!{ds.CommandPrefix} add -t チーム番号 登録ID 持ち物）");
 
         // ポイントを書いたときは振り方全体の置き換え（書いていない能力は 0）。書かなければ今のまま
         var evs = spec.Evs.Count > 0 ? new StatSet() : entry.EVs;
@@ -471,7 +479,9 @@ public sealed partial class PokeCommand
         if (EvRules.Validate(ds.EvSystem, evs) is { } evError) return Fail(evError);
         var nature = spec.Nature ?? data.FindNature(entry.Nature) ?? NatureSelection.Neutral(data.Natures)!;
         var ability = spec.Ability ?? (entry.AbilityId is { } aid ? data.FindAbility(aid) : null);
-        var updated = await _roster.UpdatePokemonAsync(ds.Key, id, evs, nature, ability, entry.MoveIds, ct).ConfigureAwait(false);
+        // 技を書いたときは、書いた技に置き換える（書かなければ今のまま）
+        var moveIds = spec.Moves.Count > 0 ? spec.Moves.Select(m => m.Id).ToList() : entry.MoveIds;
+        var updated = await _roster.UpdatePokemonAsync(ds.Key, id, evs, nature, ability, moveIds, ct).ConfigureAwait(false);
         if (updated is null) return Fail($"登録ID {id} はありません");
         var build = RosterRepository.ToBuild(updated, data)!;
         return Ok($"#{updated.Id} {pokemon.Name} を更新しました: {Describe(updated, build)}");
@@ -536,7 +546,7 @@ public sealed partial class PokeCommand
         {
             var pm = PercentToken.Match(args[i]);
             if (pm.Success) { observed = double.Parse(pm.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture); asPercent = true; damageIndex = i; break; }
-            if (double.TryParse(args[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0) { observed = v; damageIndex = i; break; }
+            if (double.TryParse(args[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0 && double.IsFinite(v) && args[i][0] is not ('+' or '-')) { observed = v; damageIndex = i; break; }   // 「+1」はランク。符号つきの数はダメージにしない
         }
         if (damageIndex < 0) return Fail("受けたダメージを数値（93）か割合（45%）で指定してください");
         var scanText = $"{args[0]} {args[1]} {args[2]} {args[damageIndex]}";

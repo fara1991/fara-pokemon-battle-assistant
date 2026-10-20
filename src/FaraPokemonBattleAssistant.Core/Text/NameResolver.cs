@@ -93,6 +93,21 @@ public sealed class NameResolver<T> where T : class
         return new NameMatch<T>();
     }
 
+    /// <summary>
+    /// 完全一致（別名・♂の省略を含む）した項目だけを返す。前方一致・部分一致はしない。
+    /// 「カミ」（ハバタクカミの略称）のような短い入力が、別の項目の一部（「かみつく」）として読まれるのを避けるために使う。
+    /// </summary>
+    public T? ResolveExact(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return null;
+        foreach (var variant in Variants(query))
+        {
+            if (_exact.TryGetValue(variant, out var exact)) return exact;
+            if (!variant.Contains('♂') && !variant.Contains('♀') && _exact.TryGetValue(variant + "♂", out var male)) return male;
+        }
+        return null;
+    }
+
     private NameMatch<T> ResolveKey(string key)
     {
         if (_exact.TryGetValue(key, out var exact))

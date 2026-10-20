@@ -196,6 +196,7 @@ public sealed partial class PokeCommand
         var spec = specs[0];
         spec.CompleteNature(data.Natures);
         if (spec.Picked) return Fail("「選出」は相手チーム（-r）にだけ付けられます");
+        if (spec.Item is not null) return Fail($"持ち物はチームに入れるときに指定してください（!{ds.CommandPrefix} add -t チーム番号 登録ID 持ち物）");
         if (spec.Evs.Count == 0) return Fail(usageText);
         if (spec.Nature is null) return Fail($"性格を書いてください（名前か B↑A↓ のように）。{usageText}");
 
@@ -205,7 +206,7 @@ public sealed partial class PokeCommand
         var nature = spec.Nature;
         var ability = spec.Ability ?? (await UsageOrNullAsync(data, options.Format, ct).ConfigureAwait(false))?.TopAbility(pokemon.Value!) ?? data.AbilitiesOf(pokemon.Value!).FirstOrDefault();
 
-        var entry = await _roster.AddPokemonAsync(ds.Key, pokemon.Value!, evs, nature, ability, ct).ConfigureAwait(false);
+        var entry = await _roster.AddPokemonAsync(ds.Key, pokemon.Value!, evs, nature, ability, spec.Moves.Select(m => m.Id), ct).ConfigureAwait(false);
         var build = RosterRepository.ToBuild(entry, data)!;
         var sameCount = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).Pokemon.Count(e => e.PokemonId == pokemon.Value!.Id);
         var duplicateNote = sameCount > 1 ? $"（{pokemon.Value!.Name}は {sameCount} 体になりました。dmg・scan・faster は #登録ID で指定できます）" : "";

@@ -58,11 +58,45 @@ public sealed class DamageCalculator
         else if (generation < 5) throw new NotSupportedException($"第{generation}世代のダメージ計算には対応していません");
     }
 
-    /// <summary>ダイマックス技の威力（かくとう・どくは低めの表）。</summary>
+    /// <summary>表と違うダイマックス技の威力（技 ID → 威力）。連続技・威力が変わる技など（@smogon/calc の maxPower に合わせる）。</summary>
+    private static readonly Dictionary<int, int> MaxPowerExceptions = new()
+    {
+        [4] = 100,     // れんぞくパンチ
+        [24] = 80,     // にどげり
+        [41] = 100,    // ダブルニードル
+        [42] = 130,    // ミサイルばり
+        [131] = 120,   // とげキャノン
+        [154] = 100,   // みだれひっかき
+        [155] = 130,   // ホネブーメラン
+        [167] = 80,    // トリプルキック
+        [198] = 130,   // ボーンラッシュ
+        [311] = 130,   // ウェザーボール
+        [331] = 130,   // タネマシンガン
+        [333] = 130,   // つららばり
+        [350] = 130,   // ロックブラスト
+        [458] = 120,   // ダブルアタック
+        [500] = 130,   // アシストパワー
+        [530] = 130,   // ダブルチョップ
+        [541] = 130,   // スイープビンタ
+        [544] = 130,   // ギアソーサー
+        [681] = 130,   // つけあがる
+        [718] = 95,    // マルチアタック
+        [742] = 140,   // ダブルパンツァー
+        [751] = 130,   // ドラゴンアロー
+        [799] = 130,   // スケイルショット
+        [804] = 140,   // ライジングボルト
+        [805] = 130,   // だいちのはどう
+        [813] = 140,   // トリプルアクセル
+        [814] = 130,   // ダブルウイング
+        [818] = 130,   // すいりゅうれんだ
+    };
+
+    /// <summary>ダイマックス技の威力（かくとう・どくは低めの表。連続技など一部の技は個別の値）。</summary>
     public static int MaxMovePower(Move move)
     {
         var bp = move.Power;
         if (bp <= 0) return bp;
+        if (MaxPowerExceptions.TryGetValue(move.Id, out var exception)) return exception;
         var low = move.Type is "Fighting" or "Poison";
         return bp switch
         {
@@ -100,11 +134,11 @@ public sealed class DamageCalculator
         if (forcedCrit) request = request.With(isCritical: true);
         var hits = maxOrZ || !move.IsDamaging ? 1 : MoveEffects.HitCount(move, request.Attacker.Ability?.Identifier);
         if (hits > 1 && request.HitCountOverride is { } overrideHits && (MoveEffects.HitsTwoToFive(move) || MoveEffects.IsEscalating(move))) hits = Math.Clamp(overrideHits, 1, hits == 3 && MoveEffects.IsEscalating(move) ? 3 : 5);
-        // おやこあい: 連続技でない技が 2 回当たる（2 回目は 1/4 のダメージ。第 7 世代から。ダブルの全体技・Z 技・ダイマックス技は対象外）
-        var parental = hits == 1 && request.HitCountOverride != 1 && !maxOrZ && move.IsDamaging && move.Power > 0 && _legacy is null && _generation >= 7
+        // おやこあい: 連続技でない技が 2 回当たる（2 回目は第 6 世代が 1/2、第 7 世代から 1/4。ダブルの全体技・Z 技・ダイマックス技は対象外）
+        var parental = hits == 1 && request.HitCountOverride != 1 && !maxOrZ && move.IsDamaging && move.Power > 0 && _generation >= 6
             && request.Attacker.Ability?.Identifier == "parental-bond"
             && !(request.Format == BattleFormat.Doubles && move.Target != MoveTarget.Single);
-        var first = CalculateHit(request, 1);
+        var first = CalculateHit(request, 1, multiHit: hits > 1);
         if (forcedCrit && !first.Modifiers.Any(m => m.Contains("急所に当たらない"))) AddNote(first, $"{move.Name}(必ず急所)");
         if (parental && first.MaxDamage > 0) hits = 2;
         if (hits <= 1 || first.MaxDamage == 0) return first;
@@ -120,7 +154,7 @@ public sealed class DamageCalculator
         for (var hit = 2; hit <= hits; hit++)
         {
             usedItem = ApplyHitReaction(request, first, defenderNow, usedItem, changes);
-            var r = CalculateHit(request.With(defender: defenderNow), hit, parentalChild: parental);
+            var r = CalculateHit(request.With(defender: defenderNow), hit, parentalChild: parental, multiHit: !parental);
             var rolls = r.LaterRolls ?? r.Rolls;
             hitRolls.Add((int[])rolls.Clone());
             for (var i = 0; i < 16; i++)
@@ -209,13 +243,13 @@ public sealed class DamageCalculator
     }
 
     /// <summary>連続技の <paramref name="hit"/> 回目（1 回目は 1）のダメージ。</summary>
-    private DamageResult CalculateHit(DamageRequest request, int hit, bool parentalChild = false)
+    private DamageResult CalculateHit(DamageRequest request, int hit, bool parentalChild = false, bool multiHit = false)
     {
         var move = request.Move;
         var power = MoveEffects.PowerForHit(move, hit);
         if (power != move.Power) request = request.With(move: MoveEffects.With(move, power: power));
-        if (_legacy is not null) return _legacy.Calculate(LegacyMove(request));
-        return CalculateModern(request, parentalChild);
+        if (_legacy is not null) return _legacy.Calculate(LegacyMove(parentalChild ? request.With(parentalChild: true) : request));
+        return CalculateModern(request, parentalChild, multiHit);
     }
 
     /// <summary>
@@ -242,7 +276,7 @@ public sealed class DamageCalculator
     /// 第 8 世代以降の計算。補正の分け方（威力・攻撃・防御・最後）と掛ける順番は、公開されているダメージ計算ツール（@smogon/calc の gen789）に合わせる
     /// （補正は 1 つ掛けるごとに丸めるので、順番が違うと 1 ずれることがある）。
     /// </summary>
-    private DamageResult CalculateModern(DamageRequest request, bool parentalChild = false)
+    private DamageResult CalculateModern(DamageRequest request, bool parentalChild = false, bool multiHit = false)
     {
         var attacker = request.Attacker;
         var defender = request.Defender;
@@ -413,9 +447,9 @@ public sealed class DamageCalculator
         var bpMods = BasePowerModifiers(request, attacker, defender, move, moveType, power, hasAte, attackerAbility, defenderAbility,
             attackerItem, defenderItem, weather, terrain, attackerGrounded, defenderGrounded, effectiveness, modifiers, ref target);
         power = Math.Max(1, PokeRound(power * (double)LegacyDamageCalculator.Chain(bpMods, 41, 2097152) / 4096));
-        // テラスタル: テラスタイプと同じタイプの技（元のタイプにもある・先制技でない）は威力 60 未満でも 60
+        // テラスタル: テラスタイプと同じタイプの技（元のタイプにもある・先制技・連続技でない）は威力 60 未満でも 60
         var isTeraStab = attacker.IsTerastallized && attacker.TeraType == moveType;
-        if (isTeraStab && power < 60 && move.Priority <= 0 && _generation >= 9)
+        if (isTeraStab && power < 60 && move.Priority <= 0 && !multiHit && _generation >= 9)
         {
             power = 60;
             modifiers.Add("テラスタル(威力60保証)");
