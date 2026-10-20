@@ -606,8 +606,10 @@ export class RosterSlot extends DurableObject {
   /** 履歴の表があるか（読むだけのリクエストでは作らない）。 */
   #hasSchema() {
     if (this.#schemaReady === null) {
-      this.#schemaReady = this.ctx.storage.sql.exec("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'history'").toArray().length > 0;
-      if (this.#schemaReady) this.#upgradeSchema();
+      const exists = this.ctx.storage.sql.exec("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'history'").toArray().length > 0;
+      // 表を新しくする処理が成功してから「準備できた」にする（失敗したら、次のリクエストでもう一度試す）
+      if (exists) this.#upgradeSchema();
+      this.#schemaReady = exists;
     }
     return this.#schemaReady;
   }

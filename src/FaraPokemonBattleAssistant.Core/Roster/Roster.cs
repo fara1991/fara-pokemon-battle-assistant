@@ -544,6 +544,13 @@ public sealed class RosterRepository
         }, ct).ConfigureAwait(false);
     }
 
+    /// <summary>end のやり直しを見分ける印。同じ相手の組なら同じ文字列になる。サーバーの上限（100 文字）を超えるほど長いときは付けない（二重の防止が効かないだけ）。</summary>
+    private static string? EndClientId(IEnumerable<RivalPokemon> foes)
+    {
+        var id = "end:" + string.Join(",", foes.Select(r => r.Id).OrderBy(i => i));
+        return id.Length <= 100 ? id : null;
+    }
+
     /// <summary>
     /// クラウドで試合を終える。履歴は別の API なので、先に履歴へ足し（上限なら何も変えずに失敗）、そのあと対戦中の相手を消す。
     /// 履歴に足したあと、相手を消せなかったときは、その旨を伝える（履歴には記録済みなので、もう一度 end せず clear -r で消す）。
@@ -560,7 +567,7 @@ public sealed class RosterRepository
             // もう一度 end しても、履歴に二重に記録されず、記録済みの試合に紐づけて相手を消せる
             var match = new RivalMatch
             {
-                ClientId = "end:" + string.Join(",", all.Select(r => r.Id).OrderBy(i => i)),
+                ClientId = EndClientId(all),
                 Date = now.ToString("o"),
                 Memo = (memo ?? "").Trim(),
                 Foes = all,
