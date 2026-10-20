@@ -252,6 +252,14 @@
         scanNav(false);
     }
 
+    // 400 件の一覧などで DOM が何度も変わっても、見直しは 1 フレームに 1 回だけにする
+    var scanQueued = false;
+    function scheduleScan() {
+        if (scanQueued) return;
+        scanQueued = true;
+        requestAnimationFrame(function () { scanQueued = false; scan(); });
+    }
+
     function start() {
         var root = document.getElementById("app") || document.body;
         new MutationObserver(function (records) {
@@ -261,7 +269,7 @@
                 var t = r.target;
                 return t.classList && (t.classList.contains("nav-indicator") || (t.closest && t.closest(".bg-scene")));
             });
-            if (!own) scan();
+            if (!own) scheduleScan();
         }).observe(root, {
             childList: true, subtree: true, attributes: true,
             attributeFilter: ["class", "style", "data-count", "data-pop", "data-swap", "data-rolls", "data-hp-key", "data-hp-immune", "data-hp-start", "data-flip-key"]

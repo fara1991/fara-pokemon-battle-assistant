@@ -87,7 +87,8 @@
         }
         <Virtualize TItem="Move" Items="results" Context="m" ItemSize="56" OverscanCount="8">
             <div class="dex-item @(s.SelectedId == m.Id ? "selected" : "")" @key="m.Id">
-                <div class="dex-row mv-row" role="row" @onclick="() => s.SelectedId = s.SelectedId == m.Id ? 0 : m.Id">
+                <div class="dex-row mv-row" role="button" tabindex="0" aria-expanded="@(s.SelectedId == m.Id ? "true" : "false")"
+                     @onclick="() => ToggleRow(m.Id)" @onkeydown="e => OnRowKey(e, m.Id)">
                     <div class="mv-name">@m.Name</div>
                     <div class="mv-type"><TypeIcon Type="@m.Type" Small="true" /></div>
                     <div class="mv-cat">@MoveText.Category(m)</div>
@@ -122,6 +123,14 @@
 }
 
 @code {
+    private void ToggleRow(int id) => s.SelectedId = s.SelectedId == id ? 0 : id;
+
+    /// <summary>行をキーボードで開閉する（Enter / Space）。</summary>
+    private void OnRowKey(KeyboardEventArgs e, int id)
+    {
+        if (e.Key is "Enter" or " ") ToggleRow(id);
+    }
+
     public sealed class State
     {
         public string DataSetKey { get; set; } = "";
