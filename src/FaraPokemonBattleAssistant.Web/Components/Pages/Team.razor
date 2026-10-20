@@ -184,6 +184,7 @@ else if (data is not null && roster is not null && dataSet is not null)
 
     private async Task RemoveTeamAsync(int teamNo)
     {
+        if (Mutating) return;   // 実行中の操作があるあいだは、確認も出さない
         if (!await ConfirmAsync($"チーム{teamNo} を削除します（登録したポケモンは残ります）。よろしいですか？")) return;
         await MutateAsync(async () =>
         {

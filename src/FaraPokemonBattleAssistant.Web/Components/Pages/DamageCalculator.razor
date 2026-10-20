@@ -832,15 +832,34 @@ else if (data is not null && dataSet is not null)
         return parts.Count == 0 ? "名前だけ" : string.Join("　", parts);
     }
 
-    /// <summary>この推定（範囲でもよい）を、対戦中の相手に反映する。同じ相手の前の推定があれば、重なる範囲に絞り込む。</summary>
+    /// <summary>残り HP（%）の入力。空欄・不正な値は無視して、前の値の表示に戻す。</summary>
+    private void SetHpPercent(PokemonBuild build, object? value)
+    {
+        if (int.TryParse(value?.ToString(), out var percent)) build.HpPercent = Math.Clamp(percent, 1, 100);
+        else hpInputRevision++;
+    }
+
+    /// <summary>残り HP（実数値）の入力。空欄・不正な値は無視して、前の値の表示に戻す。</summary>
+    private void SetCurrentHp(PokemonBuild build, object? value)
+    {
+        if (int.TryParse(value?.ToString(), out var hp)) build.CurrentHp = Math.Clamp(hp, 1, build.MaxHp);
+        else hpInputRevision++;
+    }
+
+    /// <summary>入力欄が空欄・不正な値のまま残らないよう、入力欄を作り直すための番号（値が変わらないと、描画が欄を書き換えないため）。</summary>
+    private int hpInputRevision;
+
     private bool registering;
     /// <summary>相手チームに反映した推定（estimateKey）。同じ推定でもう一度押しても、数えない。</summary>
     private string? registeredEstimateKey;
 
+    /// <summary>この推定（範囲でもよい）を、対戦中の相手に反映する。同じ相手の前の推定があれば、重なる範囲に絞り込む。</summary>
     private async Task RegisterRivalAsync(EvEstimator.Estimate e)
     {
         if (registering) return;   // 保存中にもう一度押されても、二重に反映しない
-        if (registeredEstimateKey is not null && registeredEstimateKey == estimateKey)
+        // 同じ推定は、相手チームにその相手がいるあいだだけ「反映済み」とする（相手が外されたあとは、もう一度反映できる）
+        if (registeredEstimateKey is not null && registeredEstimateKey == estimateKey
+            && s.Defender is not null && RivalFor(s.Defender.Pokemon) is not null)
         {
             rivalMessage = "この推定は、すでに相手チームに反映しました（同じ推定を、もう一度数えません）。";
             rivalMessageIsError = false;
@@ -849,8 +868,7 @@ else if (data is not null && dataSet is not null)
         registering = true;
         try
         {
-            await RegisterRivalCoreAsync(e);
-            if (!rivalMessageIsError) registeredEstimateKey = estimateKey;
+            registeredEstimateKey = await RegisterRivalCoreAsync(e) && !rivalMessageIsError ? estimateKey : registeredEstimateKey;
         }
         finally
         {
@@ -858,9 +876,10 @@ else if (data is not null && dataSet is not null)
         }
     }
 
-    private async Task RegisterRivalCoreAsync(EvEstimator.Estimate e)
+    /// <returns>反映の処理まで進んだか（入力がそろっていないときは false）。</returns>
+    private async Task<bool> RegisterRivalCoreAsync(EvEstimator.Estimate e)
     {
-        if (data is null || s.Defender is null || s.Attacker is null || s.Move is null) return;
+        if (data is null || s.Defender is null || s.Attacker is null || s.Move is null) return false;
         var pokemon = s.Defender.Pokemon;
         var note = $"{s.Attacker.Pokemon.Name} {s.Move.Name} {(e.ObservedAsPercent ? $"{e.ObservedDamage}%" : e.ObservedDamage.ToString())}";
         (bool Applied, string? Problem) applied = (false, null);
@@ -890,11 +909,12 @@ else if (data is not null && dataSet is not null)
         {
             rivalMessage = $"保存できませんでした: {ex.Message}";
             rivalMessageIsError = true;
-            return;
+            return false;
         }
         await RefreshRivalsAsync();
         rivalMessage = tooMany ?? applied.Problem ?? (rivals.Count(r => r.PokemonId == pokemon.Id) > 0 ? $"{pokemon.Name}を対戦中の相手に反映しました" : "");
         rivalMessageIsError = tooMany is not null || applied.Problem is not null;
+        return true;
     }
 
     private async Task RemoveRivalAsync(RivalPokemon rival)
@@ -1208,11 +1228,11 @@ else if (data is not null && dataSet is not null)
                 <div class="hp-editor">
                     <input type="range" class="form-range hp-range" min="1" max="100" value="@build.HpPercent" style="--hp:@(build.HpPercent)%" data-level="@(build.HpPercent > 50 ? "high" : build.HpPercent > 20 ? "mid" : "low")" aria-label="残り HP（%）" @oninput="@(e => build.HpPercent = Math.Clamp(ParseId(e.Value), 1, 100))" />
                     <div class="input-group input-group-sm hp-input">
-                        <input type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => build.HpPercent = int.TryParse(e.Value?.ToString(), out var pct) ? Math.Clamp(pct, 1, 100) : build.HpPercent)" />
+                        <input @key="@("hp-percent-" + hpInputRevision)" type="number" class="form-control" min="1" max="100" value="@build.HpPercent" aria-label="残り HP（%）" @onchange="@(e => SetHpPercent(build, e.Value))" />
                         <span class="input-group-text">%</span>
                     </div>
                     <div class="input-group input-group-sm hp-input">
-                        <input type="number" class="form-control" min="1" max="@build.MaxHp" value="@build.CurrentHp" aria-label="残り HP（実数値）" @onchange="@(e => build.CurrentHp = int.TryParse(e.Value?.ToString(), out var hp) ? Math.Clamp(hp, 1, build.MaxHp) : build.CurrentHp)" />
+                        <input @key="@("hp-current-" + hpInputRevision)" type="number" class="form-control" min="1" max="@build.MaxHp" value="@build.CurrentHp" aria-label="残り HP（実数値）" @onchange="@(e => SetCurrentHp(build, e.Value))" />
                         <span class="input-group-text">/ @build.MaxHp</span>
                     </div>
                 </div>

@@ -471,25 +471,27 @@ else if (data is not null)
         }
         data = await Catalog.GetDataSetAsync(App.DataSetKey);
         usage = await data.GetUsageAsync(App.Format);
-        await RefreshRegisteredAsync();
+        if (!await RefreshRegisteredAsync() && switched) registeredPokemon = Array.Empty<Pokemon>();   // 別のゲームの候補は残さない
         if (s.Attacker is not null && registeredPokemon.All(p => p.Id != s.Attacker.Id)) { s.Attacker = null; s.Move = null; }
         if (switched) ParseText();
         RefreshMoves();
     }
 
     /// <summary>「登録したポケモンから選ぶ」の候補を、今の登録データから作り直す（コマンドで登録・削除したあとにも呼ぶ）。</summary>
-    private async Task RefreshRegisteredAsync()
+    /// <returns>読み込めたか。読み込めなかったときは候補を今のまま残す（一時的な失敗で、選んでいた攻撃側を外さないため）。</returns>
+    private async Task<bool> RefreshRegisteredAsync()
     {
         try
         {
             var entries = (await Repo.GetAsync()).For(App.DataSetKey).Pokemon;
             registeredPokemon = entries.Select(e => data!.FindPokemon(e.PokemonId)).OfType<Pokemon>().DistinctBy(p => p.Id).ToList();
+            return true;
         }
         catch (Exception ex)
         {
-            // 登録を読めなくても、コマンドは使える（候補の欄だけ空になる）
+            // 登録を読めなくても、コマンドは使える
             Console.Error.WriteLine($"登録したポケモンを読み込めませんでした: {ex.Message}");
-            registeredPokemon = Array.Empty<Pokemon>();
+            return false;
         }
     }
 
@@ -977,9 +979,12 @@ else if (data is not null)
                 if (result.Success)
                 {
                     Toast.Success(result.Message);
-                    await RefreshRegisteredAsync();   // 登録・削除したポケモンを、攻撃側の候補にも反映する
-                    if (s.Attacker is not null && registeredPokemon.All(p => p.Id != s.Attacker.Id)) { s.Attacker = null; s.Move = null; }
-                    RefreshMoves();
+                    // 登録・削除したポケモンを、攻撃側の候補にも反映する（読み込めなかったときは、今のまま）
+                    if (await RefreshRegisteredAsync())
+                    {
+                        if (s.Attacker is not null && registeredPokemon.All(p => p.Id != s.Attacker.Id)) { s.Attacker = null; s.Move = null; }
+                        RefreshMoves();
+                    }
                 }
                 else Toast.Error(result.Message);
             }

@@ -440,7 +440,9 @@ else
     private async Task EndMatchAsync()
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
-        if (!await ConfirmAsync($"試合を終えます。対戦中の相手 {roster?.Rivals.Count ?? 0} 体が履歴に移り、対戦中の相手は空になります（元に戻せません）。よろしいですか？")) return;
+        // 対戦中の相手がいないときは、移すものが無いので、確認なしで「いません」と返す
+        if (roster?.Rivals.Count > 0
+            && !await ConfirmAsync($"試合を終えます。対戦中の相手 {roster.Rivals.Count} 体が履歴に移り、対戦中の相手は空になります（元に戻せません）。よろしいですか？")) return;
         EndMatchResult? ended = null;
         if (!await MutateAsync(async () => ended = await Repo.EndMatchAsync(App.DataSetKey, memo, DateTimeOffset.Now))) return;
         editingId = null;

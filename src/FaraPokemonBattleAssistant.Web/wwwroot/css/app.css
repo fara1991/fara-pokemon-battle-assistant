@@ -2437,7 +2437,7 @@ button.compact-cell {
 }
 /* 幅 768〜1229px（iPad の横向きなど）は、中央寄せだと、左下の自分の枠（幅 19rem）と技のメッセージが重なる。自分の枠の右に置く */
 @media (min-width: 768px) and (max-width: 1229.98px) and (min-height: 561px) {
-    .bv-bottom:not(.bv-bottom-moves) > .bv-msg {
+    .bv-bottom:not(.bv-bottom-moves) > .bv-mine ~ .bv-msg {
         align-self: flex-start;
         margin-left: calc(min(19rem, 46%) + 0.75rem);
         width: calc(100% - min(19rem, 46%) - 0.75rem);
