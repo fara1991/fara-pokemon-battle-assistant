@@ -38,6 +38,8 @@ public class OgerponTableTests
         Assert.False(Ogerpon.IsMatchingMask(6, null));
         Assert.False(Ogerpon.IsMatchingMask(Ogerpon.SpeciesId, null));
         Assert.False(Ogerpon.IsMask(null));
+        Assert.False(Ogerpon.IsOtherMask(null));
+        Assert.False(Ogerpon.IsMatchingMask(6, Ogerpon.TealMaskItemId));   // お面のすがたでないポケモンは、みどりのめんでも上がらない
         Assert.Null(Ogerpon.FixedMaskItemId(6, 10273));   // 種族がオーガポンでなければ固定しない
     }
 }

@@ -346,7 +346,7 @@ public sealed class DamageCalculator
         return BuildModernResult(st, baseDamage, attackStat, defenseStat);
     }
 
-    /// <summary>特性による天候・防御側の特性の無視、急所の無効を決める。</summary>
+    /// <summary>特性による天候の無効化と、防御側の特性の無視を決める。</summary>
     private static void ResolveAbilitiesAndField(ModernState st)
     {
         var attacker = st.Attacker;

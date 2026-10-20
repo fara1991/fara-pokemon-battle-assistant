@@ -165,9 +165,6 @@ public sealed class DamageCommand
         var data = await _catalog.GetDataSetAsync(dataSetKey, ct).ConfigureAwait(false);
         var pokemonResolver = new NameResolver<Pokemon>(data.Pokemon, p => p.Name, PokemonAliases(data));
         var moveResolver = new NameResolver<Move>(data.Moves, m => m.Name);
-        var itemResolver = new NameResolver<Item>(data.Items, i => i.Name);
-        var natureResolver = new NameResolver<Nature>(data.Natures, n => n.Name);
-        var abilityResolver = new NameResolver<Ability>(data.Abilities, a => a.Name);
 
         var attackerMatch = pokemonResolver.Resolve(tokens[0]);
         if (!attackerMatch.IsResolved)

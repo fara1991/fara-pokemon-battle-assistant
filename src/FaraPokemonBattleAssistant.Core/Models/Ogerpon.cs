@@ -12,6 +12,9 @@ public static class Ogerpon
     /// <summary>みどりのめん（通常のすがたのお面）の持ち物 ID。</summary>
     public const int TealMaskItemId = 2102;
 
+    /// <summary>通常のすがたのポケモン ID（種族 ID と同じ値）。</summary>
+    public const int BaseFormPokemonId = SpeciesId;
+
     private sealed record Form(int PokemonId, int MaskItemId, string Type, Stat TeraBoostStat);
 
     private static readonly Form[] MaskForms =
@@ -34,7 +37,7 @@ public static class Ogerpon
 
     /// <summary>そのすがたに合ったお面か（通常のすがたはみどりのめん）。</summary>
     public static bool IsMatchingMask(int pokemonId, int? itemId) =>
-        itemId is { } id && (pokemonId == SpeciesId ? id == TealMaskItemId : FormOf(pokemonId)?.MaskItemId == id);
+        itemId is { } id && (pokemonId == BaseFormPokemonId ? id == TealMaskItemId : FormOf(pokemonId)?.MaskItemId == id);
 
     /// <summary>ツタこんぼうのタイプ（お面をつけたすがたで変わる）。お面のすがたでなければ null。</summary>
     public static string? CudgelType(int pokemonId) => FormOf(pokemonId)?.Type;
