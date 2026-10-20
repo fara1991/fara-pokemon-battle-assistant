@@ -65,8 +65,8 @@ public sealed class RemoteRosterStore : IRosterStore
         if (!IsValidKey(syncKey))
             throw new ArgumentException("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）", nameof(syncKey));
         if (!Uri.TryCreate(apiBaseUrl.EndsWith('/') ? apiBaseUrl : apiBaseUrl + "/", UriKind.Absolute, out var baseUri)
-            || (baseUri.Scheme != Uri.UriSchemeHttps && baseUri.Scheme != Uri.UriSchemeHttp))
-            throw new ArgumentException("サイトの URL が正しくありません", nameof(apiBaseUrl));
+            || (baseUri.Scheme != Uri.UriSchemeHttps && !(baseUri.Scheme == Uri.UriSchemeHttp && baseUri.IsLoopback)))
+            throw new ArgumentException("サイトの URL が正しくありません（https の URL にしてください。http は、この PC の中（localhost）だけ使えます）", nameof(apiBaseUrl));
         _pokemonEndpoint = new Uri(baseUri, "api/my/pokemon");
         _teamsEndpoint = new Uri(baseUri, "api/my/team");
         _rivalEndpoint = new Uri(baseUri, "api/my/rival");
@@ -116,15 +116,15 @@ public sealed class RemoteRosterStore : IRosterStore
             using var rivals = await TryGetRivalAsync(ct).ConfigureAwait(false);
             var (pokemonRevision, pokemonSets) = ReadDataSets(pokemon);
             var (teamRevision, teamSets) = ReadDataSets(teams);
-            var rivalSets = rivals is null ? (long?)null : ReadDataSets(rivals).Revision;
-            if (pokemonRevision != teamRevision || (rivalSets is { } rr && rr != pokemonRevision))
+            var rivalRead = rivals is null ? ((long Revision, JsonElement DataSets)?)null : ReadDataSets(rivals);
+            if (pokemonRevision != teamRevision || (rivalRead is { } rr && rr.Revision != pokemonRevision))
             {
                 // 2 回の GET の間に他の場所が書いた。読み直す
                 if (attempt < MaxLoadRetries) continue;
                 throw new RosterUnavailableException(RosterUnavailableReason.Server, null,
                     "他の場所で続けて更新されているため、登録データを読み込めませんでした。時間をおいて試してください");
             }
-            var json = Combine(pokemonSets, teamSets, rivals is null ? null : ReadDataSets(rivals).DataSets);
+            var json = Combine(pokemonSets, teamSets, rivalRead?.DataSets);
             Revision = pokemonRevision;
             LastSyncedAt = DateTimeOffset.Now;
             return json;
@@ -180,6 +180,12 @@ public sealed class RemoteRosterStore : IRosterStore
         try
         {
             var rivals = await GetAsync(_rivalEndpoint, ct).ConfigureAwait(false);
+            // 応答の形が想定と違うとき（配列が無いなど）も「読めなかった」として扱う（ポケモン・チームまで読めなくならないように）
+            if (!RivalShapeIsValid(rivals))
+            {
+                rivals.Dispose();
+                throw InvalidResponse();
+            }
             _rivalUnreadable = false;
             return rivals;
         }
@@ -188,6 +194,25 @@ public sealed class RemoteRosterStore : IRosterStore
             _rivalUnreadable = true;
             return null;
         }
+    }
+
+    /// <summary>相手チームの応答が、<c>{"revision": n, "dataSets": {キー: {"rivals": [...], "history": [...]}}}</c> の形か。</summary>
+    private static bool RivalShapeIsValid(JsonDocument doc)
+    {
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object
+            || !TryGetRevision(root, out _)
+            || !root.TryGetProperty("dataSets", out var sets)
+            || sets.ValueKind != JsonValueKind.Object)
+            return false;
+        foreach (var set in sets.EnumerateObject())
+        {
+            if (set.Value.ValueKind != JsonValueKind.Object
+                || !set.Value.TryGetProperty("rivals", out var rivals) || rivals.ValueKind != JsonValueKind.Array
+                || !set.Value.TryGetProperty("history", out var history) || history.ValueKind != JsonValueKind.Array)
+                return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -290,7 +315,7 @@ public sealed class RemoteRosterStore : IRosterStore
         foreach (var team in roster.Teams.GroupBy(t => t.Number).Select(g => g.First()))
         {
             var slots = team.Slots.Where(s => ids.Contains(s.EntryId)).GroupBy(s => s.EntryId).Select(g => g.First()).Take(6).ToList();
-            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots });
+            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots, Extra = team.Extra });
         }
         return teams;
     }
@@ -330,19 +355,19 @@ public sealed class RemoteRosterStore : IRosterStore
                 writer.WriteStartObject(key);
                 if (pokemonSets.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.Object)
                 {
-                    if (p.TryGetProperty("nextId", out var nextId) && nextId.ValueKind == JsonValueKind.Number) writer.WriteNumber("NextId", nextId.GetInt32());
+                    if (p.TryGetProperty("nextId", out var nextId) && nextId.ValueKind == JsonValueKind.Number) writer.WriteNumber("NextId", ReadInt(nextId));
                     WriteArray(writer, "Pokemon", p, "pokemon");
                 }
                 if (teamSets.TryGetProperty(key, out var t) && t.ValueKind == JsonValueKind.Object)
                 {
                     WriteArray(writer, "Teams", t, "teams");
                     if (t.TryGetProperty("activeTeam", out var active) && active.ValueKind == JsonValueKind.Number)
-                        writer.WriteNumber("ActiveTeam", active.GetInt32());
+                        writer.WriteNumber("ActiveTeam", ReadInt(active));
                 }
                 if (rivalSets is { } rv && rv.TryGetProperty(key, out var r) && r.ValueKind == JsonValueKind.Object)
                 {
-                    if (r.TryGetProperty("nextId", out var nextRival) && nextRival.ValueKind == JsonValueKind.Number) writer.WriteNumber("NextRivalId", nextRival.GetInt32());
-                    if (r.TryGetProperty("nextMatchId", out var nextMatch) && nextMatch.ValueKind == JsonValueKind.Number) writer.WriteNumber("NextMatchId", nextMatch.GetInt32());
+                    if (r.TryGetProperty("nextId", out var nextRival) && nextRival.ValueKind == JsonValueKind.Number) writer.WriteNumber("NextRivalId", ReadInt(nextRival));
+                    if (r.TryGetProperty("nextMatchId", out var nextMatch) && nextMatch.ValueKind == JsonValueKind.Number) writer.WriteNumber("NextMatchId", ReadInt(nextMatch));
                     WriteArray(writer, "Rivals", r, "rivals");
                     WriteArray(writer, "History", r, "history");
                 }
@@ -353,6 +378,9 @@ public sealed class RemoteRosterStore : IRosterStore
         }
         return Encoding.UTF8.GetString(buffer.WrittenSpan);
     }
+
+    /// <summary>サーバーの数値を int で読む。範囲外・小数なら、想定外の応答として扱う（FormatException のまま上げない）。</summary>
+    private static int ReadInt(JsonElement value) => value.TryGetInt32(out var number) ? number : throw InvalidResponse();
 
     private static void WriteArray(Utf8JsonWriter writer, string name, JsonElement parent, string property)
     {

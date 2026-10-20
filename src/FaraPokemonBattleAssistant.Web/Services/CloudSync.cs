@@ -277,8 +277,17 @@ public sealed class CloudSync : IRosterStore
         }
         if (key is not null && RemoteRosterStore.IsValidKey(key) && key != _key)
         {
-            _key = key;
-            _remote = new RemoteRosterStore(_http, _baseUri, key);
+            // http の URL（LAN の IP で開いているときなど）では、アクセスキーを平文で送らないよう、RemoteRosterStore が受け付けない
+            try
+            {
+                var remote = new RemoteRosterStore(_http, _baseUri, key);
+                _key = key;
+                _remote = remote;
+            }
+            catch (ArgumentException)
+            {
+                return;
+            }
             Changed?.Invoke();
         }
     }

@@ -39,8 +39,9 @@ public sealed class DataCatalog
         var sets = await GetDataSetsAsync(ct).ConfigureAwait(false);
         foreach (var key in new[] { preferred, DefaultDataSetKey })
         {
-            if (key is not null && sets.Any(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase)))
-                return key;
+            // 大文字小文字だけ違う入力でも、データにある正しいキーを返す
+            if (key is not null && sets.FirstOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase)) is { } hit)
+                return hit.Key;
         }
         return sets.Count > 0 ? sets[^1].Key : DefaultDataSetKey;
     }
@@ -52,38 +53,45 @@ public sealed class DataCatalog
 
     public Task<IReadOnlyList<DataSetInfo>> GetDataSetsAsync(CancellationToken ct = default)
     {
+        Task<IReadOnlyList<DataSetInfo>> task;
         lock (_gate)
         {
             ExpireIfDue();
+            // 読み込み自体は、最初に呼んだ側のキャンセルに巻き込まない（共有して使い回すため）。呼んだ側ごとに待つだけをキャンセルする
             if (_dataSets is null || _dataSets.IsFaulted || _dataSets.IsCanceled)
-                _dataSets = LoadDataSetsAsync(ct);
-            return _dataSets;
+                _dataSets = LoadDataSetsAsync(CancellationToken.None);
+            task = _dataSets;
         }
+        return task.WaitAsync(ct);
     }
 
     public Task<IReadOnlyList<Nature>> GetNaturesAsync(CancellationToken ct = default)
     {
+        Task<IReadOnlyList<Nature>> task;
         lock (_gate)
         {
             ExpireIfDue();
             if (_natures is null || _natures.IsFaulted || _natures.IsCanceled)
-                _natures = LoadNaturesAsync(ct);
-            return _natures;
+                _natures = LoadNaturesAsync(CancellationToken.None);
+            task = _natures;
         }
+        return task.WaitAsync(ct);
     }
 
     public Task<PokemonDataSet> GetDataSetAsync(string key, CancellationToken ct = default)
     {
+        Task<PokemonDataSet> task;
         lock (_gate)
         {
             ExpireIfDue();
-            if (!_loaded.TryGetValue(key, out var task) || task.IsFaulted || task.IsCanceled)
+            if (!_loaded.TryGetValue(key, out var cached) || cached.IsFaulted || cached.IsCanceled)
             {
-                task = LoadDataSetAsync(key, ct);
-                _loaded[key] = task;
+                cached = LoadDataSetAsync(key, CancellationToken.None);
+                _loaded[key] = cached;
             }
-            return task;
+            task = cached;
         }
+        return task.WaitAsync(ct);
     }
 
     /// <summary>読み込み済みキャッシュを捨てる。データ更新後に呼ぶ。</summary>

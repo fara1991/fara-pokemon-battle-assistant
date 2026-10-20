@@ -400,19 +400,30 @@ else if (data is not null && dataSet is not null)
 
     private async Task LoadDataSet()
     {
+        // ゲームを素早く切り替えたとき、古い読み込みが後から終わって、別のゲームのデータで上書きしないよう、
+        // 読み込み中の値は変数に持ち、最新の読み込みのときだけ、まとめて画面の値にする
+        var version = ++loadVersion;
+        var key = App.DataSetKey;
         try
         {
             loadError = "";
-            dataSet = App.DataSet;
-            data = await Catalog.GetDataSetAsync(App.DataSetKey);
-            usage = await data.GetUsageAsync(App.Format);
-            (rosterGroups, rosterError) = await RosterReading.ChoiceGroupsAsync(Repo, App.DataSetKey, data);
-            await RefreshRivalsAsync();
+            var info = App.DataSet;
+            var loaded = await Catalog.GetDataSetAsync(key);
+            var loadedUsage = await loaded.GetUsageAsync(App.Format);
+            var (groups, groupsError) = await RosterReading.ChoiceGroupsAsync(Repo, key, loaded);
+            var loadedRivals = await ReadRivalsAsync(key);
+            if (version != loadVersion || IsDisposed) return;
+            dataSet = info;
+            data = loaded;
+            usage = loadedUsage;
+            rosterGroups = groups;
+            rosterError = groupsError;
+            rivals = loadedRivals;
             // 図鑑順（メガシンカ後の姿は元の姿のすぐ後ろ）
             pokemonList = data.Pokemon.OrderBy(p => p, Comparer<Pokemon>.Create(Pokedex.CompareDex)).ToList();
-            if (s.DataSetKey != App.DataSetKey)
+            if (s.DataSetKey != key)
             {
-                s.DataSetKey = App.DataSetKey;
+                s.DataSetKey = key;
                 s.AttackerRosterKey = s.DefenderRosterKey = null;
                 s.AttackerMega = s.DefenderMega = null;
                 s.Attacker = null;
@@ -430,7 +441,7 @@ else if (data is not null && dataSet is not null)
             RefreshAttackerLists();
             RefreshDefenderLists();
             // 素早さ比較で選んだポケモンを入れる（ポケモン1 → 攻撃側、ポケモン2 → 防御側。「登録から選ぶ」の欄はそのまま）
-            if (Stage.DataSetKey == App.DataSetKey)
+            if (Stage.DataSetKey == key)
             {
                 // 「登録から選ぶ」のオン・オフも引き継ぐ
                 if (Stage.UseRosterMine is { } rosterMine) s.UseRosterAttacker = rosterMine;
@@ -451,6 +462,7 @@ else if (data is not null && dataSet is not null)
         }
         catch (Exception ex)
         {
+            if (version != loadVersion) return;   // 古い読み込みの失敗は、最新の読み込みに任せる
             data = null;   // 前のゲームのデータのまま描画・計算しない
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
@@ -762,15 +774,21 @@ else if (data is not null && dataSet is not null)
     private bool rivalMessageIsError;
 
     /// <summary>対戦中の相手を読み直す（読めないときは空のまま）。</summary>
-    private async Task RefreshRivalsAsync()
+    private int loadVersion;
+
+    private async Task RefreshRivalsAsync() => rivals = await ReadRivalsAsync(App.DataSetKey);
+
+    private async Task<List<RivalPokemon>> ReadRivalsAsync(string key)
     {
         try
         {
-            rivals = (await Repo.GetAsync()).For(App.DataSetKey).Rivals.Select(r => r.Clone()).ToList();
+            return (await Repo.GetAsync()).For(key).Rivals.Select(r => r.Clone()).ToList();
         }
-        catch
+        catch (Exception ex)
         {
-            rivals = new();
+            // 相手チームを読めなくても、ダメージ計算はできる（相手チームの欄だけ空になる）
+            Console.Error.WriteLine($"相手チームを読み込めませんでした: {ex.Message}");
+            return new();
         }
     }
 
