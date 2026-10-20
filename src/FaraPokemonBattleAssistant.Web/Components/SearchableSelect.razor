@@ -23,16 +23,17 @@
            aria-autocomplete="list"
            aria-haspopup="listbox"
            aria-expanded="@(IsOpen ? "true" : "false")"
-           aria-controls="@(IsOpen ? listId : null)"
-           aria-activedescendant="@(IsOpen && highlight >= 0 ? ItemId(highlight) : null)"
+           aria-controls="@(IsOpen ? BoxId : null)"
+           aria-activedescendant="@(!IsOpen ? null : highlight >= 0 ? ItemId(highlight) : ShowEmptyOption ? EmptyId : null)"
            aria-label="@(AriaLabel ?? Placeholder)"
            autocomplete="off" />
     @if (IsOpen)
     {
-        <div class="searchable-select-dropdown" id="@listId" role="listbox" aria-label="@(AriaLabel ?? Placeholder)">
+        <div class="searchable-select-dropdown" id="@listId">
+            <div id="@BoxId" role="listbox" aria-label="@(AriaLabel ?? Placeholder)">
             @if (ShowEmptyOption)
             {
-                <div class="searchable-select-item text-muted @(HasSelection ? "" : "active")"
+                <div class="searchable-select-item text-muted @(highlight < 0 ? "active" : "")"
                      id="@EmptyId" role="option" aria-selected="@(HasSelection ? "false" : "true")"
                      @onmousedown="SelectEmpty" @onmousedown:preventDefault>@EmptyOption</div>
             }
@@ -54,9 +55,10 @@
                     }
                 </div>
             }
+            </div>
             @if (hiddenCount > 0)
             {
-                <div class="searchable-select-item text-muted" role="presentation">…ほか @hiddenCount 件。入力して絞り込んでください</div>
+                <div class="searchable-select-item text-muted">…ほか @hiddenCount 件。入力して絞り込んでください</div>
             }
         </div>
     }
@@ -92,6 +94,8 @@
     private bool scrollPending;
 
     private string ItemId(int index) => $"{listId}-{index}";
+
+    private string BoxId => $"{listId}-box";
 
     private string EmptyId => $"{listId}-empty";
 
@@ -130,7 +134,10 @@
         var all = !string.IsNullOrWhiteSpace(searchText) && (userTyped || !Dropdown)
             ? Items.Where(item => matches(DisplayText(item))).ToList()
             : Items.ToList();
-        visible = all.Take(MaxVisible).ToList();
+        // 選んでいるものが上限より後ろにあるときは、それが入る範囲を出す（強調・スクロールが効かなくなるのを防ぐ）
+        var selIndex = HasSelection ? all.FindIndex(item => ValueSelector(item) == SelectedValue) : -1;
+        var start = selIndex >= MaxVisible ? Math.Max(0, Math.Min(selIndex - MaxVisible / 2, all.Count - MaxVisible)) : 0;
+        visible = all.Skip(start).Take(MaxVisible).ToList();
         hiddenCount = all.Count - visible.Count;
         highlight = HasSelection ? visible.FindIndex(item => ValueSelector(item) == SelectedValue) : -1;
         if (highlight < 0 && userTyped && visible.Count > 0) highlight = 0;
@@ -251,13 +258,16 @@
                 if (visible.Count > 0) { highlight = Math.Min(highlight + 1, visible.Count - 1); scrollPending = true; }
                 break;
             case "ArrowUp":
-                if (showDropdown && visible.Count > 0) { highlight = Math.Max(highlight - 1, 0); scrollPending = true; }
+                // 先頭からさらに ↑ で、「なし」の候補に移る
+                if (showDropdown && visible.Count > 0) { highlight = Math.Max(highlight - 1, ShowEmptyOption ? -1 : 0); scrollPending = true; }
                 break;
             case "Enter":
                 if (showDropdown && !Disabled)
                 {
                     // 「なし」を選んでいる（強調が無い）ときに Enter を押したら、そのまま「なし」にする
-                    if (highlight < 0 && ShowEmptyOption && !HasSelection) { await SelectEmpty(); break; }
+                    if (highlight < 0 && ShowEmptyOption) { await SelectEmpty(); break; }
+                    // 強調が無く、文字も打っていないときは、選ばずに閉じる（選択中のものを先頭の候補に変えない）
+                    if (highlight < 0 && !userTyped) { showDropdown = false; break; }
                     var pick = highlight >= 0 && highlight < visible.Count ? visible[highlight] : visible.FirstOrDefault();
                     if (pick != null) await SelectItem(pick);
                 }

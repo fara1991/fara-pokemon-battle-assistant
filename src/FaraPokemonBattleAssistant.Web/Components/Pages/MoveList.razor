@@ -37,7 +37,7 @@
                     <label>覚えるポケモンを探す <Help Title="覚えるポケモンを探す">技を選ぶと、その技だけを表示して、覚えるポケモンを開きます。</Help></label>
                     <SearchableSelect TItem="Move" Items="allMoves" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
                         SelectedValue="@(f.MoveId == 0 ? "" : f.MoveId.ToString())" SelectedValueChanged="@PickMove"
-                        Dropdown="true" EmptyOption="指定なし" Placeholder="技名を入力...">
+                        Dropdown="true" EmptyOption="指定なし" Placeholder="技名を入力..." AriaLabel="覚えるポケモンを探す（技）">
                         <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@MoveText.Category(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                     </SearchableSelect>
                 </div>
@@ -72,7 +72,7 @@
     </div>
 
     <div class="dex-list pane-scroll">
-        <div class="dex-row mv-row dex-head" role="row">
+        <div class="dex-row mv-row dex-head">
             <button type="button" class="dex-sort mv-name @SortClass(MoveSort.Name)" title="@SortTitle(MoveSort.Name, "技名")" @onclick="() => SortBy(MoveSort.Name)">技名<span class="dex-sort-mark">@SortMark(MoveSort.Name)</span></button>
             <button type="button" class="dex-sort mv-type @SortClass(MoveSort.Type)" title="@SortTitle(MoveSort.Type, "タイプ")" @onclick="() => SortBy(MoveSort.Type)">タイプ<span class="dex-sort-mark">@SortMark(MoveSort.Type)</span></button>
             <div class="mv-cat">分類</div>
@@ -87,7 +87,7 @@
         }
         <Virtualize TItem="Move" Items="results" Context="m" ItemSize="56" OverscanCount="8">
             <div class="dex-item @(s.SelectedId == m.Id ? "selected" : "")" @key="m.Id">
-                <div class="dex-row mv-row" role="button" tabindex="0" aria-expanded="@(s.SelectedId == m.Id ? "true" : "false")"
+                <div class="dex-row mv-row" role="button" tabindex="0" aria-label="@($"{m.Name}の詳細")" aria-expanded="@(s.SelectedId == m.Id ? "true" : "false")"
                      @onclick="() => ToggleRow(m.Id)" @onkeydown="e => OnRowKey(e, m.Id)">
                     <div class="mv-name">@m.Name</div>
                     <div class="mv-type"><TypeIcon Type="@m.Type" Small="true" /></div>
@@ -128,7 +128,7 @@
     /// <summary>行をキーボードで開閉する（Enter / Space）。</summary>
     private void OnRowKey(KeyboardEventArgs e, int id)
     {
-        if (e.Key is "Enter" or " ") ToggleRow(id);
+        if (!e.Repeat && e.Key is "Enter" or " ") ToggleRow(id);
     }
 
     public sealed class State

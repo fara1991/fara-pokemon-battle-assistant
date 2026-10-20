@@ -252,9 +252,11 @@
         scanNav(false);
     }
 
-    // 400 件の一覧などで DOM が何度も変わっても、見直しは 1 フレームに 1 回だけにする
+    // 件数の多い一覧などで DOM が何度も変わっても、見直しは 1 フレームに 1 回だけにする
     var scanQueued = false;
     function scheduleScan() {
+        // 裏のタブでは rAF が止まる。表示されるまで遅れると、最初の描画の要素が「新しく出た」扱いになるので、その場で見る
+        if (document.hidden) { scan(); return; }
         if (scanQueued) return;
         scanQueued = true;
         requestAnimationFrame(function () { scanQueued = false; scan(); });

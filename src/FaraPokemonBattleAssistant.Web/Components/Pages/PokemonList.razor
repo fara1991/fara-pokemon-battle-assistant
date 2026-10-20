@@ -31,7 +31,7 @@
                     <label>特性</label>
                     <SearchableSelect TItem="Ability" Items="abilityChoices" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
                         SelectedValue="@(f.AbilityId == 0 ? "" : f.AbilityId.ToString())" SelectedValueChanged="@(v => { f.AbilityId = ParseId(v); Refresh(); })"
-                        Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）" />
+                        Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）" AriaLabel="特性" />
                 </div>
                 }
                 @for (var i = 0; i < 2; i++)
@@ -41,7 +41,7 @@
                         <label>覚える技@(slot + 1)</label>
                         <SearchableSelect TItem="Move" Items="moveChoices" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
                             SelectedValue="@(MoveAt(slot) == 0 ? "" : MoveAt(slot).ToString())" SelectedValueChanged="@(v => SetMove(slot, ParseId(v)))"
-                            Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）">
+                            Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）" AriaLabel="@($"覚える技{slot + 1}")">
                             <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@MoveText.Category(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                         </SearchableSelect>
                     </div>
@@ -93,7 +93,7 @@
     </div>
 
     <div class="dex-list pane-scroll">
-        <div class="dex-row dex-head" role="row">
+        <div class="dex-row dex-head">
             @foreach (var (sort, label) in SortColumns)
             {
                 if (sort == PokedexSort.Dex)
@@ -115,7 +115,7 @@
         }
         <Virtualize TItem="Pokemon" Items="results" Context="p" ItemSize="54" OverscanCount="8">
             <div class="dex-item @(s.SelectedId == p.Id ? "selected" : "")" @key="p.Id">
-                <div class="dex-row" role="button" tabindex="0" aria-expanded="@(s.SelectedId == p.Id ? "true" : "false")"
+                <div class="dex-row" role="button" tabindex="0" aria-label="@($"{PokemonNameText(p)}の詳細")" aria-expanded="@(s.SelectedId == p.Id ? "true" : "false")"
                      @onclick="() => ToggleRow(p.Id)" @onkeydown="e => OnRowKey(e, p.Id)">
                     <div class="dex-no">@Pokedex.DexNumber(p).ToString("0000")</div>
                     <div class="dex-name"><PokemonIcon Pokemon="p" Small="true" /><span>@PokemonNameText(p)@(p.IsProvisional ? "※未収録" : "")</span></div>
@@ -150,7 +150,7 @@
     /// <summary>行をキーボードで開閉する（Enter / Space）。</summary>
     private void OnRowKey(KeyboardEventArgs e, int id)
     {
-        if (e.Key is "Enter" or " ") ToggleRow(id);
+        if (!e.Repeat && e.Key is "Enter" or " ") ToggleRow(id);
     }
 
     public sealed class State
