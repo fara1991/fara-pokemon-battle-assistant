@@ -87,6 +87,11 @@ else if (data is not null)
                 }
                 @if (Has(Field.Evs))
                 {
+                    @if (s.Kind == "set -r")
+                    {
+                        @* ポイントと性格は、ポケモン・特性とは別の行から始める（幅によってポイントだけが上の行に上がらないように） *@
+                        <div class="cmd-break" aria-hidden="true"></div>
+                    }
                     <div class="cmd-f-evs">
                         <label class="form-label">@(EvRules.Label(App.DataSet?.EvSystem ?? EvSystem.Classic))（H A B C D S）@(s.Kind == "add -m" ? "" : "（分かる能力だけ）")</label>
                         <div class="cmd-evs">
