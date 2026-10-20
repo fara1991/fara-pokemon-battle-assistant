@@ -26,6 +26,7 @@
 //          履歴の本体は下の /api/my/history。
 //   GET    /api/my/history?dataSet=K[&limit=n][&before=Id]  → 200 {"total": 件数, "items": [試合…新しい順], "hasMore": bool}
 //   GET    /api/my/history?dataSet=K&id=n                   → 200 {"total": 件数, "item": 試合} / 404
+//   GET    /api/my/history                                  → 200 {"dataSets": [{"dataSet": "k", "total": 件数}, ...]}（履歴のあるゲームの一覧。ゲームのキーは小文字。キーの作り直しで履歴を写すときに使う）
 //   POST   /api/my/history ← {"dataSet": "K", "match": {"Date"?, "Memo"?, "Foes": [...]}}
 //                           → 201 {"id": 割り当てた Id, "total": 件数} / 409 history_limit
 //          "match" の代わりに "matches": [試合…]（100 件まで。データの移し替え用）を送ると、まとめて足す
@@ -389,6 +390,8 @@ async function handleApi(request, env, url) {
 /** /api/my/history（試合の履歴）。 */
 async function handleHistory(request, url, stub) {
   if (request.method === "POST") return postHistory(request, stub);
+  // ゲームを指定しない GET は、履歴のあるゲームの一覧
+  if (request.method === "GET" && url.searchParams.get("dataSet") === null) return respond(stub.listHistoryDataSets());
   const dataSet = checkDataSet(url.searchParams.get("dataSet"));
   if (request.method === "GET") {
     const id = queryInt(url, "id", 1, MAX_ID);
@@ -828,6 +831,16 @@ export class RosterSlot extends DurableObject {
       await this.#touch();
     }
     return plain(200, { total, items: rows.slice(0, limit).map((r) => JSON.parse(r.json)), hasMore: rows.length > limit });
+  }
+
+  /** 履歴のあるゲームの一覧（ゲームのキーは小文字）。 */
+  async listHistoryDataSets() {
+    const s = await this.#read();
+    if (s.deleted) return this.#gone();
+    const rows = this.#hasSchema()
+      ? this.ctx.storage.sql.exec("SELECT data_set, count FROM history_meta WHERE count > 0 ORDER BY data_set").toArray()
+      : [];
+    return plain(200, { dataSets: rows.map((r) => ({ dataSet: r.data_set, total: r.count })) });
   }
 
   async getMatch(dataSet, id) {

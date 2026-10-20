@@ -239,6 +239,9 @@ else
     private int historyTotal;
     private bool historyHasMore;
     private bool historyLoading;
+    private int historyVersion;
+    /// <summary>いま表示している履歴のゲーム（ゲームを切り替えたあと、古い履歴の「削除」「整理」が別のゲームに効かないように）。</summary>
+    private string? historyDataSetKey;
     private int keepLatest = 1000;
 
     protected override Task OnRosterReadAsync() => LoadHistoryAsync(reset: true);
@@ -247,13 +250,23 @@ else
 
     private async Task LoadHistoryAsync(bool reset)
     {
-        if (historyLoading && !reset) return;
+        if (!reset && historyLoading) return;
+        var version = ++historyVersion;
+        var key = App.DataSetKey;
+        if (reset || historyDataSetKey != key)
+        {
+            // 読み込み中・失敗したときに、前のゲームの履歴が残らないようにする
+            historyItems = new();
+            historyTotal = 0;
+            historyHasMore = false;
+            historyDataSetKey = key;
+            reset = true;
+        }
         historyLoading = true;
         try
         {
-            var key = App.DataSetKey;
             var page = await Repo.ListHistoryAsync(key, HistoryPageSize, reset ? null : historyItems.LastOrDefault()?.Id);
-            if (key != App.DataSetKey || IsDisposed) return;
+            if (version != historyVersion || key != App.DataSetKey || IsDisposed) return;   // 新しい読み込みが始まっていたら、古い結果は捨てる
             if (reset) historyItems = page.Items.ToList();
             else historyItems.AddRange(page.Items);
             historyTotal = page.Total;
@@ -261,17 +274,17 @@ else
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Show($"試合の履歴を読み込めませんでした: {CloudSync.Describe(ex)}", true);
+            if (version == historyVersion) Show($"試合の履歴を読み込めませんでした: {CloudSync.Describe(ex)}", true);
         }
         finally
         {
-            historyLoading = false;
+            if (version == historyVersion) historyLoading = false;
         }
     }
 
     private async Task TrimHistoryAsync()
     {
-        if (Mutating) return;
+        if (Mutating || historyDataSetKey != App.DataSetKey) return;
         if (keepLatest < 0) keepLatest = 0;
         if (!await ConfirmAsync($"新しい {keepLatest} 件を残して、古い履歴を削除します（元に戻せません）。よろしいですか？")) return;
         var removed = 0;
@@ -510,7 +523,7 @@ else
 
     private async Task RemoveMatchAsync(RivalMatch match)
     {
-        if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
+        if (Mutating || historyDataSetKey != App.DataSetKey) return;   // 実行中の操作があるあいだ・表示中の履歴が今のゲームのものでないときは、何もしない
         if (!await ConfirmAsync($"履歴 #{match.Id} を削除します（元に戻せません）。よろしいですか？")) return;
         var removed = false;
         if (!await MutateAsync(async () => removed = await Repo.RemoveMatchAsync(App.DataSetKey, match.Id))) return;

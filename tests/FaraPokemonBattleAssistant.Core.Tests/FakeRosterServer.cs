@@ -62,7 +62,12 @@ internal sealed class FakeRosterServer : HttpMessageHandler
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
         if (Deleted) return Json(HttpStatusCode.Gone, """{"error":"key_retired"}""");
-        if (path == "/api/my/history") return History(request, body);
+        if (path == "/api/my/history")
+        {
+            // 本物と同じ本文の上限（256 KB）
+            if (body is not null && Encoding.UTF8.GetByteCount(body) > 256 * 1024) return Json(HttpStatusCode.RequestEntityTooLarge, """{"error":"too_large"}""");
+            return History(request, body);
+        }
         var pokemon = path == "/api/my/pokemon";
         var rival = path == "/api/my/rival";
         var historyLimit = int.TryParse(HttpUtility.ParseQueryString(request.RequestUri.Query)["historyLimit"], out var hl) ? hl : (int?)null;
@@ -127,6 +132,13 @@ internal sealed class FakeRosterServer : HttpMessageHandler
     {
         var query = HttpUtility.ParseQueryString(request.RequestUri!.Query);
         var state = RosterRepository.Deserialize(RosterJson);
+        if (request.Method == HttpMethod.Get && query["dataSet"] is null)
+        {
+            // 履歴のあるゲームの一覧（ゲームのキーは小文字）
+            var sets = new JsonArray(state.DataSets.Where(kv => kv.Value.History.Count > 0)
+                .Select(kv => (JsonNode)new JsonObject { ["dataSet"] = kv.Key.ToLowerInvariant(), ["total"] = kv.Value.History.Count }).ToArray());
+            return Json(HttpStatusCode.OK, new JsonObject { ["dataSets"] = sets }.ToJsonString());
+        }
         if (request.Method == HttpMethod.Post)
         {
             var node = JsonNode.Parse(body!)!.AsObject();
@@ -134,6 +146,10 @@ internal sealed class FakeRosterServer : HttpMessageHandler
             var sent = node["matches"] is { } many
                 ? many.Deserialize<List<RivalMatch>>()!
                 : new List<RivalMatch> { node["match"].Deserialize<RivalMatch>()! };
+            // 本物と同じ検証: 1 試合は 64 KB まで、まとめて足すのは 100 件まで
+            var parts = node["matches"] is JsonArray array ? array.ToList() : new List<JsonNode?> { node["match"] };
+            if (sent.Count is 0 or > 100 || parts.Any(p => Encoding.UTF8.GetByteCount(p!.ToJsonString()) > 64 * 1024))
+                return Json(HttpStatusCode.BadRequest, """{"error":"invalid_match","message":"試合が大きすぎます"}""");
             if (roster.History.Count + sent.Count > HistoryLimit)
                 return Json(HttpStatusCode.Conflict, """{"error":"history_limit","message":"試合の履歴が上限に達しています。古い履歴を削除してください"}""");
             var ids = new List<int>();
@@ -171,6 +187,7 @@ internal sealed class FakeRosterServer : HttpMessageHandler
                 : Json(HttpStatusCode.OK, new JsonObject { ["total"] = set.History.Count, ["item"] = JsonSerializer.SerializeToNode(found) }.ToJsonString());
         }
         var limit = int.TryParse(query["limit"], out var l) ? l : 50;
+        if (limit is < 1 or > 200) return Json(HttpStatusCode.BadRequest, """{"error":"invalid_query"}""");
         var before = int.TryParse(query["before"], out var b) ? b : int.MaxValue;
         var older = set.History.Where(m => m.Id < before).OrderByDescending(m => m.Id).Take(limit + 1).ToList();
         return Json(HttpStatusCode.OK, new JsonObject

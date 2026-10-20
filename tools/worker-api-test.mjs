@@ -224,7 +224,8 @@ try {
   const hkey = newKey();
   const foe = (id, name) => ({ Id: id, PokemonId: 1, PokemonName: name });
   check("キーなしの history は 401", (await req("GET", `${H}?dataSet=Champions`)).status === 401);
-  check("dataSet の無い GET history は 400", (await req("GET", H, hkey)).status === 400);
+  const noSets = await req("GET", H, hkey);
+  check("dataSet の無い GET history は、履歴のあるゲームの一覧（空）", noSets.status === 200 && same(noSets.json?.dataSets, []), noSets.text);
   check("予約語の dataSet は 400", (await req("GET", `${H}?dataSet=__proto__`, hkey)).status === 400);
   const empty = await req("GET", `${H}?dataSet=Champions`, hkey);
   check("空の履歴は total 0・items []", empty.status === 200 && empty.json?.total === 0 && same(empty.json?.items, []) && empty.json?.hasMore === false, empty.text);
@@ -245,6 +246,8 @@ try {
   check("無い Id は 404", (await req("GET", `${H}?dataSet=Champions&id=99`, hkey)).status === 404);
   check("limit=0 は 400", (await req("GET", `${H}?dataSet=Champions&limit=0`, hkey)).status === 400);
   check("履歴の追加では revision が増えない", (await req("GET", P, hkey)).json?.revision === 0);
+  const sets3 = await req("GET", H, hkey);
+  check("履歴のあるゲームの一覧（小文字のキーと件数）", same(sets3.json?.dataSets, [{ dataSet: "champions", total: 3 }]), sets3.text);
   const full = await req("POST", H, hkey, { dataSet: "Champions", match: { Foes: [] } });
   check("上限（テストでは 3 件）に達していたら 409 history_limit", full.status === 409 && full.json?.error === "history_limit", full.text);
   const gen9Add = await req("POST", H, hkey, { dataSet: "Gen9", match: { Foes: [foe(2, "z")] } });

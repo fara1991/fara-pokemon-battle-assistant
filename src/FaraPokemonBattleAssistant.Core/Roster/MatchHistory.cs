@@ -13,6 +13,9 @@ public sealed record MatchPage(int Total, IReadOnlyList<RivalMatch> Items, bool 
 /// </summary>
 public interface IMatchHistory
 {
+    /// <summary>履歴のあるゲームと、その件数（ゲームのキーは小文字）。キーの作り直しで、履歴を写し忘れないために使う。</summary>
+    Task<IReadOnlyDictionary<string, int>> DataSetTotalsAsync(CancellationToken ct = default);
+
     /// <summary>試合の一覧（新しい順）。<paramref name="beforeId"/> を付けると、その Id より前の試合から。</summary>
     Task<MatchPage> ListAsync(string dataSetKey, int limit, int? beforeId = null, CancellationToken ct = default);
 

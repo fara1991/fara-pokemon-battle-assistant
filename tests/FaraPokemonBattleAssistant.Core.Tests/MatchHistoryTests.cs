@@ -131,6 +131,96 @@ public class MatchHistoryTests
         Assert.Single(server.State.For(Ds).History);
     }
 
+
+    // ---- レビューで見つかった抜け（まとめて追加の大きさ・文書にないゲーム・応答の検証・途中で足された相手）
+
+    private static RivalMatch BigMatch(int kb) => new()
+    {
+        Memo = "big",
+        Foes = { new RivalPokemon { Id = 1, PokemonName = "a", Scans = { new RivalScan { Defense = "Defense", Notes = { new string('x', kb * 1024) } } } } },
+    };
+
+    [Fact]
+    public async Task Batches_are_split_by_size_so_that_no_request_exceeds_the_server_body_limit()
+    {
+        var (server, _) = NewCloud();
+        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        var matches = Enumerable.Range(1, 40).Select(_ => BigMatch(30)).ToList();   // 30 KB × 40 件 = 1.2 MB（件数だけで 100 件ずつ区切ると 1 回が 3 MB）
+        await store.AppendManyAsync(Ds, matches);
+        Assert.Equal(40, server.State.For(Ds).History.Count);
+        var posts = server.Bodies.Where(b => b is not null).ToList();
+        Assert.All(posts, body => Assert.True(System.Text.Encoding.UTF8.GetByteCount(body!) <= 256 * 1024));
+        Assert.True(posts.Count > 1);
+    }
+
+    [Fact]
+    public async Task A_match_over_the_server_limit_is_sent_without_its_scan_notes()
+    {
+        var (server, _) = NewCloud();
+        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        await store.AppendManyAsync(Ds, new[] { BigMatch(80) });                    // 80 KB（以前のブラウザ保存には 1 試合の上限が無かった）
+        var saved = server.State.For(Ds).History.Single();
+        Assert.Equal("big", saved.Memo);
+        Assert.Empty(saved.Foes.Single().Scans);                                    // 推定の根拠だけを省いて、試合は移る
+    }
+
+    [Fact]
+    public async Task Cloud_end_match_keeps_rivals_that_were_added_while_it_was_running()
+    {
+        var (server, repo) = NewCloud();
+        await AddRivalAsync(repo, "リザードン");
+        // 履歴に追記している間に、別の端末（BOT）が相手を足す
+        server.Override = request =>
+        {
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath == "/api/my/history")
+            {
+                server.Override = null;
+                server.WriteFromElsewhere(state => { var roster = state.For(Ds); roster.Rivals.Add(new RivalPokemon { Id = roster.NextRivalId++, PokemonId = 445, PokemonName = "ガブリアス" }); });
+            }
+            return null;
+        };
+        var ended = await repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now);
+        Assert.Equal(1, ended.Moved);                                               // 記録したのは、読んだ時点の相手だけ
+        Assert.Equal("ガブリアス", (await repo.GetAsync()).For(Ds).Rivals.Single().PokemonName);   // あとから足された相手は消えずに残る
+    }
+
+    [Fact]
+    public async Task Two_end_calls_at_the_same_time_record_the_match_only_once()
+    {
+        var (server, repo) = NewCloud();
+        await AddRivalAsync(repo, "リザードン");
+        var results = await Task.WhenAll(repo.EndMatchAsync(Ds, "a", DateTimeOffset.Now), repo.EndMatchAsync(Ds, "b", DateTimeOffset.Now));
+        Assert.Equal(1, results.Count(r => r.Match is not null));
+        Assert.Single(server.State.For(Ds).History);
+    }
+
+    [Fact]
+    public async Task A_history_page_that_does_not_move_forward_is_rejected()
+    {
+        var (server, repo) = NewCloud();
+        for (var i = 0; i < 3; i++) await EndAsync(repo, $"{i}");
+        // サーバーが、頼んだ before より後ろの試合（同じページ）を返し続ける
+        server.Override = request => request.Method == HttpMethod.Get && request.RequestUri!.Query.Contains("before=")
+            ? FakeRosterServer.Json(HttpStatusCode.OK, """{"total":3,"items":[{"Id":3,"Foes":[]},{"Id":2,"Foes":[]}],"hasMore":true}""")
+            : null;
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.ListHistoryAsync(Ds, 2, beforeId: 2));
+        server.Override = request => request.Method == HttpMethod.Get && request.RequestUri!.Query.Contains("limit=")
+            ? FakeRosterServer.Json(HttpStatusCode.OK, """{"total":3,"items":[{"Id":1,"Foes":[]},{"Id":2,"Foes":[]}],"hasMore":false}""")   // 新しい順になっていない
+            : null;
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.ListHistoryAsync(Ds, 5));
+    }
+
+    [Fact]
+    public async Task Data_set_totals_list_the_games_that_have_history()
+    {
+        var (server, repo) = NewCloud();
+        await EndAsync(repo, "1");
+        await EndAsync(repo, "2");
+        var totals = await ((RemoteRosterStore)(await repo.Store.GetRemoteHistoryAsync())!).DataSetTotalsAsync();
+        Assert.Equal(2, totals["gen9"]);
+        Assert.Single(totals);
+    }
+
     // ---- ブラウザ・ファイル（履歴は登録データの中。上限は 2,000 件）
 
     [Fact]
@@ -149,12 +239,35 @@ public class MatchHistoryTests
         Assert.Equal(new[] { 4 }, (await repo.ListHistoryAsync(Ds, 10)).Items.Select(m => m.Id));
     }
 
+    /// <summary>ブラウザの localStorage と同じく、履歴に上限があるメモリ上の保存先。</summary>
+    private sealed class BrowserLikeStore : IRosterStore
+    {
+        private readonly MemoryRosterStore _inner = new();
+        public int? LocalHistoryLimit => RosterRepository.BrowserHistoryLimit;
+        public string? Json { get => _inner.Json; set => _inner.Json = value; }
+        public Task<string?> LoadAsync(CancellationToken ct = default) => _inner.LoadAsync(ct);
+        public Task SaveAsync(string json, CancellationToken ct = default) => _inner.SaveAsync(json, ct);
+        public Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default) => _inner.SavePartAsync(state, dataSetKey, part, ct);
+    }
+
+    [Fact]
+    public async Task File_and_memory_stores_have_no_history_limit()
+    {
+        var store = new MemoryRosterStore();
+        var set = new DataSetRoster { NextMatchId = RosterRepository.BrowserHistoryLimit + 1 };
+        for (var i = 1; i <= RosterRepository.BrowserHistoryLimit; i++) set.History.Add(new RivalMatch { Id = i });
+        store.Json = RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = set } });
+        var repo = new RosterRepository(store);
+        await AddRivalAsync(repo, "リザードン");
+        Assert.NotNull((await repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now)).Match);   // BOT（ファイル保存）の end は上限で断られない
+    }
+
     [Fact]
     public async Task Local_end_match_refuses_to_exceed_the_browser_limit_and_keeps_the_rivals()
     {
-        var store = new MemoryRosterStore();
-        var set = new DataSetRoster { NextMatchId = RosterRepository.LocalHistoryLimit + 1 };
-        for (var i = 1; i <= RosterRepository.LocalHistoryLimit; i++) set.History.Add(new RivalMatch { Id = i });
+        var store = new BrowserLikeStore();
+        var set = new DataSetRoster { NextMatchId = RosterRepository.BrowserHistoryLimit + 1 };
+        for (var i = 1; i <= RosterRepository.BrowserHistoryLimit; i++) set.History.Add(new RivalMatch { Id = i });
         store.Json = RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = set } });
         var repo = new RosterRepository(store);
         await AddRivalAsync(repo, "リザードン");
@@ -162,7 +275,7 @@ public class MatchHistoryTests
         Assert.Contains("2,000", ex.Message);
         var state = (await repo.GetAsync()).For(Ds);
         Assert.Single(state.Rivals);                                                   // 対戦中の相手は残る
-        Assert.Equal(RosterRepository.LocalHistoryLimit, state.History.Count);
+        Assert.Equal(RosterRepository.BrowserHistoryLimit, state.History.Count);
         // 古い履歴を整理すれば、また終えられる
         await repo.TrimHistoryAsync(Ds, 100);
         Assert.NotNull((await repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now)).Match);

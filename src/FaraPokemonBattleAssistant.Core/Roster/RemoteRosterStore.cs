@@ -52,9 +52,8 @@ public sealed partial class RemoteRosterStore : IRosterStore
     private readonly HttpClient _http;
     private readonly Uri _pokemonEndpoint;
     private readonly Uri _teamsEndpoint;
+    /// <summary>相手チームの URL。履歴は別の API（/api/my/history）で扱うので、読み込みにも 409 の本文にも付けない（historyLimit=0）。</summary>
     private readonly Uri _rivalEndpoint;
-    /// <summary>相手チームを読む URL。履歴は別の API（/api/my/history）で読むので、ここでは付けない（historyLimit=0）。</summary>
-    private readonly Uri _rivalReadEndpoint;
     private readonly Uri _accessKeyEndpoint;
     private readonly string _key;
 
@@ -71,8 +70,7 @@ public sealed partial class RemoteRosterStore : IRosterStore
             throw new ArgumentException("サイトの URL が正しくありません（https の URL にしてください。http は、この PC の中（localhost）だけ使えます）", nameof(apiBaseUrl));
         _pokemonEndpoint = new Uri(baseUri, "api/my/pokemon");
         _teamsEndpoint = new Uri(baseUri, "api/my/team");
-        _rivalEndpoint = new Uri(baseUri, "api/my/rival");
-        _rivalReadEndpoint = new Uri(baseUri, "api/my/rival?historyLimit=0");
+        _rivalEndpoint = new Uri(baseUri, "api/my/rival?historyLimit=0");
         _accessKeyEndpoint = new Uri(baseUri, "api/my/access-key");
         _key = syncKey;
     }
@@ -192,7 +190,7 @@ public sealed partial class RemoteRosterStore : IRosterStore
     {
         try
         {
-            var rivals = await GetAsync(_rivalReadEndpoint, ct).ConfigureAwait(false);
+            var rivals = await GetAsync(_rivalEndpoint, ct).ConfigureAwait(false);
             // 応答の形が想定と違うとき（配列が無いなど）も「読めなかった」として扱う（ポケモン・チームまで読めなくならないように）
             if (!RivalShapeIsValid(rivals))
             {
