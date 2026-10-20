@@ -237,7 +237,7 @@ public sealed class CloudSync : IRosterStore
                 {
                     trimmed += await CopyNewMatchesAsync(old, remote, expected, changed.Current);
                 }
-                catch (RosterUnavailableException)
+                catch (Exception ex) when (ex is RosterUnavailableException or HistoryLimitException)
                 {
                     break;
                 }
@@ -349,7 +349,7 @@ public sealed class CloudSync : IRosterStore
         var trimmed = 0;
         foreach (var (dataSetKey, state) in before)
         {
-            var matches = await ReadAllHistoryOldestFirstAsync(source, dataSetKey, state.Total);
+            var matches = await ReadAllHistoryOldestFirstAsync(source, dataSetKey, state.Total, state.NextId);
             trimmed += await target.AppendManyAsync(dataSetKey, matches);
         }
         var copied = await target.DataSetTotalsAsync();
@@ -371,14 +371,17 @@ public sealed class CloudSync : IRosterStore
             var from = previous.TryGetValue(dataSetKey, out var was) ? was.NextId : 1;
             if (state.NextId <= from) continue;   // 足されていない（消されただけ）
             var added = new List<RivalMatch>();
-            int? before = null;
-            for (var pages = 0; pages <= (state.NextId - from) / 200 + 2; pages++)
+            int? before = state.NextId;   // 今回の状態の次の Id より前だけ（それ以降は、次の回で写す。同じ試合を 2 度写さない）
+            var finished = false;
+            for (var pages = 0; pages <= (state.NextId - from) / 200 + 2 && !finished; pages++)
             {
                 var page = await source.ListAsync(dataSetKey, 200, before);
                 added.AddRange(page.Items.TakeWhile(m => m.Id >= from));
-                if (!page.HasMore || page.Items.Count == 0 || page.Items[^1].Id < from) break;
-                before = page.Items[^1].Id;
+                finished = !page.HasMore || page.Items.Count == 0 || page.Items[^1].Id < from;
+                if (!finished) before = page.Items[^1].Id;
             }
+            if (!finished)   // 読み切れていないまま写すと、残りを失うので、中止する
+                throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "履歴を最後まで読めなかったため、キーを作り直せません。もう一度試してください");
             added.Reverse();
             if (added.Count > 0) trimmed += await target.AppendManyAsync(dataSetKey, added);
         }
@@ -388,11 +391,11 @@ public sealed class CloudSync : IRosterStore
     private static string TrimmedNotice(int count) =>
         $"試合の履歴のうち {count} 件は、サーバーの上限（1 試合 64 KB・メモ 500 文字）に収めるため、推定の根拠（スキャンの記録）を省くか、メモを切って移しました";
 
-    /// <summary>1 つのゲームの履歴を全部、古い順に読む（1 回に 200 件ずつ）。サーバーの応答がおかしくて終わらない・途中で切れるときは失敗にする。</summary>
-    private static async Task<List<RivalMatch>> ReadAllHistoryOldestFirstAsync(IMatchHistory source, string dataSetKey, int expectedTotal)
+    /// <summary>1 つのゲームの履歴を（<paramref name="nextId"/> より前の分だけ）全部、古い順に読む（1 回に 200 件ずつ）。サーバーの応答がおかしくて終わらない・途中で切れるときは失敗にする。</summary>
+    private static async Task<List<RivalMatch>> ReadAllHistoryOldestFirstAsync(IMatchHistory source, string dataSetKey, int expectedTotal, int nextId)
     {
         var all = new List<RivalMatch>();
-        int? before = null;
+        int? before = nextId;   // 一覧を取った時点の次の Id より前だけ読む（読んでいる間に足された試合は、あとで足された分として写す）
         for (var pages = 0; pages <= expectedTotal / 200 + 2; pages++)
         {
             var page = await source.ListAsync(dataSetKey, 200, before);

@@ -575,7 +575,7 @@ public sealed class RosterRepository
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
-                    $"試合は履歴 #{recorded.Id} に記録しましたが、対戦中の相手を消せませんでした。もう一度 end してください（記録済みの試合に紐づけて、相手を消します。履歴は二重になりません）", ex);
+                    $"試合は履歴 #{recorded.Id} に記録しましたが、対戦中の相手を消せませんでした。もう一度 end してください（対戦中の相手が変わっていなければ、記録済みの試合に紐づけて相手を消します。履歴は二重になりません。相手を足した・消したあとは、二重に記録されることがあります）", ex);
             }
             return new EndMatchResult(recorded, all.Count);
         }
