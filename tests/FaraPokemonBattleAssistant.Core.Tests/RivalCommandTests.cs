@@ -123,7 +123,6 @@ public class RivalCommandTests
         Assert.Contains("根拠", (await command.ExecuteAsync("!pokech detail -h 1")).Message);
         Assert.True((await command.ExecuteAsync("!pokech rm -h 1")).Success);
         Assert.Empty((await repo.GetAsync()).For(Ds).History);
-        Assert.NotNull(data);
     }
 
     [Fact]
@@ -295,9 +294,10 @@ public class RivalCommandTests
         Assert.Null(plain.Request!.Defender.Item);
         Assert.Matches(@"→ リザードン\([^)]*\)", plain.Message);
         // 使用率の持ち物（その名前）も、防御側の表記に出さない
-        var usageItem = (await TestData.Catalog().GetDataSetAsync(Ds)).GetUsageAsync(Models.BattleFormat.Singles).Result.TopItem(
-            (await TestData.Catalog().GetDataSetAsync(Ds)).Pokemon.First(p => p.Name == "リザードン").Id);
-        if (usageItem is not null) Assert.DoesNotContain(usageItem.Name, plain.Message.Split('\n')[0].Split('→')[1]);
+        var catalogData = await TestData.Catalog().GetDataSetAsync(Ds);
+        var usageItem = (await catalogData.GetUsageAsync(Models.BattleFormat.Singles)).TopItem(catalogData.Pokemon.First(p => p.Name == "リザードン").Id);
+        Assert.NotNull(usageItem);   // 使用率の持ち物があることが前提（無いと、下の「出さない」が何も確かめない）
+        Assert.DoesNotContain(usageItem!.Name, plain.Message.Split('\n')[0].Split('→')[1]);
         // 書いた持ち物は、計算にも返信にも反映する
         var held = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:たべのこし");
         Assert.True(held.Success, held.Message);

@@ -11,7 +11,7 @@ const path = require('path');
 const { Generations } = require('@smogon/calc');
 
 const root = path.resolve(__dirname, '..', '..');
-const dataDir = path.join(root, 'src', 'FaraPokemonBattleAssistant.Web', 'wwwroot', 'data');
+const dataDir = path.join(root, 'src', 'FaraPokemonBattleAssistant.Web', 'wwwroot', 'api', 'game');
 const toID = (s) => ('' + s).toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 function readCsv(file) {

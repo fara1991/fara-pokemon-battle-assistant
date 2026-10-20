@@ -132,13 +132,16 @@ public class CalcSnapshotTests
         var path = SnapshotPath();
         if (Environment.GetEnvironmentVariable("CALC_SNAPSHOT_WRITE") == "1")
         {
+            // 作り直しは、計算を意図して変えたときだけ。環境変数が残っていても、どんな回帰も黙って新しい正解になってしまわないよう、
+            // CI では書き換えず、書き換えたときも必ず失敗にして、差分を確かめてから変数を外して再実行してもらう
+            if (Environment.GetEnvironmentVariable("CI") == "true") Assert.Fail("CI ではスナップショットを書き換えません（CALC_SNAPSHOT_WRITE を外してください）");
             await File.WriteAllTextAsync(path, actual);
-            return;
+            Assert.Fail("スナップショットを作り直しました。git diff で、変わった行が意図した変更だけか確かめてから、CALC_SNAPSHOT_WRITE を外して再実行してください");
         }
         var expected = (await File.ReadAllTextAsync(path)).Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
         var lines = actual.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(expected.Length, lines.Length);
+        // 行数が違っていても、どこが違うか分かるように、先に差分を出す
         var diffs = expected.Zip(lines).Where(x => x.First != x.Second).Take(5).Select(x => $"expected {x.First}\nactual   {x.Second}").ToList();
-        Assert.True(diffs.Count == 0, string.Join("\n", diffs));
+        Assert.True(diffs.Count == 0 && expected.Length == lines.Length, $"行数 expected {expected.Length} / actual {lines.Length}\n" + string.Join("\n", diffs));
     }
 }

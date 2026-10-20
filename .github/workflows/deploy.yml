@@ -20,6 +20,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # 手動実行（Run workflow）で別のブランチを選んでも、本番には master だけを公開する
+    if: github.ref == 'refs/heads/master'
     environment:
       name: production
       url: https://pokemon.fara-labs.com/

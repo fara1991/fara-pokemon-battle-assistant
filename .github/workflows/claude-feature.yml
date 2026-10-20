@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: develop   # 作業ブランチは develop から作り、PR も develop 向けにする（master へは develop からのマージだけ）
 
       - name: Gather repository context
         run: |
@@ -119,7 +121,8 @@ jobs:
             [ -f "$file" ] && cat "$file" >> IMPLEMENTATION_SUMMARY.md && echo "" >> IMPLEMENTATION_SUMMARY.md && rm "$file"
           done
 
-          git add .
+          # 作業用のファイル（repo_context.txt など）は、コミットに入れない
+          git add -A -- . ':!repo_context.txt' ':!claude_output.txt' ':!claude_response.json'
           [ -z "$(git diff --staged)" ] && echo "No changes" && exit 1
           git commit -m "feat: implement $ISSUE_TITLE (issue #${ISSUE_NUMBER})"
           git push origin feature/issue-${ISSUE_NUMBER}
@@ -144,5 +147,5 @@ jobs:
           fi
           # 前のステップで push したブランチ（ラベルによらず feature/issue-N）
           BRANCH="feature/issue-${ISSUE_NUMBER}"
-          PR_PAYLOAD=$(jq -n --arg title "${PREFIX}: ${ISSUE_TITLE} (fixes #${ISSUE_NUMBER})" --arg issue_num "${ISSUE_NUMBER}" --arg head "${BRANCH}" --arg base "master" '{title: $title, body: ("## 概要\n\nIssue #" + $issue_num + " の実装\n\n## 自動生成\n\nClaude AI 生成\n\n## 変更内容\n\nIMPLEMENTATION_SUMMARY.md 参照\n\nCloses #" + $issue_num), head: $head, base: $base}')
+          PR_PAYLOAD=$(jq -n --arg title "${PREFIX}: ${ISSUE_TITLE} (fixes #${ISSUE_NUMBER})" --arg issue_num "${ISSUE_NUMBER}" --arg head "${BRANCH}" --arg base "develop" '{title: $title, body: ("## 概要\n\nIssue #" + $issue_num + " の実装\n\n## 自動生成\n\nClaude AI 生成\n\n## 変更内容\n\nIMPLEMENTATION_SUMMARY.md 参照\n\nCloses #" + $issue_num), head: $head, base: $base}')
           curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/pulls" -d "$PR_PAYLOAD"

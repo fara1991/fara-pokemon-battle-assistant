@@ -44,3 +44,8 @@ Desktop.ini
 node_modules/
 publish/
 .wrangler/
+
+## Python
+__pycache__/
+*.pyc
+tools/.cache/

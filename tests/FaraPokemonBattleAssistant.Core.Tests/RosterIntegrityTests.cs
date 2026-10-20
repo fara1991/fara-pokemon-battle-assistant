@@ -166,4 +166,49 @@ public class RosterIntegrityTests
         var put = server.Bodies.Last(b => b is not null && b.Contains("teams"));
         Assert.Contains("エース", put);   // チームの新しい項目が、保存のたびに落ちない
     }
+
+    private sealed class ThrowingHandler : HttpMessageHandler
+    {
+        private readonly Exception _exception;
+        public ThrowingHandler(Exception exception) => _exception = exception;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => throw _exception;
+    }
+
+    [Fact]
+    public async Task Network_failures_and_timeouts_are_reported_as_network_errors_without_the_key()
+    {
+        var key = RemoteRosterStore.GenerateKey();
+        foreach (Exception failure in new Exception[] { new HttpRequestException("boom"), new TaskCanceledException("timeout") })
+        {
+            var store = new RemoteRosterStore(new HttpClient(new ThrowingHandler(failure)), "https://pokemon.example/", key);
+            var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.LoadAsync());
+            Assert.Equal(RosterUnavailableReason.Network, ex.Reason);
+            Assert.DoesNotContain(key, ex.Message);
+        }
+    }
+
+    [Fact]
+    public async Task Saving_invalid_json_is_an_argument_error_and_delete_expects_204()
+    {
+        var key = RemoteRosterStore.GenerateKey();
+        var server = new FakeRosterServer { ExpectedKey = key };
+        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", key);
+        await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync("not json"));
+        server.Override = r => r.Method == HttpMethod.Delete ? FakeRosterServer.Json(HttpStatusCode.OK, "{}") : null;
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => store.DeleteAsync());
+    }
+
+    [Fact]
+    public async Task Rival_unreadable_flag_clears_after_a_successful_load()
+    {
+        var key = RemoteRosterStore.GenerateKey();
+        var server = new FakeRosterServer { ExpectedKey = key };
+        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", key);
+        server.Override = r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath == "/api/my/rival" ? FakeRosterServer.Json(HttpStatusCode.TooManyRequests, "{}") : null;
+        await store.LoadAsync();
+        Assert.True(store.RivalUnreadable);
+        server.Override = null;
+        await store.LoadAsync();
+        Assert.False(store.RivalUnreadable);   // 読めたら、相手チームの保存が再び許される
+    }
 }

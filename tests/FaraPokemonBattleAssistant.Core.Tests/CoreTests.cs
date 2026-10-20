@@ -723,7 +723,7 @@ public class PokeCommandTests
 
 }
 
-public class DataSourceTests
+public class DataSourceTests : IDisposable
 {
     private sealed class ScriptedSource : IDataSource
     {
@@ -737,7 +737,24 @@ public class DataSourceTests
         }
     }
 
-    private static string TempDir() => Path.Combine(Path.GetTempPath(), "fpa-tests", Guid.NewGuid().ToString("N"));
+    /// <summary>このテストが作った一時フォルダー。テストが終わるときに（xUnit が Dispose を呼ぶ）、自分のものだけを消す。</summary>
+    private readonly List<string> _tempDirs = new();
+
+    private string TempDir()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "fpa-tests", Guid.NewGuid().ToString("N"));
+        _tempDirs.Add(dir);
+        return dir;
+    }
+
+    public void Dispose()
+    {
+        foreach (var dir in _tempDirs)
+        {
+            try { Directory.Delete(dir, recursive: true); }
+            catch (IOException) { /* 消せなくても、テストの結果には関係しない */ }
+        }
+    }
 
     [Fact]
     public async Task Caching_falls_back_to_stale_cache_on_timeout()
@@ -1425,7 +1442,7 @@ public class ModernAbilityTests
         // 威力 100 × 4505/4096 = 109.98… → 110（4506 でも同じなので、補正値は表示で確かめる）
         Assert.Contains(r.Modifiers, m => m.Contains("ちからのハチマキ(1.1倍)"));
         var terapagos = data.Pokemon.FirstOrDefault(p => p.Name.StartsWith("テラパゴス") && data.AbilitiesOf(p).Any(a => a.Identifier == "tera-shell"));
-        if (terapagos is null) return;
+        Assert.NotNull(terapagos);   // データに無いからといって、検証を黙って飛ばさない
         var defender = new PokemonBuild(terapagos) { Ability = data.AbilitiesOf(terapagos).First(a => a.Identifier == "tera-shell") };
         var fighting = data.Moves.First(m => m.Name == "インファイト");
         var full = calc.Calculate(new DamageRequest { Attacker = attacker, Move = fighting, Defender = defender });
