@@ -61,21 +61,27 @@ public abstract class CalcPageBase : AppPageBase
         // 「登録から選ぶ」のオン・オフ
         if (Stage.UseRosterMine is { } useMine) SetUseRoster(0, useMine);
         if (Stage.UseRosterFoe is { } useFoe) SetUseRoster(1, useFoe);
+        // 順番は、登録 → ポケモン → 性格（天候・フィールドの特性は、先に入れた側が優先されるため、この順を保つ）
+        var rosterOn = new[] { RosterOn(0), RosterOn(1) };
         for (var side = 0; side < 2; side++)
         {
+            if (!rosterOn[side]) continue;
             var key = side == 0 ? Stage.RosterKeyMine : Stage.RosterKeyFoe;
             var mega = side == 0 ? Stage.RosterMegaMine : Stage.RosterMegaFoe;
+            if (key is not null && FindChoice(key) is { } choice && (GetRosterKey(side) != key || GetMega(side)?.Id != mega?.Id))
+                PickRosterChoice(side, choice, mega);
+        }
+        for (var side = 0; side < 2; side++)
+        {
+            var picked = side == 0 ? Stage.PickedMine : Stage.PickedFoe;
+            if (!rosterOn[side] && picked is not null && GetBuild(side)?.Pokemon.Id != picked.Id) SelectPokemon(side, picked.Id);
+        }
+        for (var side = 0; side < 2; side++)
+        {
             var picked = side == 0 ? Stage.PickedMine : Stage.PickedFoe;
             var nature = side == 0 ? Stage.PickedMineNature : Stage.PickedFoeNature;
-            if (RosterOn(side))
-            {
-                if (key is not null && FindChoice(key) is { } choice && (GetRosterKey(side) != key || GetMega(side)?.Id != mega?.Id))
-                    PickRosterChoice(side, choice, mega);
-                continue;
-            }
-            if (picked is not null && GetBuild(side)?.Pokemon.Id != picked.Id) SelectPokemon(side, picked.Id);
             // 同じポケモンのときだけ、性格も引き継ぐ
-            if (nature is not null && GetBuild(side) is { } build && build.Pokemon.Id == picked?.Id) build.Nature = nature;
+            if (!rosterOn[side] && nature is not null && GetBuild(side) is { } build && build.Pokemon.Id == picked?.Id) build.Nature = nature;
         }
     }
 

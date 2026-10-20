@@ -48,7 +48,16 @@ public class PickedBuildTests
         Assert.Equal(charizard, back.Pokemon);
         Assert.Equal(scarf, back.Item);                        // 戻すと、登録（チーム）の持ち物
         Assert.Equal(2, back.Boosts.Attack);
-        Assert.Equal(normal.Pokemon.Id, charizard.Id);         // 登録データは変わらない
+        Assert.Equal(StatusCondition.Burn, back.Status);
+        Assert.Equal("ようき", choice.Entry.Nature);            // 登録データは変わらない
+        Assert.Equal(32, choice.Entry.EVs.Attack);
+        Assert.Equal(charizard.Id, choice.Entry.PokemonId);
+
+        // 引き継ぎ無しでメガシンカの姿を選ぶ（別のページから戻ったとき）
+        var fresh = PickedBuild.FromChoice(choice, megaX, null, data)!;
+        Assert.Equal(megaX, fresh.Pokemon);
+        Assert.Equal(megaX.MegaStoneId, fresh.Item?.Id);
+        Assert.Equal(0, fresh.Boosts.Attack);
     }
 
     [Fact]
@@ -64,7 +73,10 @@ public class PickedBuildTests
         Assert.Equal(2106, wellspring.Item?.Id);
         // 特性が 1 つのポケモンは、その特性で固定
         var single = data.Pokemon.First(p => data.AbilitiesOf(p).Count == 1);
-        var build = PickedBuild.FromChoice(Choice(single.Id, single.Name), null, null, data)!;
+        var other = data.Abilities.First(a => !data.AbilitiesOf(single).Contains(a));
+        var entry = Choice(single.Id, single.Name).Entry;
+        entry.AbilityId = other.Id;   // 特性の一覧にない特性が登録されていても、固定の特性にする
+        var build = PickedBuild.FromChoice(new RosterChoice("r1", entry, null), null, null, data)!;
         Assert.Equal(data.AbilitiesOf(single)[0], build.Ability);
     }
 

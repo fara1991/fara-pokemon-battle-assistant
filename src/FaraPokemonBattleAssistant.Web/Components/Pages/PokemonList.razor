@@ -209,7 +209,6 @@
         results = dex.Query(s.Filter).ToList();
     }
 
-
     private int MoveAt(int slot) => slot < s.Filter.MoveIds.Count ? s.Filter.MoveIds[slot] : 0;
 
     private void SetMove(int slot, int moveId)
