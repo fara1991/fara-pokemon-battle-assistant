@@ -16,6 +16,8 @@ public abstract class RosterPageBase : AppPageBase
     [Inject] protected CloudSync Sync { get; set; } = default!;
     [Inject] protected ToastService Toast { get; set; } = default!;
 
+    private int loadVersion;
+
     protected DataSetInfo? dataSet;
     protected PokemonDataSet? data;
     protected DataSetRoster? roster;
@@ -44,16 +46,24 @@ public abstract class RosterPageBase : AppPageBase
 
     protected async Task LoadAsync()
     {
+        // ゲームを素早く切り替えたとき、古い読み込みが後から終わって別のゲームのデータで上書きしないよう、
+        // 読み込み中の値は変数に持ち、最新の読み込みのときだけ、まとめて画面の値にする
+        var version = ++loadVersion;
         try
         {
-            dataSet = App.DataSet;
-            data = await Catalog.GetDataSetAsync(App.DataSetKey);
-            roster = null;
-            roster = (await Repo.GetAsync()).For(App.DataSetKey);
+            var key = App.DataSetKey;
+            var info = App.DataSet;
+            var loaded = await Catalog.GetDataSetAsync(key);
+            var loadedRoster = (await Repo.GetAsync()).For(key);
+            if (version != loadVersion || IsDisposed) return;
+            dataSet = info;
+            data = loaded;
+            roster = loadedRoster;
             OnDataLoaded();
         }
         catch (Exception ex)
         {
+            if (version != loadVersion) return;   // 古い読み込みの失敗は、最新の読み込みに任せる
             // 前のゲームのデータで描画（と、削除などの操作）が続かないようにする
             data = null;
             roster = null;

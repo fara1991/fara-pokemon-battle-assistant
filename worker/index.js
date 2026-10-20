@@ -37,6 +37,10 @@ const ROUTES = {
 const KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 /** ゲーム（データセット）のキー。 */
 const DATA_SET_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+/** オブジェクトのキーに使うと、プロトタイプを書き換えてしまう名前（ゲームのキーにはできない）。 */
+const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+/** ID の最大値。クライアント（C#）は int で持つので、次の ID（最大 + 1）も int に収まるようにする。 */
+const MAX_ID = 2147483646;
 /** PUT の本文と、保存する登録データ全体の上限（UTF-8 のバイト数）。 */
 const MAX_BYTES = 256 * 1024;
 /** 1 チームの上限。 */
@@ -114,7 +118,7 @@ function isPlainObject(v) {
 }
 
 function isId(v) {
-  return Number.isSafeInteger(v) && v >= 1;
+  return Number.isSafeInteger(v) && v >= 1 && v <= MAX_ID;
 }
 
 /**
@@ -159,7 +163,7 @@ function parsePutBody(bytes) {
   if (keys.length === 0) invalid("invalid_data_sets", "dataSets に 1 つ以上のゲームを入れてください");
   const seen = new Set();
   for (const key of keys) {
-    if (!DATA_SET_PATTERN.test(key)) invalid("invalid_data_set", "ゲームのキーは英数字・-・_（32 文字まで）にしてください");
+    if (!DATA_SET_PATTERN.test(key) || RESERVED_KEYS.has(key.toLowerCase())) invalid("invalid_data_set", "ゲームのキーは英数字・-・_（32 文字まで）にしてください");
     const lower = key.toLowerCase();
     if (seen.has(lower)) invalid("invalid_data_set", `同じゲームが 2 回あります: ${key}`);
     seen.add(lower);
@@ -441,8 +445,11 @@ export class RosterSlot extends DurableObject {
 
   /** アクセスキーを使えなくし、置き場のデータを消す。 */
   async retire() {
-    await this.ctx.storage.deleteAll();
+    // 先に「消した印」を書く（deleteAll してから印を書くと、その間に失敗したとき、データだけ消えて印が残らず、
+    // 古いキーが空の置き場として使えてしまう）。印以外のデータを消す
     await this.ctx.storage.put("deleted", true);
+    const keys = [...(await this.ctx.storage.list()).keys()].filter((k) => k !== "deleted");
+    for (let i = 0; i < keys.length; i += 128) await this.ctx.storage.delete(keys.slice(i, i + 128));
     return json(204);
   }
 }

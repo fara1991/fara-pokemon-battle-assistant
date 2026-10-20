@@ -77,6 +77,10 @@ public sealed class MemoryRosterStore : IRosterStore
 
 public sealed class RegisteredPokemon
 {
+    /// <summary>この版が知らない項目。新しい版のサイト・ボットが足した項目を、古い版が保存し直しても消さないために、そのまま持ち回る。</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
+
     public int Id { get; set; }
     public int PokemonId { get; set; }
     /// <summary>表示用（データ更新で名前が変わっても一覧に出せるように保持）。</summary>
@@ -144,6 +148,10 @@ public sealed class RivalScan
 /// <summary>対戦中の相手のポケモン（1 体分）。同じポケモンは 1 体だけ。分かった部分だけを持つ（null は不明）。</summary>
 public sealed class RivalPokemon
 {
+    /// <summary>この版が知らない項目。新しい版のサイト・ボットが足した項目を、古い版が保存し直しても消さないために、そのまま持ち回る。</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
+
     public int Id { get; set; }
     public int PokemonId { get; set; }
     public string PokemonName { get; set; } = "";
@@ -188,6 +196,7 @@ public sealed class RivalPokemon
         Id = Id, PokemonId = PokemonId, PokemonName = PokemonName,
         HP = HP, Attack = Attack, Defense = Defense, SpAttack = SpAttack, SpDefense = SpDefense, Speed = Speed,
         Nature = Nature, AbilityId = AbilityId, Updated = Updated, Picked = Picked, MoveIds = MoveIds.ToList(), ItemId = ItemId, NatureUp = NatureUp, NatureDown = NatureDown,
+        Extra = Extra is null ? null : new Dictionary<string, JsonElement>(Extra),
         Scans = Scans.Select(scan => new RivalScan
         {
             Defense = scan.Defense, HpMin = scan.HpMin, HpMax = scan.HpMax, Count = scan.Count,
@@ -200,6 +209,10 @@ public sealed class RivalPokemon
 /// <summary>終わった試合の記録（試合ごとの、そのとき分かった相手チーム）。</summary>
 public sealed class RivalMatch
 {
+    /// <summary>この版が知らない項目。新しい版のサイト・ボットが足した項目を、古い版が保存し直しても消さないために、そのまま持ち回る。</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
+
     public int Id { get; set; }
     /// <summary>試合を終えた日時（ISO 8601）。</summary>
     public string Date { get; set; } = "";
@@ -209,18 +222,30 @@ public sealed class RivalMatch
 
 public sealed class TeamSlot
 {
+    /// <summary>この版が知らない項目。新しい版のサイト・ボットが足した項目を、古い版が保存し直しても消さないために、そのまま持ち回る。</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
+
     public int EntryId { get; set; }
     public int? ItemId { get; set; }
 }
 
 public sealed class Team
 {
+    /// <summary>この版が知らない項目。新しい版のサイト・ボットが足した項目を、古い版が保存し直しても消さないために、そのまま持ち回る。</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
+
     public int Number { get; set; }
     public List<TeamSlot> Slots { get; set; } = new();
 }
 
 public sealed class DataSetRoster
 {
+    /// <summary>この版が知らない項目。新しい版のサイト・ボットが足した項目を、古い版が保存し直しても消さないために、そのまま持ち回る。</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
+
     public int NextId { get; set; } = 1;
     public List<RegisteredPokemon> Pokemon { get; set; } = new();
     public List<Team> Teams { get; set; } = new();
@@ -231,10 +256,25 @@ public sealed class DataSetRoster
     /// <summary>終わった試合の記録（上限なし）。</summary>
     public int NextMatchId { get; set; } = 1;
     public List<RivalMatch> History { get; set; } = new();
+
+    /// <summary>
+    /// 手で書き換えたデータや古いデータで、次に振る ID が今ある ID と重なっていると、同じ ID が 2 つできる。
+    /// 今ある最大の ID の次より小さくならないようにそろえる。
+    /// </summary>
+    public void RepairIds()
+    {
+        if (Pokemon.Count > 0) NextId = Math.Max(NextId, Pokemon.Max(p => p.Id) + 1);
+        if (Rivals.Count > 0) NextRivalId = Math.Max(NextRivalId, Rivals.Max(r => r.Id) + 1);
+        if (History.Count > 0) NextMatchId = Math.Max(NextMatchId, History.Max(m => m.Id) + 1);
+    }
 }
 
 public sealed class RosterState
 {
+    /// <summary>この版が知らない項目。新しい版のサイト・ボットが足した項目を、古い版が保存し直しても消さないために、そのまま持ち回る。</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
+
     public int Version { get; set; } = 1;
     public Dictionary<string, DataSetRoster> DataSets { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -259,6 +299,14 @@ public sealed class RosterState
 /// </remarks>
 public sealed class RosterRepository
 {
+    /// <summary>ID から登録ポケモンを引く表。ID が重なっているデータでも落ちないよう、最初のものを使う。</summary>
+    private static Dictionary<int, RegisteredPokemon> ById(IEnumerable<RegisteredPokemon> pokemon)
+    {
+        var byId = new Dictionary<int, RegisteredPokemon>();
+        foreach (var p in pokemon) byId.TryAdd(p.Id, p);
+        return byId;
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -321,8 +369,17 @@ public sealed class RosterRepository
     public static string Serialize(RosterState state) => JsonSerializer.Serialize(state, JsonOptions);
 
     /// <summary>保存先の JSON を読む。空なら新しい登録データ。</summary>
-    public static RosterState Deserialize(string? json) =>
-        string.IsNullOrWhiteSpace(json) ? new RosterState() : JsonSerializer.Deserialize<RosterState>(json!, JsonOptions) ?? new RosterState();
+    public static RosterState Deserialize(string? json)
+    {
+        var state = string.IsNullOrWhiteSpace(json) ? new RosterState() : JsonSerializer.Deserialize<RosterState>(json!, JsonOptions) ?? new RosterState();
+        // 読み込むと、ゲームのキーの比較（大文字小文字を区別しない）が標準に戻るので作り直す。ID の採番は、今ある ID より後にそろえる
+        var sets = new Dictionary<string, DataSetRoster>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, set) in state.DataSets)
+            sets.TryAdd(key, set ?? new DataSetRoster());
+        state.DataSets = sets;
+        foreach (var set in sets.Values) set.RepairIds();
+        return state;
+    }
 
     private async Task<RosterState> LoadCoreAsync(CancellationToken ct)
     {
@@ -357,9 +414,10 @@ public sealed class RosterRepository
                     // 他の場所が先に書いていた。読み直してやり直す
                     _state = null;
                 }
-                catch when (_store.AlwaysReload)
+                catch
                 {
-                    // 保存できなかった変更は捨てる（次に読むときはクラウドの内容）
+                    // 保存できなかった変更は、どの保存先でも捨てる（残すと、次の保存で「失敗した」と伝えた変更まで一緒に書かれる）。
+                    // 次に読むときは、保存先の内容
                     _state = null;
                     throw;
                 }
@@ -508,7 +566,7 @@ public sealed class RosterRepository
         {
             var team = roster.Teams.FirstOrDefault(t => t.Number == teamNumber);
             if (team is null) return (false, false);
-            var byId = roster.Pokemon.ToDictionary(p => p.Id);
+            var byId = ById(roster.Pokemon);
             var removed = team.Slots.RemoveAll(s => byId.TryGetValue(s.EntryId, out var p) && predicate(p)) > 0;
             RemoveEmptyTeams(roster);
             return (removed, removed);
@@ -599,7 +657,7 @@ public sealed class RosterRepository
     public async Task<IReadOnlyList<RosterChoiceGroup>> ChoiceGroupsAsync(string dataSetKey, PokemonDataSet data, CancellationToken ct = default)
     {
         var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
-        var byId = roster.Pokemon.ToDictionary(p => p.Id);
+        var byId = ById(roster.Pokemon);
         var groups = new List<RosterChoiceGroup>();
         var inTeam = new HashSet<int>();
         foreach (var team in roster.Teams.OrderBy(t => t.Number))
@@ -630,7 +688,7 @@ public sealed class RosterRepository
         if (roster.ActiveTeam is not { } n) return Array.Empty<(RegisteredPokemon, Item?)>();
         var team = roster.Teams.FirstOrDefault(t => t.Number == n);
         if (team is null) return Array.Empty<(RegisteredPokemon, Item?)>();
-        var byId = roster.Pokemon.ToDictionary(p => p.Id);
+        var byId = ById(roster.Pokemon);
         return team.Slots
             .Where(s => byId.ContainsKey(s.EntryId))
             .Select(s => (byId[s.EntryId], s.ItemId is { } iid ? data.FindItem(iid) : null))

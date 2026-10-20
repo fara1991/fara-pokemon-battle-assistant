@@ -32,7 +32,12 @@ public sealed class AppState
     public event Func<Task>? Changed;
 
     /// <summary>初期化。複数のコンポーネントから同時に呼ばれても同じ処理を待つ。</summary>
-    public Task InitializeAsync() => _init ??= InitializeCoreAsync();
+    public Task InitializeAsync()
+    {
+        // 初期化に失敗したときは、失敗したまま使い回さず、次に呼ばれたときにやり直す（再読み込みするまで直らなくなるのを避ける）
+        if (_init is null || _init.IsFaulted || _init.IsCanceled) _init = InitializeCoreAsync();
+        return _init;
+    }
 
     private async Task InitializeCoreAsync()
     {

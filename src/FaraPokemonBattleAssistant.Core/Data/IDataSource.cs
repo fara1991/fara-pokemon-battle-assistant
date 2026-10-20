@@ -135,7 +135,10 @@ public sealed class CachingDataSource : IDataSource
             }
             else
             {
-                await File.WriteAllTextAsync(cachePath, text, cancellationToken).ConfigureAwait(false);
+                // 一時ファイルに書いてから置き換える（書き途中で止まった、途中までの CSV を「新しいキャッシュ」として読まないため）
+                var temp = cachePath + ".tmp";
+                await File.WriteAllTextAsync(temp, text, cancellationToken).ConfigureAwait(false);
+                File.Move(temp, cachePath, overwrite: true);
                 if (File.Exists(missingMarker))
                     File.Delete(missingMarker);
             }

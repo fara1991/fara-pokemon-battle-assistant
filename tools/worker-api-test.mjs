@@ -136,6 +136,12 @@ try {
 
   // 本文の検証
   check("JSON でない本文は 400", (await req("PUT", P, key, "{not json")).status === 400);
+  // ゲームのキーに __proto__ などは使えない（プロトタイプの書き換えを防ぐ）。PUT の本文は JSON 文字列のまま送る（オブジェクトにすると __proto__ が消えるため）
+  for (const [name, path] of [["pokemon", P], ["team", T]]) {
+    const body = `{"baseRevision":2,"dataSets":{"__proto__":{"${name === "pokemon" ? "pokemon" : "teams"}":[]}}}`;
+    check(`__proto__ のゲームのキーは ${name} の PUT で 400`, (await req("PUT", path, key, body)).status === 400);
+  }
+  check("2^31 以上の ID は 400（クライアントの int に収まらない）", (await req("PUT", P, key, { baseRevision: 2, dataSets: { Champions: { pokemon: [{ Id: 2147483647 }] } } })).status === 400);
   check("dataSets が無ければ 400", (await req("PUT", P, key, { baseRevision: 2 })).status === 400);
   check("dataSets が配列なら 400", (await req("PUT", P, key, { baseRevision: 2, dataSets: [] })).status === 400);
   check("dataSets が空なら 400", (await req("PUT", P, key, { baseRevision: 2, dataSets: {} })).status === 400);
