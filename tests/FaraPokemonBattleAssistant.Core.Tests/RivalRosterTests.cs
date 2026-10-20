@@ -82,8 +82,12 @@ public class RivalRosterTests
         var other = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
         var loaded = (await other.GetAsync()).For(Ds);
         Assert.Equal(32, loaded.Rivals.Single().Speed);
-        Assert.Equal("1 試合目", loaded.History.Single().Memo);
-        Assert.Equal(1.0, loaded.History.Single().Foes.Single().Scans.Single().Bands.Single().Modifier);
+        // 履歴は登録データには入らず（クラウドでは別の API）、必要なページだけを読む
+        Assert.Empty(loaded.History);
+        var page = await other.ListHistoryAsync(Ds, 10);
+        Assert.Equal(1, page.Total);
+        Assert.Equal("1 試合目", page.Items.Single().Memo);
+        Assert.Equal(1.0, page.Items.Single().Foes.Single().Scans.Single().Bands.Single().Modifier);
     }
 
     [Fact]

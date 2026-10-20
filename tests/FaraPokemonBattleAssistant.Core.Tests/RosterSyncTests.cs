@@ -57,7 +57,7 @@ public class RosterSyncTests
         Assert.Null(await store.LoadAsync());
         Assert.Equal(0, store.Revision);
 
-        Assert.Equal(new[] { "https://pokemon.example/api/my/pokemon", "https://pokemon.example/api/my/team", "https://pokemon.example/api/my/rival" },
+        Assert.Equal(new[] { "https://pokemon.example/api/my/pokemon", "https://pokemon.example/api/my/team", "https://pokemon.example/api/my/rival?historyLimit=0" },
             server.Requests.Select(r => r.RequestUri!.ToString()));
         Assert.All(server.Requests, request =>
         {

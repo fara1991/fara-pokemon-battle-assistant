@@ -25,7 +25,7 @@ if (!existsSync("publish/wwwroot/api/game/datasets.csv")) {
 
 const wrangler = spawn(
   process.platform === "win32" ? "npx.cmd" : "npx",
-  ["wrangler", "dev", "--port", String(port), "--ip", "127.0.0.1", "--persist-to", persist, "--show-interactive-dev-session=false"],
+  ["wrangler", "dev", "--port", String(port), "--ip", "127.0.0.1", "--persist-to", persist, "--show-interactive-dev-session=false", "--var", "ALLOW_TEST_OVERRIDES:1", "--var", "HISTORY_LIMIT:3", "--var", "HISTORY_BYTES_LIMIT:1500", "--var", "EXPIRE_MS:5000"],
   { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32", detached: process.platform !== "win32" },
 );
 let output = "";
@@ -219,6 +219,82 @@ try {
     && same((await req("GET", R, rkey)).json?.dataSets?.Champions?.history, history1));
   check("DELETE /api/my/rival は 405", (await req("DELETE", R, rkey)).status === 405);
 
+  // 試合の履歴（/api/my/history。SQLite の表。revision は増えない。テストでは HISTORY_LIMIT=3 で上限を小さくしている）
+  const H = "/api/my/history";
+  const hkey = newKey();
+  const foe = (id, name) => ({ Id: id, PokemonId: 1, PokemonName: name });
+  check("キーなしの history は 401", (await req("GET", `${H}?dataSet=Champions`)).status === 401);
+  check("dataSet なしで id・limit・before を付けると 400", (await req("GET", `${H}?id=1`, hkey)).status === 400 && (await req("GET", `${H}?limit=5`, hkey)).status === 400);
+  const noSets = await req("GET", H, hkey);
+  check("dataSet の無い GET history は、履歴のあるゲームの一覧（空）", noSets.status === 200 && same(noSets.json?.dataSets, []), noSets.text);
+  check("予約語の dataSet は 400", (await req("GET", `${H}?dataSet=__proto__`, hkey)).status === 400);
+  const empty = await req("GET", `${H}?dataSet=Champions`, hkey);
+  check("空の履歴は total 0・items []", empty.status === 200 && empty.json?.total === 0 && same(empty.json?.items, []) && empty.json?.hasMore === false, empty.text);
+  const a1 = await req("POST", H, hkey, { dataSet: "Champions", match: { Date: "2026-10-21T00:00:00Z", Memo: "1", Foes: [foe(1, "a")] } });
+  check("POST history は 201 で Id 1・total 1", a1.status === 201 && a1.json?.id === 1 && a1.json?.total === 1, a1.text);
+  const a2 = await req("POST", H, hkey, { dataSet: "champions", match: { Memo: "2", Foes: [foe(1, "b")] } });
+  check("大文字小文字違いのゲームも同じ履歴（Id 2・total 2）", a2.status === 201 && a2.json?.id === 2 && a2.json?.total === 2, a2.text);
+  const a3 = await req("POST", H, hkey, { dataSet: "Champions", match: { Id: 99, Memo: "3", Foes: [] } });
+  check("本文の Id は無視して連番を割り当てる（Id 3）", a3.status === 201 && a3.json?.id === 3, a3.text);
+  const list = await req("GET", `${H}?dataSet=Champions`, hkey);
+  check("一覧は新しい順で total 3", list.json?.total === 3 && same(list.json?.items?.map((m) => m.Id), [3, 2, 1]) && list.json?.items?.[2]?.Memo === "1", list.text);
+  const page1 = await req("GET", `${H}?dataSet=Champions&limit=2`, hkey);
+  check("limit=2 は 2 件で hasMore", same(page1.json?.items?.map((m) => m.Id), [3, 2]) && page1.json?.hasMore === true, page1.text);
+  const page2 = await req("GET", `${H}?dataSet=Champions&limit=2&before=2`, hkey);
+  check("before=2 で続き（Id 1）・hasMore なし", same(page2.json?.items?.map((m) => m.Id), [1]) && page2.json?.hasMore === false, page2.text);
+  const one = await req("GET", `${H}?dataSet=Champions&id=2`, hkey);
+  check("id 指定で 1 試合", one.status === 200 && one.json?.item?.Memo === "2" && one.json?.total === 3, one.text);
+  check("無い Id は 404", (await req("GET", `${H}?dataSet=Champions&id=99`, hkey)).status === 404);
+  check("limit=0 は 400", (await req("GET", `${H}?dataSet=Champions&limit=0`, hkey)).status === 400);
+  check("履歴の追加では revision が増えない", (await req("GET", P, hkey)).json?.revision === 0);
+  const sets3 = await req("GET", H, hkey);
+  check("履歴のあるゲームの一覧（小文字のキーと件数）", same(sets3.json?.dataSets, [{ dataSet: "champions", total: 3 }]), sets3.text);
+  const full = await req("POST", H, hkey, { dataSet: "Champions", match: { Foes: [] } });
+  check("上限（テストでは 3 件）に達していたら 409 history_limit", full.status === 409 && full.json?.error === "history_limit", full.text);
+  const gen9Add = await req("POST", H, hkey, { dataSet: "Gen9", match: { Foes: [foe(2, "z")] } });
+  check("上限はゲームごと（別のゲームは足せる）", gen9Add.status === 201 && gen9Add.json?.id === 1 && gen9Add.json?.total === 1, gen9Add.text);
+  const badMatch = (name, body) => req("POST", H, hkey, body).then((r) => check(`${name} は 400`, r.status === 400, r.text));
+  await badMatch("match が無い", { dataSet: "Gen9" });
+  await badMatch("Foes が配列でない", { dataSet: "Gen9", match: { Foes: {} } });
+  await badMatch("Memo が長すぎる", { dataSet: "Gen9", match: { Foes: [], Memo: "x".repeat(501) } });
+  await badMatch("dataSet が不正", { dataSet: "a b", match: { Foes: [] } });
+  check("JSON でない POST は 400", (await req("POST", H, hkey, "{ not json")).status === 400);
+  check("履歴 1 試合の上限（64 KB）を超えると 400", (await req("POST", H, hkey, { dataSet: "Gen9", match: { Foes: [{ Note: "x".repeat(70 * 1024) }] } })).status === 400);
+  check("本文全体の上限（256 KB）を超えると 413", (await req("POST", H, hkey, { dataSet: "Gen9", match: { Foes: [{ Note: "x".repeat(300 * 1024) }] } })).status === 413);
+
+  // 古い版のクライアント向けの相手チーム API（履歴は別の表から返し、PUT の history は「次の Id 以降の、まだ無い試合」だけ足す）
+  const hist = (r) => r.json?.dataSets?.Champions?.history?.map((m) => m.Id);
+  const putR0 = await req("PUT", R, hkey, { baseRevision: 0, dataSets: { Champions: { rivals: [], history: [] } } });
+  check("履歴があるゲームへの PUT my-rival は 200（履歴は置き換えない）", putR0.status === 200 && putR0.json?.revision === 1, putR0.text);
+  const v1 = await req("GET", R, hkey);
+  check("GET my-rival: 全履歴が古い順で、nextMatchId は 4", same(hist(v1), [1, 2, 3]) && v1.json?.dataSets?.Champions?.nextMatchId === 4, v1.text);
+  const v2 = await req("GET", `${R}?historyLimit=0`, hkey);
+  check("historyLimit=0 は履歴なし", same(hist(v2), []) && v2.json?.dataSets?.Champions?.nextMatchId === 4, v2.text);
+  const v3 = await req("GET", `${R}?historyLimit=2`, hkey);
+  check("historyLimit=2 は直近 2 件を古い順で", same(hist(v3), [2, 3]), v3.text);
+  check("historyLimit が不正なら 400", (await req("GET", `${R}?historyLimit=-1`, hkey)).status === 400);
+  const delOne = await req("DELETE", `${H}?dataSet=Champions&id=1`, hkey);
+  check("DELETE id は 204、もう一度は 404", delOne.status === 204 && (await req("DELETE", `${H}?dataSet=Champions&id=1`, hkey)).status === 404);
+  const stale = await req("PUT", R, hkey, { baseRevision: 1, dataSets: { Champions: { rivals: [], history: [match(1, []), match(2, [])] } } });
+  check("古い版が消した試合（Id 1）を書き戻しても復活しない", stale.status === 200 && same(hist(await req("GET", R, hkey)), [2, 3]), stale.text);
+  await req("DELETE", `${H}?dataSet=Champions&id=2`, hkey);
+  const oldAdd = await req("PUT", R, hkey, { baseRevision: 2, dataSets: { Champions: { rivals: [], history: [{ ...match(4, []), Memo: "old" }] } } });
+  const v4 = await req("GET", R, hkey);
+  check("古い版が足した試合（次の Id 4）は入る", oldAdd.status === 200 && same(hist(v4), [3, 4]) && v4.json?.dataSets?.Champions?.history?.[1]?.Memo === "old", v4.text);
+  const trim = await req("DELETE", `${H}?dataSet=Champions&keepLatest=1`, hkey);
+  check("keepLatest=1 で新しい 1 件を残す", trim.status === 200 && trim.json?.deleted === 1 && trim.json?.total === 1
+    && same((await req("GET", `${H}?dataSet=Champions`, hkey)).json?.items?.map((m) => m.Id), [4]), trim.text);
+  check("DELETE に id も keepLatest も無いと 400", (await req("DELETE", `${H}?dataSet=Champions`, hkey)).status === 400);
+  check("DELETE に id と keepLatest の両方があると 400", (await req("DELETE", `${H}?dataSet=Champions&id=1&keepLatest=1`, hkey)).status === 400);
+  check("履歴の Id は使い回さない（消したあとに足すと Id 5）", (await req("POST", H, hkey, { dataSet: "Champions", match: { Foes: [] } })).json?.id === 5);
+  check("PUT 相手チームに history を省略してもよい", (await req("PUT", R, hkey, { baseRevision: 3, dataSets: { Champions: { rivals: [] } } })).status === 200);
+  // 共有解除（DELETE access-key）で履歴も消え、以後 410
+  check("DELETE access-key は 204", (await req("DELETE", K, hkey)).status === 204);
+  check("消したキーの履歴 GET は 410", (await req("GET", `${H}?dataSet=Champions`, hkey)).status === 410);
+  check("消したキーの履歴 POST は 410", (await req("POST", H, hkey, { dataSet: "Champions", match: { Foes: [] } })).status === 410);
+  check("消したキーの履歴 DELETE は 410", (await req("DELETE", `${H}?dataSet=Champions&id=5`, hkey)).status === 410);
+  check("history に使えないメソッド（PUT）は 405", (await req("PUT", H, newKey(), {})).status === 405);
+
   // その他のパス・メソッド
   check("POST は 405", (await req("POST", P, key, {})).status === 405);
   check("DELETE /api/my/pokemon は 405", (await req("DELETE", P, key)).status === 405);
@@ -259,6 +335,72 @@ try {
   check("DELETE 後の PUT my-pokemon は 410", (await req("PUT", P, key, { baseRevision: 0, dataSets: { Champions: { pokemon: [] } } })).status === 410);
   check("DELETE 後の PUT my-team は 410", (await req("PUT", T, key, { baseRevision: 0, dataSets: { Champions: { teams: [], activeTeam: null } } })).status === 410);
   check("DELETE はもう一度呼んでも 204", (await req("DELETE", K, key)).status === 204);
+  // 履歴の量の上限（テストでは合計 1,500 バイト・ゲーム 16 まで）と、古い版のクライアント向けの PUT
+  const bkey = newKey();
+  const bigMatch = (n) => ({ dataSet: "Champions", match: { Foes: [{ Note: "x".repeat(n) }] } });
+  check("合計サイズの上限: 1 つ目は足せる", (await req("POST", H, bkey, bigMatch(600))).status === 201);
+  check("合計サイズの上限: 2 つ目も足せる", (await req("POST", H, bkey, bigMatch(600))).status === 201);
+  const over = await req("POST", H, bkey, bigMatch(600));
+  check("合計サイズの上限（1,500 バイト）を超えるときは 409 history_limit", over.status === 409 && over.json?.error === "history_limit", over.text);
+  check("1 件消すと、合計サイズが減って、また足せる", (await req("DELETE", `${H}?dataSet=Champions&id=1`, bkey)).status === 204 && (await req("POST", H, bkey, bigMatch(600))).status === 201);
+  check("keepLatest で消しても合計サイズが減る", (await req("DELETE", `${H}?dataSet=Champions&keepLatest=1`, bkey)).json?.total === 1 && (await req("POST", H, bkey, bigMatch(600))).status === 201);
+  const dkey = newKey();
+  let dOk = true;
+  for (let i = 1; i <= 16; i++) dOk = dOk && (await req("POST", H, dkey, { dataSet: `d${i}`, match: { Foes: [] } })).status === 201;
+  check("履歴を持てるゲームは 16 まで（16 個は足せる）", dOk);
+  const d17 = await req("POST", H, dkey, { dataSet: "d17", match: { Foes: [] } });
+  check("17 個目のゲームは 409 history_limit", d17.status === 409 && d17.json?.error === "history_limit", d17.text);
+  check("履歴のあるゲームには、続けて足せる", (await req("POST", H, dkey, { dataSet: "d1", match: { Foes: [] } })).status === 201);
+
+  // まとめて足す（データの移し替え用）
+  const mkey = newKey();
+  const batch = await req("POST", H, mkey, { dataSet: "Gen9", matches: [{ Memo: "a", Foes: [] }, { Memo: "b", Foes: [] }] });
+  check("matches でまとめて足すと、古い順に Id が振られる（1・2）", batch.status === 201 && same(batch.json?.ids, [1, 2]) && batch.json?.total === 2, batch.text);
+  const batch2 = await req("POST", H, mkey, { dataSet: "Gen9", matches: [{ Foes: [] }, { Foes: [] }] });
+  check("上限（テストでは 3 件）を超えるまとめ追加は、何も足さずに 409", batch2.status === 409 && (await req("GET", `${H}?dataSet=Gen9`, mkey)).json?.total === 2, batch2.text);
+  check("match と matches の両方は 400", (await req("POST", H, mkey, { dataSet: "Gen9", match: { Foes: [] }, matches: [{ Foes: [] }] })).status === 400);
+  check("空の matches は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: [] })).status === 400);
+  check("101 件の matches は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: Array.from({ length: 101 }, () => ({ Foes: [] })) })).status === 400);
+  check("matches の中の不正な試合は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: [{ Foes: {} }] })).status === 400);
+
+  const ikey = newKey();
+  await req("POST", H, ikey, { dataSet: "Champions", match: { Foes: [] } });   // Id 1（次の Id は 2）
+  const ig = await req("PUT", R, ikey, { baseRevision: 0, dataSets: { Champions: { rivals: [], history: [match(1, []), match(5000, [])] } } });
+  check("古い版の PUT: すでにある試合は数えず、離れすぎた Id（5000）は足さずに historyIgnored で知らせる", ig.status === 200 && ig.json?.historyIgnored === 1, ig.text);
+  const ig2 = await req("PUT", R, ikey, { baseRevision: 1, dataSets: { Champions: { rivals: [], history: [match(2, []), match(3, [])] } } });
+  check("古い版の PUT: 次の Id 以降（2・3）は足される", ig2.status === 200 && ig2.json?.historyIgnored === undefined && (await req("GET", `${H}?dataSet=Champions`, ikey)).json?.total === 3, ig2.text);
+  const ig3 = await req("PUT", R, ikey, { baseRevision: 2, dataSets: { Champions: { rivals: [], history: [match(4, [])] } } });
+  check("古い版の PUT: 上限（3 件）で足せなければ historyIgnored", ig3.status === 200 && ig3.json?.historyIgnored === 1, ig3.text);
+  const badOld = (name, m) => req("PUT", R, ikey, { baseRevision: 3, dataSets: { Champions: { rivals: [], history: [m] } } }).then((r) => check(`古い版の PUT: ${name} は 400`, r.status === 400, r.text));
+  await badOld("Foes が 51 体", { Id: 9, Foes: Array.from({ length: 51 }, () => ({})) });
+  await badOld("Memo が長すぎる", { Id: 9, Foes: [], Memo: "x".repeat(501) });
+  await badOld("1 試合が 64 KB を超える", { Id: 9, Foes: [{ Note: "x".repeat(70 * 1024) }] });
+  const defaultView = await req("GET", R, ikey);
+  check("historyLimit なしの GET my-rival は直近（最大 200）件を古い順で返す", same(defaultView.json?.dataSets?.Champions?.history?.map((m) => m.Id), [1, 2, 3]), defaultView.text);
+
+  // 文書が 256 KB を超えて 413 になるとき、履歴にも何も書かない
+  const ukey = newKey();
+  check("413 の準備: 150 KB の登録ポケモン", (await req("PUT", P, ukey, { baseRevision: 0, dataSets: { Champions: { pokemon: [{ ...mon(1, "a"), Note: "x".repeat(150000) }] } } })).status === 200);
+  const tooBig = await req("PUT", R, ukey, { baseRevision: 1, dataSets: { Champions: { rivals: [{ ...rival(1, "b"), Note: "x".repeat(150000) }], history: [match(1, [])] } } });
+  check("文書が 256 KB を超える PUT my-rival は 413", tooBig.status === 413, tooBig.text);
+  const after = await req("GET", `${H}?dataSet=Champions`, ukey);
+  check("413 のとき、履歴は足されない", after.json?.total === 0 && (await req("GET", R, ukey)).json?.revision === 1, after.text);
+
+  // 1 年アクセスが無い置き場の自動削除（テストでは EXPIRE_MS=5000。アラームで消える）
+  const ekey = newKey();
+  const rkey2 = newKey();
+  check("自動削除の準備: 履歴を足す", (await req("POST", H, ekey, { dataSet: "Champions", match: { Foes: [] } })).status === 201);
+  check("自動削除の準備: ポケモンを登録する", (await req("PUT", P, ekey, { baseRevision: 0, dataSets: { Champions: { pokemon: [mon(1, "ガブリアス")] } } })).status === 200);
+  await req("POST", H, rkey2, { dataSet: "Champions", match: { Foes: [] } });
+  check("自動削除の確認用に、消したキーも作る", (await req("DELETE", K, rkey2)).status === 204);
+  await new Promise((r) => setTimeout(r, 9000));
+  const expired = await req("GET", `${H}?dataSet=Champions`, ekey);
+  check("期間（5 秒）アクセスが無いと、履歴が消える", expired.status === 200 && expired.json?.total === 0, expired.text);
+  check("ポケモンの登録も消える（revision 0・空）", (await req("GET", P, ekey)).json?.revision === 0 && same((await req("GET", P, ekey)).json?.dataSets, {}));
+  const reborn = await req("POST", H, ekey, { dataSet: "Champions", match: { Foes: [] } });
+  check("消えたあとは新しい置き場として使える（Id 1 から）", reborn.status === 201 && reborn.json?.id === 1, reborn.text);
+  check("作り直し・共有解除で消したキーは、期間が過ぎても 410 のまま", (await req("GET", P, rkey2)).status === 410);
+
 } catch (e) {
   console.error(e);
   failures++;
@@ -273,4 +415,5 @@ try {
 }
 
 console.log(failures === 0 ? "\nすべて OK" : `\n${failures} 件失敗`);
+if (failures > 0) console.log("\n--- wrangler の出力（末尾） ---\n" + output.slice(-3000));
 process.exit(failures === 0 ? 0 : 1);

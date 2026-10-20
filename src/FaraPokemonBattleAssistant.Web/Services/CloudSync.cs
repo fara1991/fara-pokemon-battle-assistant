@@ -59,6 +59,12 @@ public sealed class CloudSync : IRosterStore
 
     public bool AlwaysReload => _remote is not null;
 
+    /// <summary>データ共有していないときは、ブラウザに保存する履歴の上限。クラウドでは、サーバー側の上限。</summary>
+    public int? LocalHistoryLimit => _remote is null ? _local.LocalHistoryLimit : null;
+
+    /// <summary>データ共有中なら、クラウドの試合の履歴の窓口。共有していなければ null（履歴はブラウザの登録データの中）。</summary>
+    public async ValueTask<IMatchHistory?> GetRemoteHistoryAsync(CancellationToken ct = default) => await CurrentRemoteAsync();
+
     // ---- IRosterStore
 
     public async Task<string?> LoadAsync(CancellationToken ct = default)
@@ -164,11 +170,13 @@ public sealed class CloudSync : IRosterStore
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
                 "このブラウザの登録データが壊れているため、新しく共有を始められません。すでにアクセスキーがあるなら、アクセスキーで参加してください（このブラウザの登録データは削除されます）", ex);
         }
+        var trimmed = 0;
         if (HasData(local))
-            await MoveToNewKeyAsync(remote, RosterRepository.Serialize(local));
+            trimmed = await MoveToNewKeyAsync(remote, RosterRepository.Serialize(local));
         else
             await remote.LoadAsync(); // つながるか確かめる
         await SwitchToAsync(key, remote);
+        if (trimmed > 0) LastNotice = TrimmedNotice(trimmed);
         await _local.ClearAsync();
     }
 
@@ -209,9 +217,10 @@ public sealed class CloudSync : IRosterStore
         if (old.RivalUnreadable)
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
                 "クラウドの相手チームを読み込めなかったため、キーを作り直せません。時間をおいて、もう一度試してください");
-        if (json is not null) await MoveToNewKeyAsync(remote, json);
-        else await remote.LoadAsync(); // つながるか確かめる
+        // 登録データ（文書）が空でも、履歴だけがあるゲームがありうるので、履歴の写しは文書の有無によらず行う
+        var trimmed = await MoveToNewKeyAsync(remote, json, old);
         await SwitchToAsync(key, remote);
+        if (trimmed > 0) LastNotice = TrimmedNotice(trimmed);
         try
         {
             await old.DeleteAsync();
@@ -223,10 +232,25 @@ public sealed class CloudSync : IRosterStore
         }
     }
 
-    /// <summary>データ共有をやめる（このブラウザでキーを忘れる）。クラウドのデータは残り、このブラウザの登録データは空になる。</summary>
+    /// <summary>
+    /// データ共有をやめる。このアクセスキーのクラウドのデータ（ポケモン・チーム・相手チーム・試合の履歴）をすべて削除し、キーは使えなくなる。
+    /// 他の端末・配信用BOTでも使えなくなる。削除できなかったとき（回線断など）は、キーを忘れずに例外にする（もう一度試せるように）。
+    /// このブラウザの登録データは空になる。
+    /// </summary>
     public async Task StopAsync()
     {
         await EnsureInitializedAsync();
+        if (_remote is not null)
+        {
+            try
+            {
+                await _remote.DeleteAsync();
+            }
+            catch (RosterUnavailableException ex) when (ex.Reason == RosterUnavailableReason.KeyRetired)
+            {
+                // すでに作り直し・解除で消えているキーは、そのままやめられる
+            }
+        }
         await _js.InvokeVoidAsync("localStorage.removeItem", KeyStorageKey);
         _remote = null;
         _key = null;
@@ -262,17 +286,78 @@ public sealed class CloudSync : IRosterStore
         return json;
     }
 
-    private static async Task MoveToNewKeyAsync(RemoteRosterStore remote, string json)
+    /// <param name="json">移す登録データ。null（登録データが空）ならつながるかだけ確かめる。</param>
+    /// <param name="copyHistoryFrom">キーの作り直しのとき、古いキーの置き場（履歴を新しいキーへ写す。<paramref name="json"/> には履歴が入っていないため）。データ共有の開始では null（履歴は <paramref name="json"/> の中）。</param>
+    /// <returns>履歴のうち、サーバーの上限（1 試合 64 KB・メモ 500 文字）に収めるため、内容を省いた試合の数。</returns>
+    private static async Task<int> MoveToNewKeyAsync(RemoteRosterStore remote, string? json, RemoteRosterStore? copyHistoryFrom = null)
     {
         try
         {
-            await remote.SaveAsync(json);
+            var trimmed = 0;
+            if (json is not null)
+            {
+                await remote.SaveAsync(json);
+                trimmed += remote.HistoryTrimmed;
+            }
+            else await remote.LoadAsync(); // つながるか確かめる
+            if (copyHistoryFrom is not null) trimmed += await CopyHistoryAsync(copyHistoryFrom, remote);
+            return trimmed;
         }
         catch
         {
             try { await remote.DeleteAsync(); } catch (Exception) { /* 消せなくても新しいキーは使わない */ }
             throw;
         }
+    }
+
+    /// <summary>
+    /// 古いキーの履歴を、全部のゲーム分、新しいキーへ写す。写したあと、古いキーの履歴の件数が写す前と同じで、新しいキーの件数とも合うことを確かめる
+    /// （合わなければ失敗にして、古いキーを消さない。写している間に、別の端末や BOT が古いキーに足した試合が消えないように）。
+    /// </summary>
+    private static async Task<int> CopyHistoryAsync(RemoteRosterStore source, RemoteRosterStore target)
+    {
+        var before = await source.DataSetTotalsAsync();
+        var trimmed = 0;
+        foreach (var (dataSetKey, total) in before)
+        {
+            var matches = await ReadAllHistoryOldestFirstAsync(source, dataSetKey, total);
+            trimmed += await target.AppendManyAsync(dataSetKey, matches);
+        }
+        var after = await source.DataSetTotalsAsync();
+        var copied = await target.DataSetTotalsAsync();
+        if (!SameTotals(before, after) || !SameTotals(before, copied))
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "キーの作り直しの間に履歴の件数が変わった（または写せなかった）ため、中止しました。配信用BOTなどを止めてから、もう一度試してください");
+        return trimmed;
+    }
+
+    private static string TrimmedNotice(int count) =>
+        $"試合の履歴のうち {count} 件は、サーバーの上限（1 試合 64 KB・メモ 500 文字）に収めるため、推定の根拠（スキャンの記録）を省くか、メモを切って移しました";
+
+    private static bool SameTotals(IReadOnlyDictionary<string, int> a, IReadOnlyDictionary<string, int> b) =>
+        a.Count == b.Count && a.All(x => b.TryGetValue(x.Key, out var other) && other == x.Value);
+
+    /// <summary>1 つのゲームの履歴を全部、古い順に読む（1 回に 200 件ずつ）。サーバーの応答がおかしくて終わらない・途中で切れるときは失敗にする。</summary>
+    private static async Task<List<RivalMatch>> ReadAllHistoryOldestFirstAsync(IMatchHistory source, string dataSetKey, int expectedTotal)
+    {
+        var all = new List<RivalMatch>();
+        int? before = null;
+        for (var pages = 0; pages <= expectedTotal / 200 + 2; pages++)
+        {
+            var page = await source.ListAsync(dataSetKey, 200, before);
+            // 次のページの頼み方（before）は、必ず前より小さくなる（ListAsync が確かめている）。空なのに続きがあるのはおかしい
+            if (page.Items.Count == 0 && page.HasMore) break;
+            all.AddRange(page.Items);
+            if (!page.HasMore || page.Items.Count == 0)
+            {
+                all.Reverse();
+                return all.Count == expectedTotal
+                    ? all
+                    : throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "履歴を最後まで読めなかったため、キーを作り直せません。もう一度試してください");
+            }
+            before = page.Items[^1].Id;
+        }
+        throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "履歴を最後まで読めなかったため、キーを作り直せません。もう一度試してください");
     }
 
     private async Task EnsureInitializedAsync()

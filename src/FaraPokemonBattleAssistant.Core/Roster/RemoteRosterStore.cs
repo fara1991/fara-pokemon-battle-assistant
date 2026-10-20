@@ -25,7 +25,7 @@ namespace FaraPokemonBattleAssistant.Core.Roster;
 /// ポケモンを消したときにチームから外す・空のチームを消す・使用中を解除する処理は、サーバーが同じ処理の中で行う。
 /// </para>
 /// </remarks>
-public sealed class RemoteRosterStore : IRosterStore
+public sealed partial class RemoteRosterStore : IRosterStore
 {
     /// <summary>本番サイト。</summary>
     public const string ProductionBaseUrl = "https://pokemon.fara-labs.com/";
@@ -52,6 +52,7 @@ public sealed class RemoteRosterStore : IRosterStore
     private readonly HttpClient _http;
     private readonly Uri _pokemonEndpoint;
     private readonly Uri _teamsEndpoint;
+    /// <summary>相手チームの URL。履歴は別の API（/api/my/history）で扱うので、読み込みにも 409 の本文にも付けない（historyLimit=0）。</summary>
     private readonly Uri _rivalEndpoint;
     private readonly Uri _accessKeyEndpoint;
     private readonly string _key;
@@ -69,7 +70,7 @@ public sealed class RemoteRosterStore : IRosterStore
             throw new ArgumentException("サイトの URL が正しくありません（https の URL にしてください。http は、この PC の中（localhost）だけ使えます）", nameof(apiBaseUrl));
         _pokemonEndpoint = new Uri(baseUri, "api/my/pokemon");
         _teamsEndpoint = new Uri(baseUri, "api/my/team");
-        _rivalEndpoint = new Uri(baseUri, "api/my/rival");
+        _rivalEndpoint = new Uri(baseUri, "api/my/rival?historyLimit=0");
         _accessKeyEndpoint = new Uri(baseUri, "api/my/access-key");
         _key = syncKey;
     }
@@ -160,6 +161,13 @@ public sealed class RemoteRosterStore : IRosterStore
         // 相手チームは、あるゲームだけ送る（無ければ API を呼ばない）
         var rivalKeys = keys.Where(k => state.DataSets[k] is { } r && (r.Rivals.Count > 0 || r.History.Count > 0)).ToList();
         if (rivalKeys.Count > 0) await PutAsync(_rivalEndpoint, state, rivalKeys, RosterPart.Rival, ct).ConfigureAwait(false);
+        // 履歴は登録データとは別の API。古い順に足す（Id はサーバーが割り当て直す）
+        HistoryTrimmed = 0;
+        foreach (var key in rivalKeys)
+        {
+            var history = state.DataSets[key].History.OrderBy(m => m.Id).ToList();
+            if (history.Count > 0) HistoryTrimmed += await AppendManyAsync(key, history, ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>1 つのゲームの、ポケモン（/api/my/pokemon）・自分チーム（/api/my/team）・相手チーム（/api/my/rival）のどれかだけを保存する。</summary>
@@ -200,7 +208,7 @@ public sealed class RemoteRosterStore : IRosterStore
         }
     }
 
-    /// <summary>相手チームの応答が、<c>{"revision": n, "dataSets": {キー: {"rivals": [...], "history": [...]}}}</c> の形か。</summary>
+    /// <summary>相手チームの応答が、<c>{"revision": n, "dataSets": {キー: {"rivals": [...], "history": [...]}}}</c> の形か（履歴は historyLimit=0 で空）。</summary>
     private static bool RivalShapeIsValid(JsonDocument doc)
     {
         var root = doc.RootElement;
@@ -284,9 +292,6 @@ public sealed class RemoteRosterStore : IRosterStore
                     writer.WriteNumber("nextId", roster.NextRivalId);
                     writer.WritePropertyName("rivals");
                     JsonSerializer.Serialize(writer, roster.Rivals, ItemOptions);
-                    writer.WriteNumber("nextMatchId", roster.NextMatchId);
-                    writer.WritePropertyName("history");
-                    JsonSerializer.Serialize(writer, roster.History, ItemOptions);
                 }
                 else
                 {
