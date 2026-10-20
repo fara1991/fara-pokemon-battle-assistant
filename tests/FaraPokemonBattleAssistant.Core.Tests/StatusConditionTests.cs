@@ -38,7 +38,7 @@ public class StatusConditionTests
         Assert.Equal("こおり", StatusNames.Japanese(StatusCondition.Freeze));
         Assert.Equal(StatusCondition.Sleep, StatusNames.Parse("ねむり"));
         Assert.Equal(StatusCondition.Freeze, StatusNames.Parse("こおり"));
-        Assert.Equal(StatusCondition.None, StatusNames.Parse("なし") ?? StatusCondition.None);
+        Assert.Null(StatusNames.Parse("なし"));   // 「なし」は状態異常の指定ではない（null）
     }
 
     [Theory]

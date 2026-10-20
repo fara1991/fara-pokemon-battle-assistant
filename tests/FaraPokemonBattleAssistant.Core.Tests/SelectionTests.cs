@@ -522,7 +522,9 @@ public class CounterTests
         Assert.Equal(new[] { "なみのり" }, floating[0].Moves.Select(m => m.Move.Name));
     }
 
-    private static Ability Ab(string identifier, string name) => new() { Id = identifier.GetHashCode(), Identifier = identifier, Name = name };
+    private static int StableId(string identifier) => identifier.Aggregate(17, (h, c) => h * 31 + c);   // GetHashCode は、実行のたびに値が変わる
+
+    private static Ability Ab(string identifier, string name) => new() { Id = StableId(identifier), Identifier = identifier, Name = name };
 
     // 自分の特性で作る天候・フィールドのテスト用
     private static readonly TypeChart FieldChart = TypeChart.Parse(
@@ -699,7 +701,9 @@ public class CounterTests
 
 public class AbilityMatchupTests
 {
-    private static Ability A(string identifier, string name) => new() { Id = identifier.GetHashCode(), Identifier = identifier, Name = name };
+    private static int StableId(string identifier) => identifier.Aggregate(17, (h, c) => h * 31 + c);   // GetHashCode は、実行のたびに値が変わる
+
+    private static Ability A(string identifier, string name) => new() { Id = StableId(identifier), Identifier = identifier, Name = name };
 
     private static Pokemon Make(int id, string name, string t1, string t2 = "") =>
         new() { Id = id, Name = name, Type1 = t1, Type2 = t2, SpeciesId = id };

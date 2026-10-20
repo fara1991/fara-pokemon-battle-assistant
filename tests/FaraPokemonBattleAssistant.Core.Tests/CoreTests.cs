@@ -737,6 +737,19 @@ public class DataSourceTests
         }
     }
 
+    /// <summary>テストが作った一時フォルダー（fpa-tests）を、テストの実行が終わるときに消す。</summary>
+    private static readonly bool TempCleanupRegistered = RegisterTempCleanup();
+
+    private static bool RegisterTempCleanup()
+    {
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try { Directory.Delete(Path.Combine(Path.GetTempPath(), "fpa-tests"), recursive: true); }
+            catch (Exception) { /* 消せなくても、テストの結果には関係しない */ }
+        };
+        return true;
+    }
+
     private static string TempDir() => Path.Combine(Path.GetTempPath(), "fpa-tests", Guid.NewGuid().ToString("N"));
 
     [Fact]
@@ -1425,7 +1438,7 @@ public class ModernAbilityTests
         // 威力 100 × 4505/4096 = 109.98… → 110（4506 でも同じなので、補正値は表示で確かめる）
         Assert.Contains(r.Modifiers, m => m.Contains("ちからのハチマキ(1.1倍)"));
         var terapagos = data.Pokemon.FirstOrDefault(p => p.Name.StartsWith("テラパゴス") && data.AbilitiesOf(p).Any(a => a.Identifier == "tera-shell"));
-        if (terapagos is null) return;
+        Assert.NotNull(terapagos);   // データに無いからといって、検証を黙って飛ばさない
         var defender = new PokemonBuild(terapagos) { Ability = data.AbilitiesOf(terapagos).First(a => a.Identifier == "tera-shell") };
         var fighting = data.Moves.First(m => m.Name == "インファイト");
         var full = calc.Calculate(new DamageRequest { Attacker = attacker, Move = fighting, Defender = defender });

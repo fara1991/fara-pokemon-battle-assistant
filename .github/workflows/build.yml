@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -54,6 +57,9 @@ jobs:
           mkdir -p publish/wwwroot && echo '<!doctype html><title>ci</title>' > publish/wwwroot/index.html
           npx wrangler deploy --dry-run --env=""
           npx wrangler deploy --dry-run --env develop
+
+      - name: Worker API test (wrangler dev)
+        run: npm run test:worker
 
       - name: API test
         run: npm run test:worker
