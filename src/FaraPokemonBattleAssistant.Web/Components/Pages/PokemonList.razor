@@ -10,6 +10,11 @@
     <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="battle-terms">用語・略語</a>）</p>
 </div>
 
+@if (!string.IsNullOrEmpty(LoadError))
+{
+    <div class="alert alert-danger">@LoadError</div>
+}
+
 @if (data is not null && dex is not null)
 {
     var f = s.Filter;
@@ -176,7 +181,9 @@
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 
-    private async Task LoadAsync()
+    private Task LoadAsync() => LoadSafelyAsync(LoadCoreAsync, () => { data = null; dex = null; results = new(); });
+
+    private async Task LoadCoreAsync()
     {
         data = await Catalog.GetDataSetAsync(App.DataSetKey);
         dex = new Pokedex(data);

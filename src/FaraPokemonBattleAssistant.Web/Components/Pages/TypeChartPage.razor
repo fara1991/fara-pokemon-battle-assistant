@@ -30,6 +30,11 @@
     }
 </div>
 
+@if (!string.IsNullOrEmpty(LoadError))
+{
+    <div class="alert alert-danger">@LoadError</div>
+}
+
 @if (chart is not null)
 {
     <div class="table-responsive type-chart-wrap">
@@ -307,7 +312,7 @@
         s = PageStates.Get<State>("types");
         await LoadAsync();
         // ポケモン一覧から開いたとき（?pokemon=ID）は、そのポケモンを選んでから URL を戻す
-        if (PokemonQuery is > 0 and var id)
+        if (!IsDisposed && data is not null && PokemonQuery is > 0 and var id)
         {
             OnSelectedChanged(id.ToString());
             Nav.NavigateTo("type-chart", replace: true);
@@ -318,7 +323,9 @@
 
     protected override Task OnAppChangedAsync() => LoadAsync();
 
-    private async Task LoadAsync()
+    private Task LoadAsync() => LoadSafelyAsync(LoadCoreAsync, () => { data = null; chart = null; });
+
+    private async Task LoadCoreAsync()
     {
         data = await Catalog.GetDataSetAsync(App.DataSetKey);
         usage = await data.GetUsageAsync(App.Format);
