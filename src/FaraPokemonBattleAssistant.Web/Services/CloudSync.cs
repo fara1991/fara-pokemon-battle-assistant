@@ -59,6 +59,9 @@ public sealed class CloudSync : IRosterStore
 
     public bool AlwaysReload => _remote is not null;
 
+    /// <summary>データ共有中なら、クラウドの試合の履歴の窓口。共有していなければ null（履歴はブラウザの登録データの中）。</summary>
+    public async ValueTask<IMatchHistory?> GetRemoteHistoryAsync(CancellationToken ct = default) => await CurrentRemoteAsync();
+
     // ---- IRosterStore
 
     public async Task<string?> LoadAsync(CancellationToken ct = default)
@@ -209,7 +212,7 @@ public sealed class CloudSync : IRosterStore
         if (old.RivalUnreadable)
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
                 "クラウドの相手チームを読み込めなかったため、キーを作り直せません。時間をおいて、もう一度試してください");
-        if (json is not null) await MoveToNewKeyAsync(remote, json);
+        if (json is not null) await MoveToNewKeyAsync(remote, json, old);
         else await remote.LoadAsync(); // つながるか確かめる
         await SwitchToAsync(key, remote);
         try
@@ -223,10 +226,25 @@ public sealed class CloudSync : IRosterStore
         }
     }
 
-    /// <summary>データ共有をやめる（このブラウザでキーを忘れる）。クラウドのデータは残り、このブラウザの登録データは空になる。</summary>
+    /// <summary>
+    /// データ共有をやめる。このアクセスキーのクラウドのデータ（ポケモン・チーム・相手チーム・試合の履歴）をすべて削除し、キーは使えなくなる。
+    /// 他の端末・配信用BOTでも使えなくなる。削除できなかったとき（回線断など）は、キーを忘れずに例外にする（もう一度試せるように）。
+    /// このブラウザの登録データは空になる。
+    /// </summary>
     public async Task StopAsync()
     {
         await EnsureInitializedAsync();
+        if (_remote is not null)
+        {
+            try
+            {
+                await _remote.DeleteAsync();
+            }
+            catch (RosterUnavailableException ex) when (ex.Reason == RosterUnavailableReason.KeyRetired)
+            {
+                // すでに作り直し・解除で消えているキーは、そのままやめられる
+            }
+        }
         await _js.InvokeVoidAsync("localStorage.removeItem", KeyStorageKey);
         _remote = null;
         _key = null;
@@ -262,17 +280,39 @@ public sealed class CloudSync : IRosterStore
         return json;
     }
 
-    private static async Task MoveToNewKeyAsync(RemoteRosterStore remote, string json)
+    /// <param name="copyHistoryFrom">キーの作り直しのとき、古いキーの置き場（履歴を新しいキーへ写す。<paramref name="json"/> には履歴が入っていないため）。データ共有の開始では null（履歴は <paramref name="json"/> の中）。</param>
+    private static async Task MoveToNewKeyAsync(RemoteRosterStore remote, string json, RemoteRosterStore? copyHistoryFrom = null)
     {
         try
         {
             await remote.SaveAsync(json);
+            if (copyHistoryFrom is not null)
+            {
+                foreach (var key in RosterRepository.Deserialize(json).DataSets.Keys)
+                    await remote.AppendManyAsync(key, await ReadAllHistoryOldestFirstAsync(copyHistoryFrom, key));
+            }
         }
         catch
         {
             try { await remote.DeleteAsync(); } catch (Exception) { /* 消せなくても新しいキーは使わない */ }
             throw;
         }
+    }
+
+    /// <summary>1 つのゲームの履歴を全部、古い順に読む（キーの作り直しで、新しいキーへ写すため。1 回に 200 件ずつ）。</summary>
+    private static async Task<List<RivalMatch>> ReadAllHistoryOldestFirstAsync(IMatchHistory source, string dataSetKey)
+    {
+        var all = new List<RivalMatch>();
+        int? before = null;
+        while (true)
+        {
+            var page = await source.ListAsync(dataSetKey, 200, before);
+            all.AddRange(page.Items);
+            if (!page.HasMore || page.Items.Count == 0) break;
+            before = page.Items[^1].Id;
+        }
+        all.Reverse();
+        return all;
     }
 
     private async Task EnsureInitializedAsync()

@@ -28,6 +28,8 @@
 //   GET    /api/my/history?dataSet=K&id=n                   → 200 {"total": 件数, "item": 試合} / 404
 //   POST   /api/my/history ← {"dataSet": "K", "match": {"Date"?, "Memo"?, "Foes": [...]}}
 //                           → 201 {"id": 割り当てた Id, "total": 件数} / 409 history_limit
+//          "match" の代わりに "matches": [試合…]（100 件まで。データの移し替え用）を送ると、まとめて足す
+//          （古い順に Id を割り当てる。1 つでも上限を超えるなら、何も足さずに 409）→ 201 {"ids": [...], "total": 件数}
 //          上限: ゲームごとに 10,000 件・アクセスキー 1 つあたりの履歴の合計 64 MB・履歴を持てるゲームは 16 まで。
 //   DELETE /api/my/history?dataSet=K&id=n                   → 204 / 404（1 試合を消す）
 //   DELETE /api/my/history?dataSet=K&keepLatest=n           → 200 {"deleted": 消した数, "total": 件数}（新しい n 件を残して消す）
@@ -74,6 +76,8 @@ const MAX_ID_JUMP = 1000;
 /** 履歴 1 試合の本文の上限（UTF-8 のバイト数）と、相手の人数の上限。 */
 const MAX_MATCH_BYTES = 64 * 1024;
 const MAX_FOES_PER_MATCH = 50;
+/** 履歴をまとめて足すときの 1 回の件数の上限（データの移し替え用）。 */
+const MAX_MATCHES_PER_POST = 100;
 /** 履歴の一覧で 1 回に返す件数（既定・最大）。 */
 const HISTORY_PAGE_DEFAULT = 50;
 const HISTORY_PAGE_MAX = 200;
@@ -402,13 +406,14 @@ async function handleHistory(request, url, stub) {
   return error(405, "method_not_allowed", "使えないメソッドです");
 }
 
-/** POST /api/my/history: 試合を 1 つ足す（ゲームのキーは本文の dataSet）。 */
+/** POST /api/my/history: 試合を 1 つ（match）か、まとめて（matches。100 件まで）足す。ゲームのキーは本文の dataSet。 */
 async function postHistory(request, stub) {
   let bytes;
   try {
-    bytes = await readBodyLimited(request, MAX_MATCH_BYTES);
+    // まとめて足すときは、1 試合 64 KB × 100 件になりうるので、本文全体は 1 試合の上限ではなく MAX_BYTES で読む
+    bytes = await readBodyLimited(request, MAX_BYTES);
   } catch (e) {
-    if (e instanceof TooLargeError) return error(413, "too_large", `1 試合のデータが大きすぎます（上限 ${MAX_MATCH_BYTES / 1024} KB）`);
+    if (e instanceof TooLargeError) return error(413, "too_large", `データが大きすぎます（上限 ${MAX_BYTES / 1024} KB。1 試合は ${MAX_MATCH_BYTES / 1024} KB まで）`);
     throw e;
   }
   let body;
@@ -418,7 +423,14 @@ async function postHistory(request, stub) {
     invalid("invalid_json", "本文が JSON ではありません");
   }
   if (!isPlainObject(body)) invalid("invalid_body", "本文はオブジェクトにしてください");
-  return respond(stub.addMatch(checkDataSet(body.dataSet), validateMatch(body.match)));
+  const dataSet = checkDataSet(body.dataSet);
+  if (body.matches !== undefined) {
+    if (body.match !== undefined) invalid("invalid_body", "match と matches は、どちらか 1 つだけにしてください");
+    if (!Array.isArray(body.matches) || body.matches.length === 0 || body.matches.length > MAX_MATCHES_PER_POST)
+      invalid("invalid_match", `matches は 1〜${MAX_MATCHES_PER_POST} 件の配列にしてください`);
+    return respond(stub.addMatches(dataSet, body.matches.map(validateMatch)));
+  }
+  return respond(stub.addMatch(dataSet, validateMatch(body.match)));
 }
 
 /** 保存している登録データ（RosterState の JSON）から、ゲームのキーを大文字小文字を区別せずに探す。 */
@@ -843,6 +855,25 @@ export class RosterSlot extends DurableObject {
     this.#insertMatch(h, meta.next_id, text);
     await this.#touch();
     return plain(201, { id: meta.next_id, total: meta.count + 1 });
+  }
+
+  /** 試合をまとめて足す（データの移し替え用）。古い順に Id を割り当てる。上限を超えるなら、何も足さずに 409。 */
+  async addMatches(dataSet, matches) {
+    const s = await this.#read();
+    if (s.deleted) return this.#gone();
+    const h = dataSet.toLowerCase();
+    const meta = this.#meta(h);
+    if (meta.count + matches.length > this.#historyLimit)
+      return plainError(409, "history_limit", `試合の履歴が上限（${this.#historyLimit} 件）を超えます。古い履歴を削除してください`);
+    if (meta.next_id + matches.length - 1 > MAX_ID) return plainError(409, "history_limit", "これ以上、試合の履歴を足せません");
+    const items = matches.map((m, i) => JSON.stringify({ ...m, Id: meta.next_id + i }));
+    const totals = this.#historyTotals();
+    const added = items.reduce((sum, t) => sum + new TextEncoder().encode(t).byteLength, 0);
+    if (totals.bytes + added > this.#historyBytesLimit || (meta.count === 0 && totals.dataSets >= MAX_HISTORY_DATA_SETS))
+      return plainError(409, "history_limit", "試合の履歴の合計サイズ（または履歴を持てるゲームの数）が上限に達しています。古い履歴を削除してください");
+    items.forEach((text, i) => this.#insertMatch(h, meta.next_id + i, text));
+    await this.#touch();
+    return plain(201, { ids: items.map((_, i) => meta.next_id + i), total: meta.count + items.length });
   }
 
   async removeMatch(dataSet, id) {

@@ -156,16 +156,16 @@ else if (data is not null && roster is not null && dataSet is not null)
 
         <div class="reg-col">
             <div class="card mb-3">
-                <div class="card-header"><h5>試合の履歴（@roster.History.Count 件）</h5></div>
+                <div class="card-header"><h5>試合の履歴（@historyTotal 件）</h5></div>
                 <div class="card-body">
-                    @if (roster.History.Count == 0)
+                    @if (historyTotal == 0)
                     {
                         <Notice Empty="true" Class="mb-0">履歴はまだありません。「試合を終える」を押すと、対戦中の相手が全員（選出・技・ポイントなどの分かっていることと一緒に）履歴に残ります。</Notice>
                     }
                     else
                     {
                         <ul class="list-group">
-                            @foreach (var match in roster.History.OrderByDescending(m => m.Id))
+                            @foreach (var match in historyItems)
                             {
                                 <li class="list-group-item">
                                     <div class="d-flex justify-content-between align-items-start gap-2">
@@ -183,6 +183,17 @@ else if (data is not null && roster is not null && dataSet is not null)
                                 </li>
                             }
                         </ul>
+                        @if (historyHasMore)
+                        {
+                            <button class="btn btn-outline-secondary btn-sm mt-2" disabled="@historyLoading" @onclick="LoadMoreHistoryAsync">さらに表示（古い試合）</button>
+                        }
+                        @* 件数が上限（ブラウザ 2,000 件・クラウド 1 万件）に近づいたとき用。新しい N 件を残して、古い履歴を削除する *@
+                        <div class="input-group input-group-sm mt-3">
+                            <span class="input-group-text">古い履歴を整理</span>
+                            <input type="number" class="form-control" min="0" aria-label="残す件数" @bind="keepLatest" />
+                            <span class="input-group-text">件を残して削除</span>
+                            <button class="btn btn-outline-danger" disabled="@(historyLoading || keepLatest >= historyTotal)" @onclick="TrimHistoryAsync">削除</button>
+                        </div>
                     }
                 </div>
             </div>
@@ -221,6 +232,52 @@ else
     }
 
     private int evVersion;
+
+    // ---- 試合の履歴（クラウドでは全件を読まず、新しい順に 30 件ずつ読む）
+    private const int HistoryPageSize = 30;
+    private List<RivalMatch> historyItems = new();
+    private int historyTotal;
+    private bool historyHasMore;
+    private bool historyLoading;
+    private int keepLatest = 1000;
+
+    protected override Task OnRosterReadAsync() => LoadHistoryAsync(reset: true);
+
+    private Task LoadMoreHistoryAsync() => LoadHistoryAsync(reset: false);
+
+    private async Task LoadHistoryAsync(bool reset)
+    {
+        if (historyLoading && !reset) return;
+        historyLoading = true;
+        try
+        {
+            var key = App.DataSetKey;
+            var page = await Repo.ListHistoryAsync(key, HistoryPageSize, reset ? null : historyItems.LastOrDefault()?.Id);
+            if (key != App.DataSetKey || IsDisposed) return;
+            if (reset) historyItems = page.Items.ToList();
+            else historyItems.AddRange(page.Items);
+            historyTotal = page.Total;
+            historyHasMore = page.HasMore;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Show($"試合の履歴を読み込めませんでした: {CloudSync.Describe(ex)}", true);
+        }
+        finally
+        {
+            historyLoading = false;
+        }
+    }
+
+    private async Task TrimHistoryAsync()
+    {
+        if (Mutating) return;
+        if (keepLatest < 0) keepLatest = 0;
+        if (!await ConfirmAsync($"新しい {keepLatest} 件を残して、古い履歴を削除します（元に戻せません）。よろしいですか？")) return;
+        var removed = 0;
+        if (!await MutateAsync(async () => removed = await Repo.TrimHistoryAsync(App.DataSetKey, keepLatest))) return;
+        Show($"古い履歴 {removed} 件を削除しました", false);
+    }
 
     /// <summary>性格が決まっていればその性格の上がる・下がる能力。決まっていなければ、分かっている方だけ（もう片方は補わない）。</summary>
     private (Stat? Up, Stat? Down) EditNaturePair =>
@@ -455,7 +512,8 @@ else
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         if (!await ConfirmAsync($"履歴 #{match.Id} を削除します（元に戻せません）。よろしいですか？")) return;
-        if (!await ChangeRivalsAsync(r => { var n = r.History.RemoveAll(x => x.Id == match.Id); return (n > 0, n > 0); }, $"履歴 #{match.Id}")) return;
-        Show($"履歴 #{match.Id} を削除しました", false);
+        var removed = false;
+        if (!await MutateAsync(async () => removed = await Repo.RemoveMatchAsync(App.DataSetKey, match.Id))) return;
+        Show(removed ? $"履歴 #{match.Id} を削除しました" : $"履歴 #{match.Id} はすでにありません", !removed);
     }
 }

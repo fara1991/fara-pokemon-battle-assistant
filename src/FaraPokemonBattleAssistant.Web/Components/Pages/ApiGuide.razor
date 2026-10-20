@@ -22,10 +22,13 @@
                     <tr><td><code>GET /api/my/pokemon</code></td><td>登録したポケモン（ゲームごと）を読み取ります</td></tr>
                     <tr><td><code>PUT /api/my/pokemon</code></td><td>ポケモンを保存します。消したポケモンはチームからも外れ、0 体になったチームは消えます</td></tr>
                     <tr><td><code>GET /api/my/team</code></td><td>チームと使用中のチームを読み取ります</td></tr>
-                    <tr><td><code>GET /api/my/rival</code></td><td>対戦中の相手チームと、終わった試合の履歴を読み取ります</td></tr>
-                    <tr><td><code>PUT /api/my/rival</code></td><td>相手チームと履歴を保存します（書いたゲームの分だけ置き換え）</td></tr>
+                    <tr><td><code>GET /api/my/rival</code></td><td>対戦中の相手チームを読み取ります（履歴は <code>?historyLimit=n</code> で直近 n 件）</td></tr>
+                    <tr><td><code>PUT /api/my/rival</code></td><td>相手チームを保存します（書いたゲームの分だけ置き換え。履歴は置き換えません）</td></tr>
+                    <tr><td><code>GET /api/my/history</code></td><td>終わった試合の履歴を、新しい順にページ送りで読み取ります（ゲームごとに 10,000 件まで）</td></tr>
+                    <tr><td><code>POST /api/my/history</code></td><td>終わった試合を履歴に足します（Id はサーバーが割り当てます）</td></tr>
+                    <tr><td><code>DELETE /api/my/history</code></td><td>履歴の 1 試合を消します（新しい N 件を残して消すこともできます）</td></tr>
                     <tr><td><code>PUT /api/my/team</code></td><td>チームと使用中のチームを保存します（登録に無いポケモン・7 体以上は受け付けません）</td></tr>
-                    <tr><td><code>DELETE /api/my/access-key</code></td><td>このアクセスキーを使えなくし、データを消します（アクセスキーの作り直し用）</td></tr>
+                    <tr><td><code>DELETE /api/my/access-key</code></td><td>このアクセスキーを使えなくし、データ（履歴も）を消します（アクセスキーの作り直し・データ共有の解除用）</td></tr>
                 </tbody>
             </table>
         </div>

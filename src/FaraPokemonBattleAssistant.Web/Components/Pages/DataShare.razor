@@ -60,7 +60,7 @@
             <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-outline-primary btn-sm" disabled="@syncBusy" @onclick="ReloadAsync">読み込み直す</button>
                 <button class="btn btn-outline-secondary btn-sm" disabled="@syncBusy" @onclick="RotateKeyAsync">アクセスキーを作り直す</button>
-                <button class="btn btn-outline-danger btn-sm" disabled="@syncBusy" @onclick="StopSyncAsync">データ共有をやめる</button>
+                <button class="btn btn-outline-danger btn-sm" disabled="@syncBusy" @onclick="StopSyncAsync">データ共有をやめる（クラウドのデータを削除）</button>
             </div>
         }
     </div>
@@ -174,13 +174,13 @@
 
     private async Task StopSyncAsync()
     {
-        if (!await ConfirmAsync("このブラウザでのデータ共有をやめます。クラウドのデータは残るので、アクセスキーを入力すればまた共有できます（アクセスキーを控えておいてください）。このブラウザの登録データは空になります。よろしいですか？"))
+        if (!await ConfirmAsync("データ共有をやめると、このアクセスキーのクラウドのデータ（登録ポケモン・チーム・相手チーム・試合の履歴）がすべて削除され、このブラウザの登録データも空になります。他の端末や配信用BOTでも、このアクセスキーは使えなくなります（元に戻せません）。必要なら、先に控えてください。よろしいですか？"))
             return;
         await RunSyncAsync(async () =>
         {
             await Sync.StopAsync();
             showKey = false;
-            Show("データ共有をやめました。アクセスキーを入力すれば、また同じデータで共有できます", false);
+            Show("データ共有をやめました。クラウドのデータを削除しました。もう一度共有するには、新しく始めてください", false);
         });
     }
 

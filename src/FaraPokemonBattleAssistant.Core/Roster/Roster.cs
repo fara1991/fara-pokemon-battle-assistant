@@ -37,6 +37,12 @@ public interface IRosterStore
     /// <see cref="RosterRepository"/> は読み込んだ内容をキャッシュせず、読み書きのたびに読み直す。
     /// </summary>
     bool AlwaysReload => false;
+
+    /// <summary>
+    /// クラウドに保存しているなら、試合の履歴の窓口（<see cref="RemoteRosterStore"/>）。クラウドでは、履歴は登録データとは別にサーバーが持つ。
+    /// ブラウザ・ファイル・メモリでは null（履歴は登録データの中にある）。
+    /// </summary>
+    ValueTask<IMatchHistory?> GetRemoteHistoryAsync(CancellationToken ct = default) => ValueTask.FromResult<IMatchHistory?>(null);
 }
 
 /// <summary>ファイルに保存する（ボット用）。</summary>
@@ -498,20 +504,95 @@ public sealed class RosterRepository
         MutateAsync(dataSetKey, RosterPart.Rival, apply, ct);
 
     /// <summary>
+    /// ブラウザ・ファイルに保存できる試合の履歴の上限（ゲームごと）。ブラウザの保存領域（約 5 MB）に収まるようにする。
+    /// クラウドは、サーバー側の上限（ゲームごとに 10,000 件）。
+    /// </summary>
+    public const int LocalHistoryLimit = 2000;
+
+    /// <summary>
     /// 試合を終える。対戦中の相手を、名前だけの相手も含めて全員履歴に移し（選出・技・ポイント・性格・特性・推定も一緒に残す）、対戦中の相手は全部消す。
     /// 対戦中の相手がいなければ履歴は作らない（<see cref="EndMatchResult.Match"/> は null）。
+    /// 履歴が上限に達しているときは <see cref="HistoryLimitException"/>（何も変えない）。
     /// </summary>
     public async Task<EndMatchResult> EndMatchAsync(string dataSetKey, string? memo, DateTimeOffset now, CancellationToken ct = default)
     {
+        if (await _store.GetRemoteHistoryAsync(ct).ConfigureAwait(false) is { } remote)
+            return await EndMatchRemoteAsync(remote, dataSetKey, memo, now, ct).ConfigureAwait(false);
         return await ChangeRivalsAsync(dataSetKey, roster =>
         {
             if (roster.Rivals.Count == 0) return (new EndMatchResult(null, 0), false);
+            if (roster.History.Count >= LocalHistoryLimit)
+                throw new HistoryLimitException($"このブラウザに保存できる試合の履歴は {LocalHistoryLimit:N0} 件までです。データ共有（クラウド）を使うか、古い履歴を削除してください");
             // 振り返りのため、選出しなかった相手も含めて全員を履歴に移す
             var all = roster.Rivals.Select(r => r.Clone()).ToList();
             var match = new RivalMatch { Id = roster.NextMatchId++, Date = now.ToString("o"), Memo = (memo ?? "").Trim(), Foes = all };
             roster.History.Add(match);
             roster.Rivals.Clear();
             return (new EndMatchResult(match, all.Count), true);
+        }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// クラウドで試合を終える。履歴は別の API なので、先に履歴へ足し（上限なら何も変えずに失敗）、そのあと対戦中の相手を消す。
+    /// 履歴に足したあと、相手を消せなかったときは、その旨を伝える（履歴には記録済みなので、もう一度 end せず clear -r で消す）。
+    /// </summary>
+    private async Task<EndMatchResult> EndMatchRemoteAsync(IMatchHistory history, string dataSetKey, string? memo, DateTimeOffset now, CancellationToken ct)
+    {
+        var rivals = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey).Rivals;
+        if (rivals.Count == 0) return new EndMatchResult(null, 0);
+        var all = rivals.Select(r => r.Clone()).ToList();
+        var match = new RivalMatch { Date = now.ToString("o"), Memo = (memo ?? "").Trim(), Foes = all };
+        var recorded = await history.AppendAsync(dataSetKey, match, ct).ConfigureAwait(false);
+        try
+        {
+            await ChangeRivalsAsync(dataSetKey, roster => { roster.Rivals.Clear(); return (0, true); }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                $"試合は履歴 #{recorded.Id} に記録しましたが、対戦中の相手を消せませんでした。もう一度 end せず、clear -r（または相手チーム画面）で消してください", ex);
+        }
+        return new EndMatchResult(recorded, all.Count);
+    }
+
+    // ---- 試合の履歴（クラウドはサーバーの履歴、それ以外は登録データの中）
+
+    /// <summary>試合の一覧（新しい順）。<paramref name="beforeId"/> を付けると、その Id より前の試合から。</summary>
+    public async Task<MatchPage> ListHistoryAsync(string dataSetKey, int limit, int? beforeId = null, CancellationToken ct = default)
+    {
+        if (await _store.GetRemoteHistoryAsync(ct).ConfigureAwait(false) is { } remote)
+            return await remote.ListAsync(dataSetKey, limit, beforeId, ct).ConfigureAwait(false);
+        var history = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey).History;
+        var older = history.Where(m => beforeId is null || m.Id < beforeId).OrderByDescending(m => m.Id).Take(limit + 1).ToList();
+        return new MatchPage(history.Count, older.Take(limit).ToList(), older.Count > limit);
+    }
+
+    /// <summary>1 試合を読む。無ければ null。</summary>
+    public async Task<RivalMatch?> GetMatchAsync(string dataSetKey, int id, CancellationToken ct = default)
+    {
+        if (await _store.GetRemoteHistoryAsync(ct).ConfigureAwait(false) is { } remote)
+            return await remote.GetAsync(dataSetKey, id, ct).ConfigureAwait(false);
+        return (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey).History.FirstOrDefault(m => m.Id == id);
+    }
+
+    /// <summary>1 試合を消す。無ければ false。</summary>
+    public async Task<bool> RemoveMatchAsync(string dataSetKey, int id, CancellationToken ct = default)
+    {
+        if (await _store.GetRemoteHistoryAsync(ct).ConfigureAwait(false) is { } remote)
+            return await remote.RemoveAsync(dataSetKey, id, ct).ConfigureAwait(false);
+        return await ChangeRivalsAsync(dataSetKey, roster => { var n = roster.History.RemoveAll(m => m.Id == id); return (n > 0, n > 0); }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>新しい <paramref name="keepLatest"/> 件を残して、古い試合を消す。消した件数を返す。</summary>
+    public async Task<int> TrimHistoryAsync(string dataSetKey, int keepLatest, CancellationToken ct = default)
+    {
+        if (await _store.GetRemoteHistoryAsync(ct).ConfigureAwait(false) is { } remote)
+            return await remote.TrimAsync(dataSetKey, keepLatest, ct).ConfigureAwait(false);
+        return await ChangeRivalsAsync(dataSetKey, roster =>
+        {
+            var keep = roster.History.OrderByDescending(m => m.Id).Take(keepLatest).Select(m => m.Id).ToHashSet();
+            var n = roster.History.RemoveAll(m => !keep.Contains(m.Id));
+            return (n, n > 0);
         }, ct).ConfigureAwait(false);
     }
 

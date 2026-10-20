@@ -413,28 +413,51 @@ public sealed partial class PokeCommand
     /// <summary>ls -h [名前]: 試合の履歴（名前を付けると、そのポケモンがいた試合の振り方）。</summary>
     private async Task<DamageCommandResult> ListHistoryAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
     {
-        var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
-        if (roster.History.Count == 0) return Ok($"{ds.Name}: 試合の履歴はありません（!{ds.CommandPrefix} end で、対戦中の相手を履歴に移せます）");
+        // 履歴は、クラウドでは必要なページだけを読む（全件は読まない）
+        var first = await _roster.ListHistoryAsync(ds.Key, HistoryListCount, ct: ct).ConfigureAwait(false);
+        if (first.Total == 0) return Ok($"{ds.Name}: 試合の履歴はありません（!{ds.CommandPrefix} end で、対戦中の相手を履歴に移せます）");
         if (args.Count > 0)
         {
             var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[0]);
             if (!match.IsResolved) return Fail(NotFound("ポケモン", args[0], match.Candidates.Select(p => p.Name)));
-            var rows = roster.History.OrderByDescending(m => m.Id)
-                .Select(m => (Match: m, Foe: m.Foes.FirstOrDefault(f => f.PokemonId == match.Value!.Id)))
-                .Where(x => x.Foe is not null).Take(8).ToList();
-            if (rows.Count == 0) return Ok($"{match.Value!.Name}は履歴にいません");
-            return Ok($"{match.Value!.Name}の履歴 {rows.Count}件: " + string.Join(" ｜ ", rows.Select(x => $"#{x.Match.Id} {DateText(x.Match.Date)}{MemoText(x.Match.Memo)} {DescribeRival(x.Foe!, data, ds.EvSystem, withName: false)}")));
+            var (rows, scanned, truncated) = await FindFoeInHistoryAsync(ds, match.Value!.Id, ct).ConfigureAwait(false);
+            if (rows.Count == 0) return Ok(truncated ? $"{match.Value!.Name}は、直近 {scanned} 試合の履歴にいません" : $"{match.Value!.Name}は履歴にいません");
+            return Ok($"{match.Value!.Name}の履歴 {rows.Count}件: " + string.Join(" ｜ ", rows.Select(x => $"#{x.Match.Id} {DateText(x.Match.Date)}{MemoText(x.Match.Memo)} {DescribeRival(x.Foe, data, ds.EvSystem, withName: false)}")));
         }
-        var recent = roster.History.OrderByDescending(m => m.Id).Take(8).ToList();
-        return Ok($"試合の履歴 {roster.History.Count}件（新しい順）: " + string.Join(" ｜ ", recent.Select(m => $"#{m.Id} {DateText(m.Date)}{MemoText(m.Memo)} {string.Join("・", m.Foes.Select(f => f.PokemonName))}")));
+        return Ok($"試合の履歴 {first.Total}件（新しい順）: " + string.Join(" ｜ ", first.Items.Select(m => $"#{m.Id} {DateText(m.Date)}{MemoText(m.Memo)} {string.Join("・", m.Foes.Select(f => f.PokemonName))}")));
+    }
+
+    /// <summary>ls -h で 1 回に出す試合の数。</summary>
+    private const int HistoryListCount = 8;
+    /// <summary>ポケモン名で履歴を探すとき、新しい方から何試合まで見るか（古い履歴まで全件は読まない）。</summary>
+    private const int HistoryScanLimit = 1000;
+
+    /// <summary>履歴を新しい方から 200 件ずつ読み、そのポケモンがいた試合を <see cref="HistoryListCount"/> 件まで集める。</summary>
+    private async Task<(List<(RivalMatch Match, RivalPokemon Foe)> Rows, int Scanned, bool Truncated)> FindFoeInHistoryAsync(
+        DataSetInfo ds, int pokemonId, CancellationToken ct)
+    {
+        var rows = new List<(RivalMatch Match, RivalPokemon Foe)>();
+        var scanned = 0;
+        var page = await _roster.ListHistoryAsync(ds.Key, 200, ct: ct).ConfigureAwait(false);
+        while (true)
+        {
+            foreach (var m in page.Items)
+            {
+                scanned++;
+                if (m.Foes.FirstOrDefault(f => f.PokemonId == pokemonId) is { } foe) rows.Add((m, foe));
+                if (rows.Count >= HistoryListCount) return (rows, scanned, false);
+            }
+            if (!page.HasMore || page.Items.Count == 0) return (rows, scanned, false);
+            if (scanned >= HistoryScanLimit) return (rows, scanned, true);
+            page = await _roster.ListHistoryAsync(ds.Key, 200, page.Items[^1].Id, ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>detail -h 履歴ID: その試合の相手チームと推定の根拠。</summary>
     private async Task<DamageCommandResult> DetailHistoryAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
     {
         if (args.Count == 0 || !int.TryParse(args[0].TrimStart('#'), out var id)) return Fail($"書式: !{ds.CommandPrefix} detail -h 履歴ID");
-        var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
-        var match = roster.History.FirstOrDefault(m => m.Id == id);
+        var match = await _roster.GetMatchAsync(ds.Key, id, ct).ConfigureAwait(false);
         if (match is null) return Fail($"履歴ID {id} はありません");
         return Ok($"履歴 #{match.Id} {DateText(match.Date)}{MemoText(match.Memo)}: " + string.Join(" ｜ ", match.Foes.Select(f => DescribeRival(f, data, ds.EvSystem, withNotes: true))));
     }
@@ -444,7 +467,7 @@ public sealed partial class PokeCommand
     {
         if (!options.AllowMutations) return Fail("履歴の削除は配信者・モデレーターのみ行えます");
         if (args.Count == 0 || !int.TryParse(args[0].TrimStart('#'), out var id)) return Fail($"書式: !{ds.CommandPrefix} rm -h 履歴ID");
-        var removed = await _roster.ChangeRivalsAsync(ds.Key, roster => { var n = roster.History.RemoveAll(m => m.Id == id); return (n > 0, n > 0); }, ct).ConfigureAwait(false);
+        var removed = await _roster.RemoveMatchAsync(ds.Key, id, ct).ConfigureAwait(false);
         return removed ? Ok($"履歴 #{id} を削除しました") : Fail($"履歴ID {id} はありません");
     }
 

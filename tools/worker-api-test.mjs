@@ -255,7 +255,8 @@ try {
   await badMatch("Memo が長すぎる", { dataSet: "Gen9", match: { Foes: [], Memo: "x".repeat(501) } });
   await badMatch("dataSet が不正", { dataSet: "a b", match: { Foes: [] } });
   check("JSON でない POST は 400", (await req("POST", H, hkey, "{ not json")).status === 400);
-  check("履歴 1 試合の上限（64 KB）を超えると 413", (await req("POST", H, hkey, { dataSet: "Gen9", match: { Foes: [{ Note: "x".repeat(70 * 1024) }] } })).status === 413);
+  check("履歴 1 試合の上限（64 KB）を超えると 400", (await req("POST", H, hkey, { dataSet: "Gen9", match: { Foes: [{ Note: "x".repeat(70 * 1024) }] } })).status === 400);
+  check("本文全体の上限（256 KB）を超えると 413", (await req("POST", H, hkey, { dataSet: "Gen9", match: { Foes: [{ Note: "x".repeat(300 * 1024) }] } })).status === 413);
 
   // 古い版のクライアント向けの相手チーム API（履歴は別の表から返し、PUT の history は「次の Id 以降の、まだ無い試合」だけ足す）
   const hist = (r) => r.json?.dataSets?.Champions?.history?.map((m) => m.Id);
@@ -346,6 +347,17 @@ try {
   const d17 = await req("POST", H, dkey, { dataSet: "d17", match: { Foes: [] } });
   check("17 個目のゲームは 409 history_limit", d17.status === 409 && d17.json?.error === "history_limit", d17.text);
   check("履歴のあるゲームには、続けて足せる", (await req("POST", H, dkey, { dataSet: "d1", match: { Foes: [] } })).status === 201);
+
+  // まとめて足す（データの移し替え用）
+  const mkey = newKey();
+  const batch = await req("POST", H, mkey, { dataSet: "Gen9", matches: [{ Memo: "a", Foes: [] }, { Memo: "b", Foes: [] }] });
+  check("matches でまとめて足すと、古い順に Id が振られる（1・2）", batch.status === 201 && same(batch.json?.ids, [1, 2]) && batch.json?.total === 2, batch.text);
+  const batch2 = await req("POST", H, mkey, { dataSet: "Gen9", matches: [{ Foes: [] }, { Foes: [] }] });
+  check("上限（テストでは 3 件）を超えるまとめ追加は、何も足さずに 409", batch2.status === 409 && (await req("GET", `${H}?dataSet=Gen9`, mkey)).json?.total === 2, batch2.text);
+  check("match と matches の両方は 400", (await req("POST", H, mkey, { dataSet: "Gen9", match: { Foes: [] }, matches: [{ Foes: [] }] })).status === 400);
+  check("空の matches は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: [] })).status === 400);
+  check("101 件の matches は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: Array.from({ length: 101 }, () => ({ Foes: [] })) })).status === 400);
+  check("matches の中の不正な試合は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: [{ Foes: {} }] })).status === 400);
 
   const ikey = newKey();
   await req("POST", H, ikey, { dataSet: "Champions", match: { Foes: [] } });   // Id 1（次の Id は 2）

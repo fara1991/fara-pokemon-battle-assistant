@@ -29,6 +29,9 @@ public abstract class RosterPageBase : AppPageBase
     /// <summary>ゲームのデータと登録データを読み込んだあとに呼ぶ。ゲームが変わったときの入力の初期化などを行う。</summary>
     protected virtual void OnDataLoaded() { }
 
+    /// <summary>登録データを読み込んだ（読み直した）あとに呼ぶ。登録データとは別に持つもの（クラウドの試合の履歴など）を読み直す。失敗は呼ぶ側で扱う。</summary>
+    protected virtual Task OnRosterReadAsync() => Task.CompletedTask;
+
     protected override async Task OnAppReadyAsync()
     {
         Sync.Changed += OnSyncChanged;
@@ -61,6 +64,7 @@ public abstract class RosterPageBase : AppPageBase
             data = loaded;
             roster = loadedRoster;
             OnDataLoaded();
+            await OnRosterReadAsync();
         }
         catch (Exception ex)
         {
@@ -78,6 +82,7 @@ public abstract class RosterPageBase : AppPageBase
         try
         {
             roster = (await Repo.GetAsync()).For(App.DataSetKey);
+            await OnRosterReadAsync();
         }
         catch (Exception ex)
         {
