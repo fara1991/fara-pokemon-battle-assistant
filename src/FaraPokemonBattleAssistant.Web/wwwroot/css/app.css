@@ -3596,3 +3596,9 @@ html.vt-nav .sidebar {
         grid-row: 3;
     }
 }
+
+/* チャットコマンド画面の説明: スマホでは 2 行、PC では 1 行に続ける */
+.command-note-legend { display: block; margin-top: .25rem; }
+@media (min-width: 992px) {
+    .command-note-legend { display: inline; margin: 0 0 0 1em; }
+}
