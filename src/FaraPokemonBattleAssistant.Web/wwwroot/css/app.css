@@ -2145,6 +2145,8 @@ button.compact-cell {
     cursor: pointer;
 }
 
+.dex-row:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: -2px; }
+
 .dex-row:hover {
     background: var(--app-panel-bg);
 }

@@ -19,13 +19,22 @@
            @onkeydown="@OnKeyDown"
            onfocus="this.select()"
            disabled="@Disabled"
+           role="combobox"
+           aria-autocomplete="list"
+           aria-haspopup="listbox"
+           aria-expanded="@(IsOpen ? "true" : "false")"
+           aria-controls="@(IsOpen ? BoxId : null)"
+           aria-activedescendant="@(!IsOpen ? null : highlight >= 0 ? ItemId(highlight) : ShowEmptyOption ? EmptyId : null)"
+           aria-label="@(AriaLabel ?? Placeholder)"
            autocomplete="off" />
-    @if (showDropdown && !Disabled && (visible.Count > 0 || ShowEmptyOption))
+    @if (IsOpen)
     {
         <div class="searchable-select-dropdown" id="@listId">
+            <div id="@BoxId" role="listbox" aria-label="@(AriaLabel ?? Placeholder)">
             @if (ShowEmptyOption)
             {
-                <div class="searchable-select-item text-muted @(HasSelection ? "" : "active")"
+                <div class="searchable-select-item text-muted @(highlight < 0 ? "active" : "")"
+                     id="@EmptyId" role="option" aria-selected="@(HasSelection ? "false" : "true")"
                      @onmousedown="SelectEmpty" @onmousedown:preventDefault>@EmptyOption</div>
             }
             @for (var i = 0; i < visible.Count; i++)
@@ -33,7 +42,7 @@
                 var item = visible[i];
                 var index = i;
                 <div class="searchable-select-item @(index == highlight ? "active" : "")"
-                     id="@ItemId(index)"
+                     id="@ItemId(index)" role="option" aria-selected="@(HasSelection && ValueSelector(item) == SelectedValue ? "true" : "false")"
                      @onmousedown="() => SelectItem(item)" @onmousedown:preventDefault
                      @onmouseenter="() => highlight = index">
                     @if (ItemTemplate is not null)
@@ -46,6 +55,7 @@
                     }
                 </div>
             }
+            </div>
             @if (hiddenCount > 0)
             {
                 <div class="searchable-select-item text-muted">…ほか @hiddenCount 件。入力して絞り込んでください</div>
@@ -69,8 +79,10 @@
     [Parameter] public bool Dropdown { get; set; }
     /// <summary>先頭に出す「選択なし」の候補の文字（例: 持ち物なし）。null なら出さない。</summary>
     [Parameter] public string? EmptyOption { get; set; }
-    /// <summary>一度に表示する最大件数。</summary>
-    [Parameter] public int MaxVisible { get; set; } = 400;
+    /// <summary>入力欄の名前（画面読み上げ用）。省略時は Placeholder。</summary>
+    [Parameter] public string? AriaLabel { get; set; }
+    /// <summary>一度に表示する最大件数。多いと描画が重くなるので、残りは入力して絞り込んでもらう。</summary>
+    [Parameter] public int MaxVisible { get; set; } = 120;
 
     private readonly string listId = "ss-" + Guid.NewGuid().ToString("N")[..8];
     private string searchText = "";
@@ -82,6 +94,12 @@
     private bool scrollPending;
 
     private string ItemId(int index) => $"{listId}-{index}";
+
+    private string BoxId => $"{listId}-box";
+
+    private string EmptyId => $"{listId}-empty";
+
+    private bool IsOpen => showDropdown && !Disabled && (visible.Count > 0 || ShowEmptyOption);
 
     private bool HasSelection => !string.IsNullOrEmpty(SelectedValue) && SelectedValue != "0";
 
@@ -116,7 +134,10 @@
         var all = !string.IsNullOrWhiteSpace(searchText) && (userTyped || !Dropdown)
             ? Items.Where(item => matches(DisplayText(item))).ToList()
             : Items.ToList();
-        visible = all.Take(MaxVisible).ToList();
+        // 選んでいるものが上限より後ろにあるときは、それが入る範囲を出す（強調・スクロールが効かなくなるのを防ぐ）
+        var selIndex = HasSelection ? all.FindIndex(item => ValueSelector(item) == SelectedValue) : -1;
+        var start = selIndex >= MaxVisible ? Math.Max(0, Math.Min(selIndex - MaxVisible / 2, all.Count - MaxVisible)) : 0;
+        visible = all.Skip(start).Take(MaxVisible).ToList();
         hiddenCount = all.Count - visible.Count;
         highlight = HasSelection ? visible.FindIndex(item => ValueSelector(item) == SelectedValue) : -1;
         if (highlight < 0 && userTyped && visible.Count > 0) highlight = 0;
@@ -237,13 +258,16 @@
                 if (visible.Count > 0) { highlight = Math.Min(highlight + 1, visible.Count - 1); scrollPending = true; }
                 break;
             case "ArrowUp":
-                if (showDropdown && visible.Count > 0) { highlight = Math.Max(highlight - 1, 0); scrollPending = true; }
+                // 先頭からさらに ↑ で、「なし」の候補に移る
+                if (showDropdown && visible.Count > 0) { highlight = Math.Max(highlight - 1, ShowEmptyOption ? -1 : 0); scrollPending = true; }
                 break;
             case "Enter":
                 if (showDropdown && !Disabled)
                 {
                     // 「なし」を選んでいる（強調が無い）ときに Enter を押したら、そのまま「なし」にする
-                    if (highlight < 0 && ShowEmptyOption && !HasSelection) { await SelectEmpty(); break; }
+                    if (highlight < 0 && ShowEmptyOption) { await SelectEmpty(); break; }
+                    // 強調が無く、文字も打っていないときは、選ばずに閉じる（選択中のものを先頭の候補に変えない）
+                    if (highlight < 0 && !userTyped) { showDropdown = false; break; }
                     var pick = highlight >= 0 && highlight < visible.Count ? visible[highlight] : visible.FirstOrDefault();
                     if (pick != null) await SelectItem(pick);
                 }

@@ -1,6 +1,6 @@
 @* 項目の説明を出す「?」ボタン。押すと Excel のコメントのような吹き出しを表示する。 *@
 <span class="help-wrap">
-    <button type="button" class="help-btn" title="説明を見る" aria-label="説明を見る" @onclick="Toggle" @onclick:stopPropagation="true">?</button>
+    <button type="button" class="help-btn" title="説明を見る" aria-label="説明を見る" aria-expanded="@(open ? "true" : "false")" aria-controls="@(open ? noteId : null)" @onclick="Toggle" @onclick:stopPropagation="true">?</button>
     @if (open)
     {
         <span class="help-note" role="note" id="@noteId">

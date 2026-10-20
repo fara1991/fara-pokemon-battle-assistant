@@ -323,6 +323,8 @@
                 e.stopImmediatePropagation();
                 return;
             }
+            // 一覧の行（role=button）の Space は、開閉だけにして、一覧やページをスクロールさせない
+            if (e.key === " " && e.target.closest && e.target.closest('.dex-row[role="button"]')) e.preventDefault();
             if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") && e.target.closest && e.target.closest(".searchable-select")) e.preventDefault();
         }, true);
         // 無効にした項目（aria-disabled="true"。未対応の世代のメニューなど）は、クリック・中クリック・タップ・Enter で何も起こさない
