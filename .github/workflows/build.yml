@@ -28,7 +28,7 @@ jobs:
       - name: Test
         run: dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
 
-      - name: Test (Web: データ共有・ブラウザ保存)
+      - name: "Test (Web: データ共有・ブラウザ保存)"
         run: dotnet test tests/FaraPokemonBattleAssistant.Web.Tests --configuration Release --no-build
 
       - name: Publish web (sanity check)
