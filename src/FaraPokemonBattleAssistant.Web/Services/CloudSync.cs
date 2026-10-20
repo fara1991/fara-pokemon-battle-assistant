@@ -139,7 +139,7 @@ public sealed class CloudSync : IRosterStore
         await EnsureInitializedAsync();
         try
         {
-            return HasData(RosterRepository.Deserialize(await _local.LoadAsync()));
+            return HasData(RosterRepository.Deserialize(await ReadLocalAsync()));
         }
         catch (JsonException)
         {
@@ -154,7 +154,16 @@ public sealed class CloudSync : IRosterStore
         if (IsSyncing) throw new InvalidOperationException("すでにデータ共有しています");
         var key = RemoteRosterStore.GenerateKey();
         var remote = new RemoteRosterStore(_http, _baseUri, key);
-        var local = RosterRepository.Deserialize(await _local.LoadAsync());
+        RosterState local;
+        try
+        {
+            local = RosterRepository.Deserialize(await ReadLocalAsync());
+        }
+        catch (JsonException ex)
+        {
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "このブラウザの登録データが壊れているため、新しく共有を始められません。すでにアクセスキーがあるなら、アクセスキーで参加してください（このブラウザの登録データは削除されます）", ex);
+        }
         if (HasData(local))
             await MoveToNewKeyAsync(remote, RosterRepository.Serialize(local));
         else
@@ -175,6 +184,7 @@ public sealed class CloudSync : IRosterStore
         key = key.Trim();
         if (!RemoteRosterStore.IsValidKey(key))
             throw new ArgumentException("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）");
+        await ReadLocalAsync();   // このブラウザの登録データを読めないまま、確認なしに消さない
         var remote = new RemoteRosterStore(_http, _baseUri, key);
         var json = await remote.LoadAsync();
         if (json is null && !allowEmptyCloud && await LocalHasDataAsync())
@@ -242,6 +252,16 @@ public sealed class CloudSync : IRosterStore
     /// 新しいキーはまだ誰も使っていないので、移し終わってから切り替えれば途中の状態は見えない。
     /// 途中で失敗したら新しいキーは使わずに捨てる（置き場も消しておく）。
     /// </summary>
+    /// <summary>このブラウザの登録データ（JSON）を読む。localStorage を読めなかったときは、データ共有の開始・参加でブラウザのデータを失わないよう、例外にする。</summary>
+    private async Task<string?> ReadLocalAsync()
+    {
+        var json = await _local.LoadAsync();
+        if (_local.LoadFailed)
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "ブラウザの保存領域を読み込めないため、データ共有を始められません。ページを再読み込みしてください（直らないときは、ブラウザがサイトデータの保存を許可しているか確認してください）");
+        return json;
+    }
+
     private static async Task MoveToNewKeyAsync(RemoteRosterStore remote, string json)
     {
         try

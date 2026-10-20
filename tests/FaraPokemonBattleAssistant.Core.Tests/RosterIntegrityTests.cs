@@ -211,6 +211,7 @@ public class RosterIntegrityTests
         await store.LoadAsync();
         Assert.False(store.RivalUnreadable);   // 読めたら、相手チームの保存が再び許される
     }
+
     [Fact]
     public async Task Whole_save_is_refused_while_the_rival_team_is_unreadable()
     {
@@ -236,6 +237,24 @@ public class RosterIntegrityTests
         var repo = new RosterRepository(store);
         var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.GetAsync());
         Assert.IsAssignableFrom<JsonException>(ex.InnerException);
-        Assert.Equal(broken, store.Json);   // 読めなかったデータは書き換えない
+        // 変更する操作も、読めないまま空として進めず、失敗する（読めなかったデータを書き換えない）
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.RemovePokemonAsync(Ds, 1));
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.ClearRivalsAsync(Ds));
+        Assert.Equal(broken, store.Json);
+        // 失敗は覚えない（データが直れば、次の読み込みで読める）
+        store.Json = RosterRepository.Serialize(new RosterState());
+        Assert.NotNull(await repo.GetAsync());
+    }
+
+    [Fact]
+    public async Task Null_items_inside_the_lists_are_dropped_on_load()
+    {
+        var store = new MemoryRosterStore { Json = "{ \"DataSets\": { \"Gen9\": { \"Pokemon\": [ null ], \"Rivals\": [ null ], \"Teams\": [ null ], \"History\": [ null ] } } }" };
+        var state = await new RosterRepository(store).GetAsync();
+        var set = state.For(Ds);
+        Assert.Empty(set.Pokemon);
+        Assert.Empty(set.Rivals);
+        Assert.Empty(set.Teams);
+        Assert.Empty(set.History);
     }
 }

@@ -270,13 +270,17 @@ public sealed class DataSetRoster
         NextMatchId = RenumberDuplicates(History, m => m.Id, (m, id) => m.Id = id, NextMatchId);
     }
 
-    /// <summary>読み込んだ JSON が null を書いていても、空の一覧として扱う。</summary>
+    /// <summary>読み込んだ JSON が null を書いていても、空の一覧として扱う（一覧の中の null も取り除く）。</summary>
     internal void Normalize()
     {
         Pokemon ??= new();
         Teams ??= new();
         Rivals ??= new();
         History ??= new();
+        Pokemon.RemoveAll(p => p is null);
+        Teams.RemoveAll(t => t is null);
+        Rivals.RemoveAll(r => r is null);
+        History.RemoveAll(m => m is null);
     }
 
     /// <summary>ID の重複を直し、次に振る ID（今ある最大の ID の次より小さくならない）を返す。</summary>
@@ -438,7 +442,7 @@ public sealed class RosterRepository
         {
             // 保存先の内容が壊れている（別のバージョンのクライアントなどが型違いの値を書いた場合など）。素の JsonException を各画面に漏らさず、読めなかった扱いにする
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
-                "保存されている登録データの形式が正しくないため、読み込めませんでした", ex);
+                "保存されている登録データの形式が正しくないため、読み込めませんでした。データ共有ページでアクセスキーを入れて共有すると、クラウドのデータに置き換えられます（このブラウザの登録データは削除されます）", ex);
         }
         _state = state;
         return state;
