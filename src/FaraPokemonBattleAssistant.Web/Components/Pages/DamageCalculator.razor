@@ -1007,6 +1007,9 @@ else if (data is not null && dataSet is not null)
         return ordered.Concat(rest).ToList();
     }
 
+    /// <summary>推定モードの防御側か（ポイント・性格は求める側なので、入力欄を出さない）。</summary>
+    private bool IsUnknownBuild(bool isAttacker) => !isAttacker && s.EstimateMode;
+
     private IReadOnlyList<Stat> EvStats(bool isAttacker)
     {
         var move = s.Move;
@@ -1025,7 +1028,7 @@ else if (data is not null && dataSet is not null)
     private RenderFragment RenderBuildEditor(PokemonBuild build, bool isAttacker) => __builder =>
     {
         var stats = StatCalculator.CalculateAll(build);
-        var unknown = !isAttacker && s.EstimateMode;   // 推定では、相手のポイント・性格は求める側（不明）
+        var unknown = IsUnknownBuild(isAttacker);   // 推定では、相手のポイント・性格は求める側（不明）
         if (unknown)
         {
             <div class="estimate-unknown mb-3">
@@ -1037,7 +1040,7 @@ else if (data is not null && dataSet is not null)
         {
         <div class="form-group mb-3">
             <label>性格 <Help Title="性格">能力ごとの ▲（上昇）・▼（下降）を押して選びます。もう一度押すと外れます。能力を選ぶと性格が決まります（片方だけ押したときは、もう片方を技の分類に合わせて補います）。名前で探すこともできます。上がる能力は 1.1 倍、下がる能力は 0.9 倍。実数値の赤が上昇、青が下降です。</Help></label>
-            <NaturePicker Natures="data.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)"
+            <NaturePicker Natures="data!.Natures" Value="build.Nature" ValueChanged="@(n => build.Nature = n)"
                 Physical="@(s.Move is null || s.Move.AttackStatUsed == Stat.Attack)" />
         </div>
         }
@@ -1081,7 +1084,7 @@ else if (data is not null && dataSet is not null)
                             DisplayText="@(i => i.Name)"
                             ValueSelector="@(i => i.Id.ToString())"
                             SelectedValue="@(build.Item?.Id.ToString() ?? "")"
-                            SelectedValueChanged="@(v => build.Item = data.FindItem(ParseId(v)))"
+                            SelectedValueChanged="@(v => build.Item = data!.FindItem(ParseId(v)))"
                             Dropdown="true"
                             EmptyOption="持ち物なし"
                             Placeholder="持ち物なし">
@@ -1093,6 +1096,7 @@ else if (data is not null && dataSet is not null)
             </div>
     };
 
+    /// <summary>特性の欄（1 つだけ・オーガポンのテラスタル時は固定）。</summary>
     private RenderFragment RenderAbilityField(PokemonBuild build) => __builder =>
     {
         var abilities = data!.AbilitiesOf(build.Pokemon);
@@ -1146,7 +1150,7 @@ else if (data is not null && dataSet is not null)
     private RenderFragment RenderDynamaxField(PokemonBuild build, bool isAttacker) => __builder =>
     {
         var side = isAttacker ? "atk" : "def";
-            @if (dataSet.HasDynamax)
+            @if (dataSet!.HasDynamax)
             {
                 <div class="form-check form-switch build-check">
                     <input class="form-check-input" type="checkbox" role="switch" id="dmax-@side" checked="@build.IsDynamax" @onchange="@(e => build.IsDynamax = e.Value is true)" />
@@ -1159,7 +1163,7 @@ else if (data is not null && dataSet is not null)
     private RenderFragment RenderEvField(PokemonBuild build, bool isAttacker) => __builder =>
     {
         var evStats = EvStats(isAttacker);
-        var unknown = !isAttacker && s.EstimateMode;
+        var unknown = IsUnknownBuild(isAttacker);
             @if (evStats.Count > 0 && !unknown)
             {
                 <div class="form-group @(evStats.Count > 1 ? "build-wide" : "")">

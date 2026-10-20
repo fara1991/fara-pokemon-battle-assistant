@@ -884,7 +884,7 @@ else if (data is not null)
             case "add -t":
                 s.TeamNo = NumberOrEmpty(tokens, 0);
                 s.EntryId = NumberOrEmpty(tokens, 1);
-                s.ItemName = tokens.Count > 2 && new NameResolver<Item>(data.Items, i => i.Name).Resolve(tokens[2]).Value is { } item ? item.Name : "";
+                s.ItemName = tokens.Count > 2 && new NameResolver<Item>(data!.Items, i => i.Name).Resolve(tokens[2]).Value is { } item ? item.Name : "";
                 return true;
             case "rm -t":
                 s.TeamNo = NumberOrEmpty(tokens, 0);
@@ -918,7 +918,7 @@ else if (data is not null)
         }
         else
         {
-            var moveResolver = new NameResolver<Move>(data.Moves, m => m.Name);
+            var moveResolver = new NameResolver<Move>(data!.Moves, m => m.Name);
             if (tokens.Count > 1)
             {
                 var (moveName, rank) = DamageCommand.SplitRankSuffix(tokens[1]);
