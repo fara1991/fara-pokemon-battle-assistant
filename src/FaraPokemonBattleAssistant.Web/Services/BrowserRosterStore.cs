@@ -14,6 +14,12 @@ public sealed class BrowserRosterStore : IRosterStore
         _js = js;
     }
 
+    /// <summary>
+    /// localStorage を読めなかったことがある（読めないまま保存・削除すると、残っている登録データを空で上書き・削除してしまう）。
+    /// リポジトリは一度読んだ（読めなかったときは空の）内容を使い続けるので、あとで読めても戻さない。ページを読み込み直すと解除される。
+    /// </summary>
+    public bool LoadFailed { get; private set; }
+
     public async Task<string?> LoadAsync(CancellationToken ct = default)
     {
         try
@@ -22,13 +28,23 @@ public sealed class BrowserRosterStore : IRosterStore
         }
         catch (JSException)
         {
+            // 読めなくても、見るだけなら空として使える。ただし、保存・削除はしない
+            LoadFailed = true;
             return null;
         }
     }
 
     public async Task SaveAsync(string json, CancellationToken ct = default)
     {
+        ThrowIfUnreadable();
         await _js.InvokeVoidAsync("localStorage.setItem", ct, Key, json);
+    }
+
+    private void ThrowIfUnreadable()
+    {
+        if (LoadFailed)
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "ブラウザの保存領域を読み込めなかったため、保存できません。ページを再読み込みしてください（直らないときは、ブラウザがサイトデータの保存を許可しているか確認してください）");
     }
 
     /// <summary>ブラウザでは登録データ全体をそのまま保存する。</summary>
@@ -38,6 +54,7 @@ public sealed class BrowserRosterStore : IRosterStore
     /// <summary>このブラウザの登録データを消す（データ共有を始めたとき）。</summary>
     public async Task ClearAsync(CancellationToken ct = default)
     {
+        ThrowIfUnreadable();
         await _js.InvokeVoidAsync("localStorage.removeItem", ct, Key);
     }
 }

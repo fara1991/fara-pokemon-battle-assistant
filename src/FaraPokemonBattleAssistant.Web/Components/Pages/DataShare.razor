@@ -137,15 +137,22 @@
             Show("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）", true);
             return;
         }
-        if (await Sync.LocalHasDataAsync()
-            && !await ConfirmAsync("このブラウザの登録データは削除され、クラウドのデータに置き換わります。よろしいですか？"))
-            return;
         await RunSyncAsync(async () =>
         {
-            var hasData = await Sync.JoinAsync(key);
+            if (await Sync.LocalHasDataAsync()
+                && !await ConfirmAsync("このブラウザの登録データは削除され、クラウドのデータに置き換わります。よろしいですか？"))
+                return;
+            var result = await Sync.JoinAsync(key);
+            if (result == JoinResult.CloudEmpty)
+            {
+                // 打ち間違えたキーの可能性がある。続けると、ブラウザの登録データが消えて、空のクラウドで共有が始まる
+                if (!await ConfirmAsync("このアクセスキーのクラウドのデータは空です（打ち間違えている可能性があります）。続けると、このブラウザの登録データは削除され、空の状態で共有を始めます。それでも続けますか？"))
+                    return;
+                result = await Sync.JoinAsync(key, allowEmptyCloud: true);
+            }
             joinKey = "";
             showKey = false;
-            Show(hasData
+            Show(result == JoinResult.Joined
                 ? "アクセスキーでデータ共有を始めました。クラウドの登録データを表示しています"
                 : "アクセスキーでデータ共有を始めました（このアクセスキーのクラウドデータはまだ空です。打ち間違えていないか確認してください）", false);
         });

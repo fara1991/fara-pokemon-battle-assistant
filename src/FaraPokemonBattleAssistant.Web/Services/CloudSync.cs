@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FaraPokemonBattleAssistant.Core.Data;
 using FaraPokemonBattleAssistant.Core.Models;
 using FaraPokemonBattleAssistant.Core.Roster;
@@ -136,7 +137,14 @@ public sealed class CloudSync : IRosterStore
     public async Task<bool> LocalHasDataAsync()
     {
         await EnsureInitializedAsync();
-        return HasData(RosterRepository.Deserialize(await _local.LoadAsync()));
+        try
+        {
+            return HasData(RosterRepository.Deserialize(await ReadLocalAsync()));
+        }
+        catch (JsonException)
+        {
+            return true;   // 読めない（壊れている）ときは、あるものとして扱い、消す前の確認を必ず出す
+        }
     }
 
     /// <summary>新しいアクセスキーを作ってデータ共有を始める。このブラウザの登録データをクラウドに上げ、ブラウザからは消す。</summary>
@@ -146,7 +154,16 @@ public sealed class CloudSync : IRosterStore
         if (IsSyncing) throw new InvalidOperationException("すでにデータ共有しています");
         var key = RemoteRosterStore.GenerateKey();
         var remote = new RemoteRosterStore(_http, _baseUri, key);
-        var local = RosterRepository.Deserialize(await _local.LoadAsync());
+        RosterState local;
+        try
+        {
+            local = RosterRepository.Deserialize(await ReadLocalAsync());
+        }
+        catch (JsonException ex)
+        {
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "このブラウザの登録データが壊れているため、新しく共有を始められません。すでにアクセスキーがあるなら、アクセスキーで参加してください（このブラウザの登録データは削除されます）", ex);
+        }
         if (HasData(local))
             await MoveToNewKeyAsync(remote, RosterRepository.Serialize(local));
         else
@@ -157,20 +174,24 @@ public sealed class CloudSync : IRosterStore
 
     /// <summary>
     /// 既存のアクセスキーで参加する。このブラウザの登録データは消え、クラウドの内容に置き換わる。
-    /// クラウドにデータがあれば true（無ければキーの打ち間違いかもしれない）。
+    /// クラウドが空で、このブラウザに登録データがあるときは、キーの打ち間違いかもしれないので、
+    /// <paramref name="allowEmptyCloud"/> が true でない限り何も変えずに <see cref="JoinResult.CloudEmpty"/> を返す。
     /// </summary>
-    public async Task<bool> JoinAsync(string key)
+    public async Task<JoinResult> JoinAsync(string key, bool allowEmptyCloud = false)
     {
         await EnsureInitializedAsync();
         if (IsSyncing) throw new InvalidOperationException("すでにデータ共有しています");
         key = key.Trim();
         if (!RemoteRosterStore.IsValidKey(key))
             throw new ArgumentException("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）");
+        await ReadLocalAsync();   // このブラウザの登録データを読めないまま、確認なしに消さない
         var remote = new RemoteRosterStore(_http, _baseUri, key);
         var json = await remote.LoadAsync();
+        if (json is null && !allowEmptyCloud && await LocalHasDataAsync())
+            return JoinResult.CloudEmpty;
         await SwitchToAsync(key, remote);
         await _local.ClearAsync();
-        return json is not null;
+        return json is not null ? JoinResult.Joined : JoinResult.JoinedEmpty;
     }
 
     /// <summary>
@@ -231,6 +252,16 @@ public sealed class CloudSync : IRosterStore
     /// 新しいキーはまだ誰も使っていないので、移し終わってから切り替えれば途中の状態は見えない。
     /// 途中で失敗したら新しいキーは使わずに捨てる（置き場も消しておく）。
     /// </summary>
+    /// <summary>このブラウザの登録データ（JSON）を読む。localStorage を読めなかったときは、データ共有の開始・参加でブラウザのデータを失わないよう、例外にする。</summary>
+    private async Task<string?> ReadLocalAsync()
+    {
+        var json = await _local.LoadAsync();
+        if (_local.LoadFailed)
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "ブラウザの保存領域を読み込めないため、データ共有を始められません。ページを再読み込みしてください（直らないときは、ブラウザがサイトデータの保存を許可しているか確認してください）");
+        return json;
+    }
+
     private static async Task MoveToNewKeyAsync(RemoteRosterStore remote, string json)
     {
         try
@@ -355,4 +386,15 @@ public static class RosterReading
             return (Array.Empty<(RegisteredPokemon, Item?)>(), $"使用チームを読み込めませんでした（{CloudSync.Describe(ex)}）。チームなしで計算します");
         }
     }
+}
+
+/// <summary>アクセスキーで参加した結果。</summary>
+public enum JoinResult
+{
+    /// <summary>クラウドのデータで共有を始めた。</summary>
+    Joined,
+    /// <summary>クラウドが空のまま共有を始めた（打ち間違いかもしれない）。</summary>
+    JoinedEmpty,
+    /// <summary>クラウドが空で、このブラウザには登録データがあるため、何も変えなかった（打ち間違いかもしれない）。</summary>
+    CloudEmpty,
 }

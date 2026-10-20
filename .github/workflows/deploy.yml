@@ -15,7 +15,8 @@ permissions:
 
 concurrency:
   group: deploy
-  cancel-in-progress: true
+  # 公開の途中で中断すると、アセットが中途半端な状態になりうるので、後から来た分は待たせる
+  cancel-in-progress: false
 
 jobs:
   deploy:

@@ -150,6 +150,10 @@ public sealed class RemoteRosterStore : IRosterStore
         }
         var keys = state.DataSets.Keys.ToList();
         if (keys.Count == 0) return;
+        // 相手チームを読めていないあいだは、空のまま上書きして、クラウドの相手チームと履歴を消さないよう保存しない（SavePartAsync と同じ）
+        if (_rivalUnreadable)
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "クラウドの相手チームを読み込めなかったため、保存できません。時間をおいて、もう一度操作してください");
         // 先にポケモン、次にチーム（チームは登録ポケモンに無い ID を受け付けないため）
         await PutAsync(_pokemonEndpoint, state, keys, RosterPart.Pokemon, ct).ConfigureAwait(false);
         await PutAsync(_teamsEndpoint, state, keys, RosterPart.Teams, ct).ConfigureAwait(false);
