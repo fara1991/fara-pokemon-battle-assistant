@@ -248,7 +248,7 @@ try {
   check("limit=0 は 400", (await req("GET", `${H}?dataSet=Champions&limit=0`, hkey)).status === 400);
   check("履歴の追加では revision が増えない", (await req("GET", P, hkey)).json?.revision === 0);
   const sets3 = await req("GET", H, hkey);
-  check("履歴のあるゲームの一覧（小文字のキーと件数）", same(sets3.json?.dataSets, [{ dataSet: "champions", total: 3 }]), sets3.text);
+  check("履歴のあるゲームの一覧（小文字のキーと件数）", same(sets3.json?.dataSets, [{ dataSet: "champions", total: 3, nextId: 4 }]), sets3.text);
   const full = await req("POST", H, hkey, { dataSet: "Champions", match: { Foes: [] } });
   check("上限（テストでは 3 件）に達していたら 409 history_limit", full.status === 409 && full.json?.error === "history_limit", full.text);
   const gen9Add = await req("POST", H, hkey, { dataSet: "Gen9", match: { Foes: [foe(2, "z")] } });
@@ -385,6 +385,51 @@ try {
   check("文書が 256 KB を超える PUT my-rival は 413", tooBig.status === 413, tooBig.text);
   const after = await req("GET", `${H}?dataSet=Champions`, ukey);
   check("413 のとき、履歴は足されない", after.json?.total === 0 && (await req("GET", R, ukey)).json?.revision === 1, after.text);
+
+  // 重複判定用の ClientId（応答が届かずにやり直しても、二重に記録されない）
+  const ckey = newKey();
+  const withId = (clientId, extra = {}) => ({ dataSet: "Champions", match: { ClientId: clientId, Foes: [], ...extra } });
+  const c1 = await req("POST", H, ckey, withId("end:1,2"));
+  check("ClientId 付きの POST は 201", c1.status === 201 && c1.json?.id === 1 && c1.json?.duplicate === undefined, c1.text);
+  const c1b = await req("POST", H, ckey, withId("end:1,2", { Memo: "やり直し" }));
+  check("同じ ClientId の POST は、足さずに 200 で同じ Id と duplicate:true", c1b.status === 200 && c1b.json?.id === 1 && c1b.json?.duplicate === true && c1b.json?.total === 1, c1b.text);
+  check("やり直しで内容は書き換わらない・件数も増えない", (await req("GET", `${H}?dataSet=Champions&id=1`, ckey)).json?.item?.Memo === undefined && (await req("GET", `${H}?dataSet=Champions`, ckey)).json?.total === 1);
+  const c2 = await req("POST", H, ckey, withId("end:3"));
+  check("別の ClientId は新しい試合（Id 2）", c2.status === 201 && c2.json?.id === 2, c2.text);
+  const c3 = await req("POST", H, ckey, { dataSet: "Gen9", match: { ClientId: "end:1,2", Foes: [] } });
+  check("ClientId はゲームごと（別のゲームなら同じ ClientId も足せる）", c3.status === 201 && c3.json?.id === 1, c3.text);
+  await req("POST", H, ckey, withId("end:4"));   // Champions は 3 件（テストの上限）
+  const atLimit = await req("POST", H, ckey, withId("end:1,2"));
+  check("上限に達していても、重複なら 409 ではなく 200 で既存の Id", atLimit.status === 200 && atLimit.json?.duplicate === true && atLimit.json?.id === 1, atLimit.text);
+  check("上限に達していて、新しい ClientId なら 409", (await req("POST", H, ckey, withId("end:5"))).status === 409);
+  check("試合を消すと、その ClientId はまた使える（新しい Id）", (await req("DELETE", `${H}?dataSet=Champions&id=1`, ckey)).status === 204 && (await req("POST", H, ckey, withId("end:1,2"))).json?.id === 4);
+  const badClient = (name, value) => req("POST", H, ckey, withId(value)).then((r) => check(`ClientId ${name} は 400`, r.status === 400, r.text));
+  await badClient("が空文字", "");
+  await badClient("が 101 文字", "x".repeat(101));
+  await badClient("が数値", 5);
+  check("ClientId が 100 文字までなら使える", (await req("POST", H, ckey, { dataSet: "Gen9", match: { ClientId: "y".repeat(100), Foes: [] } })).status === 201);
+
+  // 履歴の状態を確かめてから消す（キーの作り直しで、写している間の変化を取りこぼさない）
+  const guardKey = newKey();
+  await req("POST", H, guardKey, { dataSet: "Champions", match: { Foes: [] } });
+  await req("POST", H, guardKey, { dataSet: "Champions", match: { Foes: [] } });
+  const guardState = await req("GET", H, guardKey);
+  check("履歴のあるゲームの一覧に、次の Id（3）が入る", same(guardState.json?.dataSets, [{ dataSet: "champions", total: 2, nextId: 3 }]), guardState.text);
+  const guardBad = await req("DELETE", `${K}?expect=champions:2:2`, guardKey);
+  check("状態が違えば（次の Id が違う）消さずに 409 changed と今の状態を返す", guardBad.status === 409 && guardBad.json?.error === "changed" && same(guardBad.json?.dataSets, [{ dataSet: "champions", total: 2, nextId: 3 }]), guardBad.text);
+  check("消されていない（履歴も登録も読める）", (await req("GET", `${H}?dataSet=Champions`, guardKey)).json?.total === 2);
+  await req("POST", H, guardKey, { dataSet: "Champions", match: { Foes: [] } });   // 写している間に、別の端末が足した
+  check("件数が違えば 409", (await req("DELETE", `${K}?expect=champions:2:3`, guardKey)).status === 409);
+  const guardNow = (await req("GET", H, guardKey)).json?.dataSets;
+  const guardOk = `${guardNow[0].dataSet}:${guardNow[0].total}:${guardNow[0].nextId}`;
+  check("今の状態と同じなら消す（204）", (await req("DELETE", `${K}?expect=${guardOk}`, guardKey)).status === 204);
+  check("消したあとは 410 で、履歴も無い", (await req("GET", `${H}?dataSet=Champions`, guardKey)).status === 410);
+  check("消えているキーへの、expect 付きの 2 回目の DELETE も 204", (await req("DELETE", `${K}?expect=champions:9:9`, guardKey)).status === 204);
+  const guardNone = newKey();
+  check("履歴が無いキーは expect= （空）で消せる", (await req("DELETE", `${K}?expect=`, guardNone)).status === 204);
+  const guardBadKey = newKey();
+  check("expect の書式が違うと 400", (await req("DELETE", `${K}?expect=abc`, guardBadKey)).status === 400 && (await req("DELETE", `${K}?expect=a:1:2,a:1:2`, guardBadKey)).status === 400);
+  check("書式が違うときは、消えない（まだ使える）", (await req("GET", P, guardBadKey)).status === 200);
 
   // 1 年アクセスが無い置き場の自動削除（テストでは EXPIRE_MS=5000。アラームで消える）
   const ekey = newKey();

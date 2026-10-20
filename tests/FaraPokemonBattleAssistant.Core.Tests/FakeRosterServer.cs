@@ -56,6 +56,19 @@ internal sealed class FakeRosterServer : HttpMessageHandler
 
         if (path == "/api/my/access-key")
         {
+            // ?expect=ゲーム:件数:次の Id,…（本物と同じ。履歴の状態が違えば消さずに 409 changed）
+            if (HttpUtility.ParseQueryString(request.RequestUri!.Query)["expect"] is { } expect && !Deleted)
+            {
+                var current = RosterRepository.Deserialize(RosterJson).DataSets.Where(kv => kv.Value.History.Count > 0)
+                    .Select(kv => $"{kv.Key.ToLowerInvariant()}:{kv.Value.History.Count}:{kv.Value.NextMatchId}").OrderBy(x => x, StringComparer.Ordinal).ToList();
+                var wanted = expect.Length == 0 ? new List<string>() : expect.Split(',').OrderBy(x => x, StringComparer.Ordinal).ToList();
+                if (!current.SequenceEqual(wanted))
+                {
+                    var sets = new JsonArray(RosterRepository.Deserialize(RosterJson).DataSets.Where(kv => kv.Value.History.Count > 0)
+                        .Select(kv => (JsonNode)new JsonObject { ["dataSet"] = kv.Key.ToLowerInvariant(), ["total"] = kv.Value.History.Count, ["nextId"] = kv.Value.NextMatchId }).ToArray());
+                    return Json(HttpStatusCode.Conflict, new JsonObject { ["error"] = "changed", ["dataSets"] = sets }.ToJsonString());
+                }
+            }
             Revision = 0;
             RosterJson = null;
             Deleted = true;
@@ -136,7 +149,7 @@ internal sealed class FakeRosterServer : HttpMessageHandler
         {
             // 履歴のあるゲームの一覧（ゲームのキーは小文字）
             var sets = new JsonArray(state.DataSets.Where(kv => kv.Value.History.Count > 0)
-                .Select(kv => (JsonNode)new JsonObject { ["dataSet"] = kv.Key.ToLowerInvariant(), ["total"] = kv.Value.History.Count }).ToArray());
+                .Select(kv => (JsonNode)new JsonObject { ["dataSet"] = kv.Key.ToLowerInvariant(), ["total"] = kv.Value.History.Count, ["nextId"] = kv.Value.NextMatchId }).ToArray());
             return Json(HttpStatusCode.OK, new JsonObject { ["dataSets"] = sets }.ToJsonString());
         }
         if (request.Method == HttpMethod.Post)
@@ -150,6 +163,9 @@ internal sealed class FakeRosterServer : HttpMessageHandler
             var parts = node["matches"] is JsonArray array ? array.ToList() : new List<JsonNode?> { node["match"] };
             if (sent.Count is 0 or > 100 || parts.Any(p => Encoding.UTF8.GetByteCount(p!.ToJsonString()) > 64 * 1024))
                 return Json(HttpStatusCode.BadRequest, """{"error":"invalid_match","message":"試合が大きすぎます"}""");
+            // 同じ ClientId の試合がすでにあれば、足さずにその Id を返す（本物と同じ。単発の match だけ）
+            if (node["match"] is not null && sent[0].ClientId is { } clientId && roster.History.FirstOrDefault(m => m.ClientId == clientId) is { } existing)
+                return Json(HttpStatusCode.OK, new JsonObject { ["id"] = existing.Id, ["total"] = roster.History.Count, ["duplicate"] = true }.ToJsonString());
             if (roster.History.Count + sent.Count > HistoryLimit)
                 return Json(HttpStatusCode.Conflict, """{"error":"history_limit","message":"試合の履歴が上限に達しています。古い履歴を削除してください"}""");
             var ids = new List<int>();

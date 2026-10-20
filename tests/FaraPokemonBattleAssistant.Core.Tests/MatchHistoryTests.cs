@@ -96,8 +96,45 @@ public class MatchHistoryTests
             ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
             : null;
         var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now));
-        Assert.Contains("履歴 #1 に記録しました", ex.Message);       // 履歴には残っている。もう一度 end しない
+        Assert.Contains("履歴 #1 に記録しました", ex.Message);       // 履歴には残っている
+        Assert.Contains("もう一度 end", ex.Message);
         Assert.Single(server.State.For(Ds).History);
+    }
+
+    [Fact]
+    public async Task Ending_again_after_the_rival_clear_failed_links_to_the_recorded_match_without_duplicating()
+    {
+        var (server, repo) = NewCloud();
+        await AddRivalAsync(repo, "リザードン");
+        server.Override = request => request.Method == HttpMethod.Put && request.RequestUri!.AbsolutePath == "/api/my/rival"
+            ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
+            : null;
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now));
+        server.Override = null;
+
+        var ended = await repo.EndMatchAsync(Ds, "やり直し", DateTimeOffset.Now);
+
+        Assert.Equal(1, ended.Match!.Id);                              // 記録済みの試合に紐づく
+        Assert.Single(server.State.For(Ds).History);                   // 二重にならない
+        Assert.Equal("x", server.State.For(Ds).History.Single().Memo); // 内容は最初のまま
+        Assert.Empty(server.State.For(Ds).Rivals);                     // 相手は消える
+    }
+
+    [Fact]
+    public async Task Ending_again_after_the_append_response_was_lost_does_not_record_twice()
+    {
+        var server = new FakeRosterServer { ExpectedKey = Key };
+        var lossy = new LostResponseHandler(server);
+        var repo = new RosterRepository(new RemoteRosterStore(new HttpClient(lossy), "https://pokemon.example/", Key));
+        await AddRivalAsync(repo, "リザードン");
+        lossy.LoseNextHistoryPost = true;   // 履歴は記録されるが、応答が届かない
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now));
+
+        var ended = await repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now);
+
+        Assert.Equal(1, ended.Match!.Id);
+        Assert.Single(server.State.For(Ds).History);
+        Assert.Empty(server.State.For(Ds).Rivals);
     }
 
     [Fact]
@@ -235,7 +272,7 @@ public class MatchHistoryTests
         await EndAsync(repo, "1");
         await EndAsync(repo, "2");
         var totals = await ((RemoteRosterStore)(await repo.Store.GetRemoteHistoryAsync())!).DataSetTotalsAsync();
-        Assert.Equal(2, totals["gen9"]);
+        Assert.Equal(new HistoryTotal(2, 3), totals["gen9"]);
         Assert.Single(totals);
     }
 
@@ -297,5 +334,22 @@ public class MatchHistoryTests
         // 古い履歴を整理すれば、また終えられる
         await repo.TrimHistoryAsync(Ds, 100);
         Assert.NotNull((await repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now)).Match);
+    }
+}
+
+/// <summary>履歴の追加を本体に通したあと、応答を捨てて通信エラーにする（応答が届かなかった状況を作る）。</summary>
+internal sealed class LostResponseHandler(HttpMessageHandler inner) : HttpMessageHandler
+{
+    public bool LoseNextHistoryPost { get; set; }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var response = await new HttpMessageInvoker(inner).SendAsync(request, cancellationToken);
+        if (LoseNextHistoryPost && request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath == "/api/my/history")
+        {
+            LoseNextHistoryPost = false;
+            throw new HttpRequestException("lost");
+        }
+        return response;
     }
 }
