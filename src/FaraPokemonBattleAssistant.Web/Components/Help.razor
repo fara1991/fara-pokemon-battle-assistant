@@ -23,7 +23,7 @@
     private bool open;
     private readonly string noteId = "hp-" + Guid.NewGuid().ToString("N")[..8];
 
-    // PC ではスクロール枠で切れないよう、画面基準で置く（wwwroot/index.html）
+    // PC ではスクロール枠で切れないよう、画面基準で置く（wwwroot/js/page.js）
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!open) return;

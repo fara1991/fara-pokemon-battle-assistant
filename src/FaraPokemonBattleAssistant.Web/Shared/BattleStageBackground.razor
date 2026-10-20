@@ -36,7 +36,7 @@
             <div class="field-pad field-pad-mine"></div>
         </div>
     </div>
-    @* ポケモンは床とは別に置き、足場の位置に合わせる（index.html の faraPlaceStage） *@
+    @* ポケモンは床とは別に置き、足場の位置に合わせる（js/page.js の faraPlaceStage） *@
     @if (Stage.Foe is { Icon.Length: > 0 } foe)
     {
         <img class="field-mon field-mon-foe" src="@foe.Icon" alt="" data-onerror="display" />
@@ -61,10 +61,10 @@
         $"{Stage.Weather switch { Weather.Sun => "wx-sun", Weather.Rain => "wx-rain", Weather.Sand => "wx-sand", Weather.Snow => "wx-snow", _ => "" }} " +
         $"{Stage.Terrain switch { Terrain.Electric => "tr-electric", Terrain.Grassy => "tr-grassy", Terrain.Psychic => "tr-psychic", Terrain.Misty => "tr-misty", _ => "" }}";
 
-    /// <summary>雨・砂嵐・雪の粒（index.html の faraWeather）。種類と、対戦画面かどうか（濃さ）を渡す。</summary>
+    /// <summary>雨・砂嵐・雪の粒（js/page.js の faraWeather）。種類と、対戦画面かどうか（濃さ）を渡す。</summary>
     private string ParticleKind => Stage.Weather switch { Weather.Rain => "rain", Weather.Sand => "sand", Weather.Snow => "snow", _ => "" };
 
-    /// <summary>フィールドの動き（雷光・葉・輪・もや）の種類（index.html の faraWeather）。</summary>
+    /// <summary>フィールドの動き（雷光・葉・輪・もや）の種類（js/page.js の faraWeather）。</summary>
     private string TerrainKind => Stage.Terrain switch { Terrain.Electric => "electric", Terrain.Grassy => "grassy", Terrain.Psychic => "psychic", Terrain.Misty => "misty", _ => "" };
 
     protected override async Task OnInitializedAsync()
@@ -93,7 +93,7 @@
 
     private void OnStageChanged() => InvokeAsync(StateHasChanged);
 
-    // ポケモンの画像を足場の位置に合わせる（画面の大きさが変わったときは index.html 側で合わせ直す）
+    // ポケモンの画像を足場の位置に合わせる（画面の大きさが変わったときは js/page.js 側で合わせ直す）
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try
