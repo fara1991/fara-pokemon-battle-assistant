@@ -28,6 +28,7 @@ builder.Services.AddSingleton(sp => new DamageCommand(sp.GetRequiredService<Data
 builder.Services.AddSingleton(sp => new PokeCommand(sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<RosterRepository>()));
 builder.Services.AddSingleton(sp => new AppState(sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<IJSRuntime>()));
 builder.Services.AddSingleton<PageStateStore>();
+builder.Services.AddSingleton<Changelog>();
 builder.Services.AddSingleton<BattleStage>();
 // MudBlazor の ISnackbar（スコープ付き）を使うので、ToastService もスコープ付き（WebAssembly では、アプリの間ずっと 1 つ）
 builder.Services.AddScoped<ToastService>();
