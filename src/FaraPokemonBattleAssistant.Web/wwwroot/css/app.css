@@ -3236,14 +3236,16 @@ html.vt-nav .app-header {
    （表の見出し行・ドロップダウンの候補は、スクロールで重なる・文字が読みにくくなるので、そのまま） */
 :root,
 [data-bs-theme="light"] {
-    --glass-field: rgba(255, 255, 255, 0.68);
+    --glass-field: rgba(255, 255, 255, 0.8);
+    --glass-pop: rgba(255, 255, 255, 0.88);
     --glass-field-off: rgba(233, 236, 239, 0.55);
     --glass-notice: rgba(237, 233, 254, 0.7);
     --glass-chip: rgba(237, 233, 254, 0.7);
 }
 
 [data-bs-theme="dark"] {
-    --glass-field: rgba(12, 6, 22, 0.55);
+    --glass-field: rgba(12, 6, 22, 0.62);
+    --glass-pop: rgba(18, 10, 34, 0.9);
     --glass-field-off: rgba(26, 16, 48, 0.5);
     --glass-notice: rgba(42, 25, 74, 0.6);
     --glass-chip: rgba(42, 25, 74, 0.6);
@@ -4067,4 +4069,74 @@ html.vt-nav .app-header {
     font-weight: 700;
     color: var(--bs-secondary-color);
     min-height: 1.8rem;
+}
+
+
+/* ---- 入力欄・選択欄・候補の一覧も、フォーカス中・開いている間も半透明にする（Bootstrap の :focus は不透明な白に戻す） ---- */
+.form-control:focus,
+.form-select:focus,
+.searchable-select-combo:focus,
+.nature-stat:focus-within {
+    background-color: var(--glass-field);
+}
+
+.searchable-select-dropdown {
+    background: var(--glass-pop);
+}
+
+.searchable-select-item:hover {
+    background-color: color-mix(in srgb, var(--bs-primary) 14%, transparent);
+}
+
+/* 入力欄の文字と、薄い案内の文字（プレースホルダー）を、半透明の背景の上でも読めるようにする */
+.form-control,
+.form-select,
+.searchable-select-combo {
+    color: var(--bs-emphasis-color);
+}
+
+.form-control::placeholder,
+.searchable-select-combo::placeholder,
+.mud-input-slot::placeholder {
+    color: var(--bs-secondary-color);
+    opacity: 1;
+}
+
+/* MudBlazor の入力欄・セレクト: 余白を 0 にして（ラベルと同じ高さにそろう）、背景も半透明にする */
+.app-select.mud-input-control,
+.app-field.mud-input-control {
+    margin: 0 !important;
+}
+
+.app-select .mud-input.mud-input-outlined,
+.app-field .mud-input.mud-input-outlined {
+    background: var(--glass-field);
+}
+
+.mud-popover.mud-popover-open .mud-list {
+    background: var(--glass-pop);
+}
+
+/* コマンドを作る欄: ラベル（「?」付きも）の高さをそろえて、どの種類でも、入力欄の上端が同じになるようにする */
+.cmd-build .form-label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 1.6rem;
+    margin-bottom: 0.2rem;
+}
+
+/* サイドバーのアイコンは、グレーではなく白にする（文字より少し明るく） */
+.sidebar .mud-nav-link .mud-icon-root,
+.sidebar .mud-nav-link .mud-nav-link-icon {
+    color: #fff !important;
+}
+
+.sidebar .mud-nav-link.active .mud-icon-root,
+.sidebar .mud-nav-link.active .mud-nav-link-icon {
+    color: #f3e8ff !important;
+}
+
+.sidebar .mud-nav-link {
+    color: #ece6f7;
 }
