@@ -3,8 +3,9 @@
    探す処理は Services/SearchService.cs。日本語入力の変換中の Enter は、page.js が止める（ここには届かない） *@
 @inject SearchService Search
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
-<div class="site-search" role="search" @onfocusout="OnFocusOut" @onfocusin="OnFocusIn">
+<div class="site-search" role="search" @onfocusout="Close" @onfocusin="OnFocusIn">
     <svg class="site-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
     <input id="site-search-input" type="search" class="site-search-input" placeholder="検索（例: ガブリアス、dmg、努力値）" autocomplete="off" spellcheck="false"
            aria-label="サイト内を検索" role="combobox" aria-expanded="@(open ? "true" : "false")" aria-controls="site-search-list" aria-autocomplete="list"
@@ -13,16 +14,18 @@
     <span class="site-search-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
     @if (open)
     {
-        <div id="site-search-list" class="site-search-list" role="listbox" aria-label="検索の候補">
-            @if (hits.Count == 0)
-            {
-                <div class="site-search-empty" role="status">@(loading ? "探しています…" : $"「{query}」に一致するものはありません")</div>
-            }
+        @if (hits.Count == 0)
+        {
+            <div id="site-search-list" tabindex="-1" class="site-search-list" role="status"><div class="site-search-empty">@(loading ? "探しています…" : $"「{query}」に一致するものはありません")</div></div>
+        }
+        else
+        {
+        <div id="site-search-list" tabindex="-1" class="site-search-list" role="listbox" aria-label="検索の候補">
             @for (var i = 0; i < hits.Count; i++)
             {
                 var hit = hits[i];
                 <div class="site-search-row @(i == active ? "is-active" : null)" role="presentation">
-                    <a class="site-search-item" role="option" id="@OptionId(i, -1)" href="@hit.Url" aria-selected="@(i == active && activeAction < 0 ? "true" : "false")" @onclick="@(e => Go(e, hit.Url))" @onclick:preventDefault="true">
+                    <a class="site-search-item" role="option" tabindex="-1" id="@OptionId(i, -1)" href="@hit.Url" aria-selected="@(i == active && activeAction < 0 ? "true" : "false")" @onclick="@(e => Go(e, hit.Url))" @onclick:preventDefault="true">
                         <span class="site-search-title"><span class="site-search-kind sk-@hit.Kind">@KindLabel(hit.Kind)</span>@Marked(hit.Title)</span>
                         <span class="site-search-where">@hit.Where</span>
                         @if (hit.Snippet.Length > 0)
@@ -36,13 +39,14 @@
                             @for (var j = 0; j < hit.Actions.Count; j++)
                             {
                                 var action = hit.Actions[j];
-                                <a class="site-search-chip @(i == active && j == activeAction ? "is-active" : null)" role="option" id="@OptionId(i, j)" href="@action.Url" aria-selected="@(i == active && j == activeAction ? "true" : "false")" aria-label="@($"{hit.Title}を{action.Label}で開く")" @onclick="@(e => Go(e, action.Url))" @onclick:preventDefault="true">@action.Label</a>
+                                <a class="site-search-chip @(i == active && j == activeAction ? "is-active" : null)" role="option" tabindex="-1" id="@OptionId(i, j)" href="@action.Url" aria-selected="@(i == active && j == activeAction ? "true" : "false")" aria-label="@($"{hit.Title}を{action.Label}で開く")" @onclick="@(e => Go(e, action.Url))" @onclick:preventDefault="true">@action.Label</a>
                             }
                         </span>
                     }
                 </div>
             }
         </div>
+        }
     }
 </div>
 
@@ -105,27 +109,11 @@
         activeAction = -1;
     }
 
-    // 欄・結果の中にフォーカスがあるあいだは開いたままにする（結果の別の開き方へ、Tab で移れるように）。外へ出たら閉じる。
-    // フォーカスが移るときは focusout のあとに focusin が来るので、いったん閉じる印だけを付けて、直後の focusin で取り消す
-    private bool leaving;
-
-    private void OnFocusOut() => leaving = true;
-
+    // フォーカスが欄から外れたら閉じる（結果の <a> は Tab の対象にしない・クリックではフォーカスを外さない（page.js）ので、結果を操作している間は欄にある）。
+    // 戻ってきたとき、探した結果があれば、また開く
     private void OnFocusIn()
     {
-        leaving = false;
         if (!open && query.Trim().Length > 0 && hits.Count > 0) open = true;
-    }
-
-    // focusout だけで閉じると、結果へフォーカスが移ったときに閉じてしまうので、描画のあとに、まだ外にいたら閉じる
-    protected override void OnAfterRender(bool firstRender)
-    {
-        if (leaving && open)
-        {
-            leaving = false;
-            Close();
-            StateHasChanged();
-        }
     }
 
     private void OnKeyDown(KeyboardEventArgs e)
@@ -147,7 +135,7 @@
             case "ArrowLeft" when open && active >= 0 && activeAction >= 0:
                 activeAction--;
                 break;
-            case "Enter" when open && hits.Count > 0:
+            case "Enter" when open && !loading && hits.Count > 0:
                 var hit = hits[active >= 0 ? active : 0];
                 var url = active >= 0 && activeAction >= 0 ? hit.Actions[activeAction].Url : hit.Url;
                 Go(null, url);
@@ -158,13 +146,19 @@
         }
     }
 
-    /// <summary>結果を開く。同じページで、検索条件（?attacker= など）だけが変わるときは、ページが読み直さないので、読み込み直して反映する。</summary>
-    private void Go(MouseEventArgs? _, string url)
+    /// <summary>
+    /// 結果を開く。Ctrl・⌘・Shift を押したクリックは、新しいタブで開く。
+    /// 同じページで ?attacker= などだけが変わるときは、各ページが OnParametersSet で反映する（読み込み直さないので、入力した内容は残る）。
+    /// </summary>
+    private void Go(MouseEventArgs? e, string url)
     {
         Close();
-        var path = url.Split('?', '#')[0].Trim('/');
-        var here = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/');
-        Nav.NavigateTo(url, forceLoad: url.Contains('?') && string.Equals(path, here, StringComparison.OrdinalIgnoreCase));
+        if (e is { CtrlKey: true } or { MetaKey: true } or { ShiftKey: true })
+        {
+            _ = JS.InvokeVoidAsync("open", url, "_blank");
+            return;
+        }
+        Nav.NavigateTo(url);
     }
 
     private void Close()

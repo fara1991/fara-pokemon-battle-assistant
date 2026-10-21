@@ -17,8 +17,9 @@ const SITE = " | Pokémon Battle Assistant";
 const TAG = /<\/?[A-Za-z][^<>"']*(?:(?:"[^"]*"|'[^']*')[^<>"']*)*>/g;
 // 実行時に決まる文字が抜けて、見出しが中身のない括弧になったときの直し（ページに書いてある元の文字）
 const TITLE_FIXES = { "相手の を推定": "相手の努力値（ポイント）を推定" };
+const usedTitleFixes = new Set();
 // C# の断片が残っていないかの確認
-const CODE_LEAK = /\b(?:var|if|new|foreach)\b\s|=>|="|\?\?|[\w.]\([^)]*\)/;
+const CODE_LEAK = /\b(?:var|if|else|new|foreach|case)\b\s|\bbreak;|=>|="|\?\?|[\w.]\([^)\u3040-\u30ff\u4e00-\u9fff\uff00-\uffef]*\)/;
 
 /** 対応する閉じ括弧まで（文字列リテラルの中の括弧は数えない）。start は開き括弧の位置。見つからなければ -1 */
 function matching(text, start, open, close) {
@@ -57,7 +58,15 @@ function stripRazor(src, file) {
         if (endPos < 0) throw new Error(`${file}: ${m[0]} の閉じ括弧が見つかりません（${text.slice(m.index, m.index + 40)}…）`);
         text = text.slice(0, m.index) + " " + text.slice(endPos + 1);
     }
-    return text.replace(/@[A-Za-z_][\w.:]*/g, " ");
+    // @if の続きの else if (...) { … } else { … }（括弧の対応を数えて、条件を取り除く）
+    for (;;) {
+        const m = /\belse\s+if\s*\(/.exec(text);
+        if (!m) break;
+        const endPos = matching(text, m.index + m[0].length - 1, "(", ")");
+        if (endPos < 0) throw new Error(`${file}: else if の閉じ括弧が見つかりません`);
+        text = text.slice(0, m.index) + " " + text.slice(endPos + 1);
+    }
+    return text.replace(/\belse\b(?=\s*\{)/g, " ").replace(/@[A-Za-z_][\w.:]*/g, " ");
 }
 
 const ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " ", "&times;": "×", "&rarr;": "→", "&larr;": "←" };
@@ -70,7 +79,7 @@ function plain(html) {
         .replace(/\b(?:var|int|string|bool)\s[^;<>]{0,150};/g, " ")
         .replace(/\bvar\b\s*\d*\s*\??/g, " ")
         .replace(/\bif\s*\((?:[^()]|\([^()]*\))*\)(?:\s*is\s+\w+\))?/g, " ")
-        .replace(/[\w.]+\([^()]*\)"?/g, " ")
+        .replace(/[\w.]+\([^()\u3040-\u30ff\u4e00-\u9fff\uff00-\uffef]*\)"?/g, " ")
         .replace(/[\w.]+\s*=\s*[\w.]+;/g, " ")
         .replace(/"\s*=\s*"|"\s*>/g, " ")
         .replace(/\S*(?:="|=>)\S*/g, " ")               // 属性・ラムダの残り
@@ -100,7 +109,7 @@ function sectionsOf(html, page, url) {
     let current = { type: "intro", title: page, text: [] };
     const push = () => {
         const text = current.text.join(" ").replace(/\s+/g, " ").trim();
-        if (current.type === "term" || text || current.type !== "intro") out.push({ type: current.type, title: TITLE_FIXES[current.title] ?? current.title, page, url, text: text.slice(0, 1500) });
+        if (current.type === "term" || text || current.type !== "intro") out.push({ type: current.type, title: (usedTitleFixes.add(current.title), TITLE_FIXES[current.title] ?? current.title), page, url, text: text.slice(0, 1500) });
     };
     // 見出し・用語は節の区切り、それ以外の文章は今の節に足す
     const re = /<(h[3-6]|dt|dd|p|label|li|td|th|small|summary|legend)\b[^>]*>([\s\S]*?)<\/\1>/g;
@@ -146,7 +155,8 @@ function build() {
                         const i = t.indexOf("{");
                         if (i < 0) return t;
                         const j = matching(t, i, "{", "}");
-                        t = t.slice(0, i) + (j < 0 ? "" : t.slice(j + 1));
+                        if (j < 0) throw new Error(`Command.razor: コマンドの説明の { の閉じ括弧が見つかりません（${t.slice(i, i + 40)}…）`);
+                        t = t.slice(0, i) + t.slice(j + 1);
                     }
                 };
                 const fill = (t) => dropBraces(t.replace(/\{evLabel\}/g, "努力値（ポイント）").replace(/\{p\}/g, "!poke"));
@@ -163,6 +173,9 @@ function build() {
     // 同じ内容の重複（同じ見出し・同じ本文）は 1 件にする
     const seen = new Set();
     const result = entries.filter((e) => { const k = `${e.type}|${e.url}|${e.title}|${e.text}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    for (const key of Object.keys(TITLE_FIXES)) {
+        if (!usedTitleFixes.has(key)) throw new Error(`TITLE_FIXES の「${key}」に当たる見出しがありません（ページの見出しが変わった？ 直すか、消してください）`);
+    }
     const leaks = result.filter((e) => CODE_LEAK.test(e.title) || CODE_LEAK.test(e.text));
     if (leaks.length > 0) {
         throw new Error("C# の断片が混ざっています:\n" + leaks.slice(0, 8).map((e) => `  ${e.page} / ${e.title}: ${e.text.slice(0, 80)}`).join("\n"));

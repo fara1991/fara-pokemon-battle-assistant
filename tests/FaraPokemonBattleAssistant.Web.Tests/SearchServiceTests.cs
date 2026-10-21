@@ -84,7 +84,7 @@ public class SearchServiceTests
         Assert.Contains(commands, c => c.Contains(" add -m "));
         Assert.Contains(commands, c => c.Contains(" faster "));
         // 検索結果に出る文字に、C# の断片や、中身のない括弧が混ざっていない
-        var leak = new System.Text.RegularExpressions.Regex(@"(var|if|new|foreach)\s|=>|=""|[（(]\s*[)）]");
+        var leak = new System.Text.RegularExpressions.Regex(@"\b(var|if|else|new|foreach|case)\b\s|\bbreak;|=>|=""|[（(]\s*[)）]");
         foreach (var row in rows)
             Assert.False(leak.IsMatch(row.GetProperty("title").GetString()! + " " + row.GetProperty("text").GetString()), row.GetProperty("title").GetString());
     }

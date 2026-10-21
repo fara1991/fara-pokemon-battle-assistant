@@ -279,13 +279,19 @@ window.faraScrollIntoView = function (id) { var el = document.getElementById(id)
 document.addEventListener("keydown", function (e) {
     // 日本語入力の変換中（確定の Enter 含む）のキーは、候補の選択・コマンドの実行に使わない。
     // Safari などは、変換を確定する Enter を key="Enter"・keyCode=229 で送ってくる
-    if ((e.isComposing || e.keyCode === 229) && e.target.closest && e.target.closest(".searchable-select, #cmd-input")) {
+    if ((e.isComposing || e.keyCode === 229) && e.target.closest && e.target.closest(".searchable-select, #cmd-input, #site-search-input")) {
         e.stopImmediatePropagation();
         return;
     }
     // 一覧の行（role=button）の Space は、開閉だけにして、一覧やページをスクロールさせない
     if (e.key === " " && e.target.closest && e.target.closest('.dex-row[role="button"]')) e.preventDefault();
     if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") && e.target.closest && e.target.closest(".searchable-select")) e.preventDefault();
+    // ヘッダーの検索欄: 結果を開いているあいだは、↑↓ Enter で、欄の中の文字のカーソルを動かさない。←→ は、別の開き方を選んでいるときだけ
+    var t = e.target;
+    if (t && t.id === "site-search-input" && t.getAttribute("aria-expanded") === "true") {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") e.preventDefault();
+        else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && t.getAttribute("aria-activedescendant")) e.preventDefault();
+    }
 }, true);
 // 無効にした項目（aria-disabled="true"。未対応の世代のメニューなど）は、クリック・中クリック・タップ・Enter で何も起こさない
 ["click", "auxclick", "mousedown", "mouseup", "keydown"].forEach(function (type) {
@@ -356,12 +362,6 @@ document.addEventListener("keydown", function (e) {
     input.focus();
     input.select();
 });
-
-// 日本語入力の変換中の Enter（確定の Enter）を、検索欄の Blazor の処理に渡さない（渡すと、変換の確定で最初の結果へ移ってしまう）。
-// Safari は、確定の Enter で isComposing が false になるので、keyCode 229 でも判定する。Blazor より先に受ける（capture）
-document.addEventListener("keydown", function (e) {
-    if (e.target && e.target.id === "site-search-input" && (e.isComposing || e.keyCode === 229)) e.stopPropagation();
-}, true);
 
 // 検索の結果をクリックしても、検索欄からフォーカスを外さない（外れると、クリックが届く前に結果の一覧が閉じてしまう）。
 // Blazor の @onmousedown:preventDefault は、ブラウザの既定の動き（フォーカスの移動）に間に合わないので、ここで止める
