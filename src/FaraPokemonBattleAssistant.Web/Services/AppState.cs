@@ -109,6 +109,7 @@ public sealed class AppState
         Theme = theme == "dark" ? "dark" : "light";
         await SaveAsync();
         await ApplyThemeAsync();
+        await RaiseChangedAsync();   // MudBlazor のテーマ（Shared/MudProviders.razor）・スイッチの表示を合わせる
     }
 
     public Task ToggleThemeAsync() => SetThemeAsync(Theme == "dark" ? "light" : "dark");
