@@ -226,6 +226,12 @@ public sealed class RivalMatch
     public Dictionary<string, JsonElement>? Extra { get; set; }
 
     public int Id { get; set; }
+    /// <summary>
+    /// 重複判定用の ID（クラウドに記録するときだけ付ける）。応答が届かずに、同じ試合をもう一度記録しようとしても、サーバーが同じ ClientId の試合を
+    /// 足さずに、すでにある試合を返す（二重に記録されない）。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ClientId { get; set; }
     /// <summary>試合を終えた日時（ISO 8601）。</summary>
     public string Date { get; set; } = "";
     public string Memo { get; set; } = "";
@@ -538,6 +544,13 @@ public sealed class RosterRepository
         }, ct).ConfigureAwait(false);
     }
 
+    /// <summary>end のやり直しを見分ける印。同じ相手の組なら同じ文字列になる。サーバーの上限（100 文字）を超えるほど長いときは付けない（二重の防止が効かないだけ）。</summary>
+    private static string? EndClientId(IEnumerable<RivalPokemon> foes)
+    {
+        var id = "end:" + string.Join(",", foes.Select(r => r.Id).OrderBy(i => i));
+        return id.Length <= 100 ? id : null;
+    }
+
     /// <summary>
     /// クラウドで試合を終える。履歴は別の API なので、先に履歴へ足し（上限なら何も変えずに失敗）、そのあと対戦中の相手を消す。
     /// 履歴に足したあと、相手を消せなかったときは、その旨を伝える（履歴には記録済みなので、もう一度 end せず clear -r で消す）。
@@ -550,7 +563,15 @@ public sealed class RosterRepository
             var rivals = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey).Rivals;
             if (rivals.Count == 0) return new EndMatchResult(null, 0);
             var all = rivals.Select(r => r.Clone()).ToList();
-            var match = new RivalMatch { Date = now.ToString("o"), Memo = (memo ?? "").Trim(), Foes = all };
+            // 同じ相手（Id は使い回さない）での end のやり直しは、同じ ClientId になる。記録の応答が届かなかった・相手を消せなかったときに、
+            // もう一度 end しても、履歴に二重に記録されず、記録済みの試合に紐づけて相手を消せる
+            var match = new RivalMatch
+            {
+                ClientId = EndClientId(all),
+                Date = now.ToString("o"),
+                Memo = (memo ?? "").Trim(),
+                Foes = all,
+            };
             var recorded = await history.AppendAsync(dataSetKey, match, ct).ConfigureAwait(false);
             // 履歴に記録した相手だけを消す（読んでから消すまでの間に、BOT や別の端末が足した相手は残す）
             var recordedIds = all.Select(r => r.Id).ToHashSet();
@@ -561,7 +582,7 @@ public sealed class RosterRepository
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
-                    $"試合は履歴 #{recorded.Id} に記録しましたが、対戦中の相手を消せませんでした。もう一度 end せず、clear -r（または相手チーム画面）で消してください", ex);
+                    $"試合は履歴 #{recorded.Id} に記録しましたが、対戦中の相手を消せませんでした。もう一度 end してください（対戦中の相手が変わっていなければ、記録済みの試合に紐づけて相手を消します。履歴は二重になりません。相手を足した・消したあとは、二重に記録されることがあります）", ex);
             }
             return new EndMatchResult(recorded, all.Count);
         }

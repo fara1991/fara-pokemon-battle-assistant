@@ -26,9 +26,11 @@
 //          履歴の本体は下の /api/my/history。
 //   GET    /api/my/history?dataSet=K[&limit=n][&before=Id]  → 200 {"total": 件数, "items": [試合…新しい順], "hasMore": bool}
 //   GET    /api/my/history?dataSet=K&id=n                   → 200 {"total": 件数, "item": 試合} / 404
-//   GET    /api/my/history                                  → 200 {"dataSets": [{"dataSet": "k", "total": 件数}, ...]}（履歴のあるゲームの一覧。ゲームのキーは小文字。キーの作り直しで履歴を写すときに使う）
-//   POST   /api/my/history ← {"dataSet": "K", "match": {"Date"?, "Memo"?, "Foes": [...]}}
+//   GET    /api/my/history                                  → 200 {"dataSets": [{"dataSet": "k", "total": 件数, "nextId": 次に振る Id}, ...]}（履歴のあるゲームの一覧。ゲームのキーは小文字。キーの作り直しで履歴を写すときに使う）
+//   POST   /api/my/history ← {"dataSet": "K", "match": {"Date"?, "Memo"?, "ClientId"?, "Foes": [...]}}
 //                           → 201 {"id": 割り当てた Id, "total": 件数} / 409 history_limit
+//          "ClientId"（100 文字まで）を付けると、同じゲームに同じ ClientId の試合がすでにあるとき、足さずに 200 {"id": すでにある試合の Id,
+//          "total": 件数, "duplicate": true} を返す（応答が届かずにやり直しても、二重に記録されない）。試合を消せば、その ClientId はまた使える
 //          "match" の代わりに "matches": [試合…]（100 件まで。データの移し替え用）を送ると、まとめて足す
 //          （古い順に Id を割り当てる。1 つでも上限を超えるなら、何も足さずに 409）→ 201 {"ids": [...], "total": 件数}
 //          上限: ゲームごとに 10,000 件・アクセスキー 1 つあたりの履歴の合計 64 MB・履歴を持てるゲームは 16 まで。
@@ -36,6 +38,9 @@
 //   DELETE /api/my/history?dataSet=K&keepLatest=n           → 200 {"deleted": 消した数, "total": 件数}（新しい n 件を残して消す）
 //          履歴はポケモン・チーム・相手チームとは別の表（SQLite）に 1 試合 1 行で持つ。履歴の変更では revision は増えない。
 //   DELETE /api/my/access-key  → 204（アクセスキーの作り直し・データ共有の解除で、キーを使えなくしてその置き場（履歴も）を消す。以後そのキーは 410）
+//          ?expect=ゲーム:件数:次の Id,ゲーム:件数:次の Id…（履歴のあるゲームだけ。無ければ空）を付けると、今の履歴の状態が同じときだけ消す。
+//          違っていれば何も消さずに 409 {"error": "changed", "dataSets": [...今の状態]}（写している間に、別の端末・BOT が履歴を足した・消したことが分かる。
+//          確認と削除は 1 つの処理なので、その間に別の書き込みは入らない）
 //
 // revision は登録データ全体で 1 つ（どの PUT でも増える）。
 // 認証は "Authorization: Bearer <アクセスキー>"。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもの。
@@ -79,6 +84,10 @@ const MAX_MATCH_BYTES = 64 * 1024;
 const MAX_FOES_PER_MATCH = 50;
 /** 履歴をまとめて足すときの 1 回の件数の上限（データの移し替え用）。 */
 const MAX_MATCHES_PER_POST = 100;
+/** 履歴の重複判定用 ID（ClientId）の長さの上限。 */
+const MAX_CLIENT_ID_LENGTH = 100;
+/** DELETE /api/my/access-key の expect（ゲーム:件数:次の Id）の 1 つ分。 */
+const EXPECT_PATTERN = /^([A-Za-z0-9_-]{1,32}):(\d{1,9}):(\d{1,10})$/;
 /** 履歴の一覧で 1 回に返す件数（既定・最大）。 */
 const HISTORY_PAGE_DEFAULT = 50;
 const HISTORY_PAGE_MAX = 200;
@@ -282,6 +291,9 @@ function validateMatchFields(value) {
   if (!Foes.every(isPlainObject)) invalid("invalid_match", "match.Foes の要素はオブジェクトにしてください");
   if (date !== undefined && (typeof date !== "string" || date.length > 64)) invalid("invalid_match", "match.Date は 64 文字までの文字列にしてください");
   if (Memo !== undefined && (typeof Memo !== "string" || Memo.length > 500)) invalid("invalid_match", "match.Memo は 500 文字までの文字列にしてください");
+  const { ClientId } = value;
+  if (ClientId !== undefined && ClientId !== null && (typeof ClientId !== "string" || ClientId.length === 0 || ClientId.length > MAX_CLIENT_ID_LENGTH))
+    invalid("invalid_match", `match.ClientId は 1〜${MAX_CLIENT_ID_LENGTH} 文字の文字列にしてください`);
   if (new TextEncoder().encode(JSON.stringify(value)).byteLength > MAX_MATCH_BYTES) invalid("invalid_match", `1 試合のデータが大きすぎます（上限 ${MAX_MATCH_BYTES / 1024} KB）`);
 }
 
@@ -359,7 +371,7 @@ async function handleApi(request, env, url) {
   // Durable Object にはキーを渡さない（名前は SHA-256 のみ）
   const stub = env.ROSTER.get(env.ROSTER.idFromName(await sha256Hex(key)));
 
-  if (url.pathname === "/api/my/access-key") return respond(stub.retire());
+  if (url.pathname === "/api/my/access-key") return respond(stub.retire(parseExpect(url)));
   if (url.pathname === "/api/my/history") return handleHistory(request, url, stub);
   const resource = url.pathname === "/api/my/pokemon" ? "pokemon" : url.pathname === "/api/my/rival" ? "rival" : "teams";
   const historyLimit = resource === "rival" ? queryInt(url, "historyLimit", 0, MAX_HISTORY_PER_DATA_SET) : undefined;
@@ -385,6 +397,21 @@ async function handleApi(request, env, url) {
   }
   // チームは登録ポケモンとの突き合わせが要るので、Durable Object の中で検証する
   return respond(stub.putTeams(baseRevision, dataSets));
+}
+
+/** DELETE /api/my/access-key の expect（履歴の状態）を読む。無ければ undefined、空文字なら「履歴なし」の [] 。 */
+function parseExpect(url) {
+  const raw = url.searchParams.get("expect");
+  if (raw === null) return undefined;
+  if (raw === "") return [];
+  const expected = [];
+  for (const part of raw.split(",")) {
+    const m = EXPECT_PATTERN.exec(part);
+    if (!m) invalid("invalid_query", "expect は ゲーム:件数:次の Id をカンマで区切って指定してください");
+    expected.push({ dataSet: m[1].toLowerCase(), total: Number(m[2]), nextId: Number(m[3]) });
+  }
+  if (new Set(expected.map((e) => e.dataSet)).size !== expected.length) invalid("invalid_query", "expect に同じゲームが 2 回あります");
+  return expected;
 }
 
 /** /api/my/history（試合の履歴）。 */
@@ -579,15 +606,26 @@ export class RosterSlot extends DurableObject {
   /** 履歴の表があるか（読むだけのリクエストでは作らない）。 */
   #hasSchema() {
     if (this.#schemaReady === null) {
-      this.#schemaReady = this.ctx.storage.sql.exec("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'history'").toArray().length > 0;
+      const exists = this.ctx.storage.sql.exec("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'history'").toArray().length > 0;
+      // 表を新しくする処理が成功してから「準備できた」にする（失敗したら、次のリクエストでもう一度試す）
+      if (exists) this.#upgradeSchema();
+      this.#schemaReady = exists;
     }
     return this.#schemaReady;
   }
 
+  /** 履歴の表に、重複判定用の client_id 列と索引があるようにする（この列ができる前に作った表にも足す。何度呼んでも同じ）。 */
+  #upgradeSchema() {
+    const columns = this.ctx.storage.sql.exec("SELECT name FROM pragma_table_info('history')").toArray().map((r) => r.name);
+    if (!columns.includes("client_id")) this.#write("ALTER TABLE history ADD COLUMN client_id TEXT");
+    this.#write("CREATE UNIQUE INDEX IF NOT EXISTS history_client ON history (data_set, client_id) WHERE client_id IS NOT NULL");
+  }
+
   #ensureSchema() {
     if (this.#hasSchema()) return;
-    this.#write("CREATE TABLE IF NOT EXISTS history (data_set TEXT NOT NULL, id INTEGER NOT NULL, json TEXT NOT NULL, PRIMARY KEY (data_set, id))");
+    this.#write("CREATE TABLE IF NOT EXISTS history (data_set TEXT NOT NULL, id INTEGER NOT NULL, json TEXT NOT NULL, client_id TEXT, PRIMARY KEY (data_set, id))");
     this.#write("CREATE TABLE IF NOT EXISTS history_meta (data_set TEXT PRIMARY KEY, next_id INTEGER NOT NULL, count INTEGER NOT NULL, bytes INTEGER NOT NULL)");
+    this.#upgradeSchema();
     this.#schemaReady = true;
   }
 
@@ -612,11 +650,11 @@ export class RosterSlot extends DurableObject {
       h, next_id, count, bytes);
   }
 
-  /** 試合を 1 行足す（同じ Id が既にあれば何もしない）。足したら true。 */
-  #insertMatch(h, id, text) {
+  /** 試合を 1 行足す（同じ Id・同じ clientId が既にあれば何もしない）。足したら true。 */
+  #insertMatch(h, id, text, clientId = null) {
     this.#ensureSchema();
     const bytes = new TextEncoder().encode(text).byteLength;
-    if (this.#write("INSERT OR IGNORE INTO history (data_set, id, json) VALUES (?, ?, ?)", h, id, text) === 0) return false;
+    if (this.#write("INSERT OR IGNORE INTO history (data_set, id, json, client_id) VALUES (?, ?, ?, ?)", h, id, text, clientId) === 0) return false;
     const m = this.#meta(h);
     this.#setMeta(h, { next_id: Math.min(Math.max(m.next_id, id + 1), MAX_ID + 1), count: m.count + 1, bytes: m.bytes + bytes });
     return true;
@@ -841,9 +879,9 @@ export class RosterSlot extends DurableObject {
     const s = await this.#read();
     if (s.deleted) return this.#gone();
     const rows = this.#hasSchema()
-      ? this.ctx.storage.sql.exec("SELECT data_set, count FROM history_meta WHERE count > 0 ORDER BY data_set").toArray()
+      ? this.ctx.storage.sql.exec("SELECT data_set, count, next_id FROM history_meta WHERE count > 0 ORDER BY data_set").toArray()
       : [];
-    return plain(200, { dataSets: rows.map((r) => ({ dataSet: r.data_set, total: r.count })) });
+    return plain(200, { dataSets: rows.map((r) => ({ dataSet: r.data_set, total: r.count, nextId: r.next_id })) });
   }
 
   async getMatch(dataSet, id) {
@@ -862,13 +900,22 @@ export class RosterSlot extends DurableObject {
     if (s.deleted) return this.#gone();
     const h = dataSet.toLowerCase();
     const meta = this.#meta(h);
+    const clientId = typeof match.ClientId === "string" ? match.ClientId : null;
+    // 同じ ClientId の試合がすでにあれば、足さずにその Id を返す（応答が届かずにやり直しても、二重に記録しない。上限に達していても同じ）
+    if (clientId !== null && this.#hasSchema()) {
+      const existing = this.ctx.storage.sql.exec("SELECT id FROM history WHERE data_set = ? AND client_id = ?", h, clientId).toArray()[0];
+      if (existing) {
+        await this.#touch();
+        return plain(200, { id: existing.id, total: meta.count, duplicate: true });
+      }
+    }
     if (meta.count >= this.#historyLimit)
       return plainError(409, "history_limit", `試合の履歴が上限（${this.#historyLimit} 件）に達しています。古い履歴を削除してください`);
     if (meta.next_id > MAX_ID) return plainError(409, "history_limit", "これ以上、試合の履歴を足せません");
     const text = JSON.stringify({ ...match, Id: meta.next_id });
     if (!this.#hasRoomForBytes(h, text))
       return plainError(409, "history_limit", "試合の履歴の合計サイズ（または履歴を持てるゲームの数）が上限に達しています。古い履歴を削除してください");
-    this.#insertMatch(h, meta.next_id, text);
+    this.#insertMatch(h, meta.next_id, text, clientId);
     await this.#touch();
     return plain(201, { id: meta.next_id, total: meta.count + 1 });
   }
@@ -922,8 +969,24 @@ export class RosterSlot extends DurableObject {
     return plain(200, { deleted: doomed.n, total: m.count - doomed.n });
   }
 
-  /** アクセスキーを使えなくし、置き場のデータ（履歴も）を消す。 */
-  async retire() {
+  /**
+   * アクセスキーを使えなくし、置き場のデータ（履歴も）を消す。
+   * expect（履歴のあるゲームの {dataSet, total, nextId}）が渡されたときは、今の履歴の状態と同じときだけ消す。違えば何も消さずに 409。
+   * （確認と削除は 1 回の呼び出しの中で、その間に別の書き込みは入らない。キーの作り直しで履歴を写したあと、写している間の変化を取りこぼさないため）
+   */
+  async retire(expect) {
+    if (expect !== undefined) {
+      // すでに消えているキーは、そのまま成功（やり直しで 2 回目の DELETE が来ても）
+      if ((await this.ctx.storage.get("deleted")) === true) return plain(204);
+      const current = this.#hasSchema()
+        ? this.ctx.storage.sql.exec("SELECT data_set, count, next_id FROM history_meta WHERE count > 0 ORDER BY data_set").toArray()
+            .map((r) => ({ dataSet: r.data_set, total: r.count, nextId: r.next_id }))
+        : [];
+      const same = current.length === expect.length
+        && expect.every((e) => current.some((c) => c.dataSet === e.dataSet && c.total === e.total && c.nextId === e.nextId));
+      if (!same)
+        return plain(409, { error: "changed", message: "履歴が変わったため、消しませんでした", dataSets: current });
+    }
     // 先に「消した印」を書く（deleteAll してから印を書くと、その間に失敗したとき、データだけ消えて印が残らず、
     // 古いキーが空の置き場として使えてしまう）。印以外のデータを消す
     await this.ctx.storage.put("deleted", true);

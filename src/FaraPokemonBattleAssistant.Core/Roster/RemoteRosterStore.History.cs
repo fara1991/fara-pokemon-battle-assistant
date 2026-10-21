@@ -33,7 +33,7 @@ public sealed partial class RemoteRosterStore : IMatchHistory
             : new Uri(_rivalEndpoint, "history?dataSet=" + Uri.EscapeDataString(dataSetKey) + extraQuery);
 
     /// <summary>履歴のあるゲームと、その件数（ゲームのキーは小文字。キーの作り直しで履歴を写すときに使う）。</summary>
-    public async Task<IReadOnlyDictionary<string, int>> DataSetTotalsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyDictionary<string, HistoryTotal>> DataSetTotalsAsync(CancellationToken ct = default)
     {
         using var response = await SendAsync(HttpMethod.Get, HistoryUri(null), null, ct).ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.OK) throw await UnavailableAsync(response, ct).ConfigureAwait(false);
@@ -41,16 +41,48 @@ public sealed partial class RemoteRosterStore : IMatchHistory
         if (doc.RootElement.ValueKind != JsonValueKind.Object
             || !doc.RootElement.TryGetProperty("dataSets", out var sets) || sets.ValueKind != JsonValueKind.Array)
             throw InvalidResponse();
-        var totals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        return ReadTotals(sets);
+    }
+
+    private static Dictionary<string, HistoryTotal> ReadTotals(JsonElement sets)
+    {
+        var totals = new Dictionary<string, HistoryTotal>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in sets.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.Object
                 || !item.TryGetProperty("dataSet", out var name) || name.ValueKind != JsonValueKind.String
-                || !item.TryGetProperty("total", out var total) || !total.TryGetInt32(out var count) || count < 0)
+                || !item.TryGetProperty("total", out var total) || !total.TryGetInt32(out var count) || count < 0
+                || !item.TryGetProperty("nextId", out var next) || !next.TryGetInt32(out var nextId) || nextId < 1)
                 throw InvalidResponse();
-            totals[name.GetString()!] = count;
+            totals[name.GetString()!] = new HistoryTotal(count, nextId);
         }
         return totals;
+    }
+
+    /// <summary>
+    /// このアクセスキーを使えなくし、置き場を消す。ただし、履歴の状態が <paramref name="expect"/>（写した時点の状態）と同じときだけ。
+    /// 違うときは何も消さずに <see cref="HistoryChangedException"/>（キーの作り直しで、写している間に足された試合を取りこぼさないため）。
+    /// </summary>
+    public async Task DeleteIfHistoryUnchangedAsync(IReadOnlyDictionary<string, HistoryTotal> expect, CancellationToken ct = default)
+    {
+        var query = string.Join(",", expect.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key.ToLowerInvariant()}:{kv.Value.Total}:{kv.Value.NextId}"));
+        var uri = new Uri(_accessKeyEndpoint + "?expect=" + Uri.EscapeDataString(query));
+        using var response = await SendAsync(HttpMethod.Delete, uri, null, ct).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            Revision = null;
+            return;
+        }
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            using var doc = await ReadJsonAsync(response, ct).ConfigureAwait(false);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String && error.GetString() == "changed"
+                && root.TryGetProperty("dataSets", out var sets) && sets.ValueKind == JsonValueKind.Array)
+                throw new HistoryChangedException(ReadTotals(sets));
+            throw InvalidResponse();
+        }
+        throw await UnavailableAsync(response, ct).ConfigureAwait(false);
     }
 
     public async Task<MatchPage> ListAsync(string dataSetKey, int limit, int? beforeId = null, CancellationToken ct = default)
@@ -91,12 +123,13 @@ public sealed partial class RemoteRosterStore : IMatchHistory
         using var content = BuildHistoryContent(dataSetKey, "match", FitToServerLimit(MatchNode(match), out _, out _));
         using var response = await SendAsync(HttpMethod.Post, HistoryUri(null), content, ct).ConfigureAwait(false);
         await ThrowIfHistoryLimitAsync(response, ct).ConfigureAwait(false);
-        if (response.StatusCode != HttpStatusCode.Created) throw await UnavailableAsync(response, ct).ConfigureAwait(false);
+        // 201 = 足した、200 = 同じ ClientId の試合がすでにあった（その Id が返る）
+        if (response.StatusCode is not (HttpStatusCode.Created or HttpStatusCode.OK)) throw await UnavailableAsync(response, ct).ConfigureAwait(false);
         using var doc = await ReadJsonAsync(response, ct).ConfigureAwait(false);
         if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("id", out var id) || !id.TryGetInt32(out var assigned) || assigned < 1)
             throw InvalidResponse();
         LastSyncedAt = DateTimeOffset.Now;
-        return new RivalMatch { Id = assigned, Date = match.Date, Memo = match.Memo, Foes = match.Foes, Extra = match.Extra };
+        return new RivalMatch { Id = assigned, ClientId = match.ClientId, Date = match.Date, Memo = match.Memo, Foes = match.Foes, Extra = match.Extra };
     }
 
     /// <summary>

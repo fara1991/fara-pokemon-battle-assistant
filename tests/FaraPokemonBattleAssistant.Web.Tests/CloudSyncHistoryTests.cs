@@ -189,24 +189,50 @@ public class CloudSyncHistoryTests
     }
 
     [Fact]
-    public async Task Rotation_is_aborted_if_the_history_changed_while_copying()
+    public async Task Rotation_copies_matches_added_to_the_old_key_before_it_is_deleted()
     {
         var (sync, js, server, oldKey) = await JoinedWithHistoryAsync(3);
         var old = server.For(oldKey);
-        var totalsCalls = 0;
+        var added = false;
         old.Override = request =>
         {
-            // 履歴のあるゲームの一覧（2 回目 = 写し終わったあとの確認）の直前に、別の端末が試合を足す
-            if (request.Method == HttpMethod.Get && request.RequestUri!.AbsolutePath == "/api/my/history" && request.RequestUri.Query.Length == 0 && ++totalsCalls == 2)
-                old.WriteFromElsewhere(state => state.For(Ds).History.Add(new RivalMatch { Id = 99 }));
+            // 古いキーを消す直前に、別の端末が試合を足す（サーバーは状態の違いで 409 を返す）
+            if (!added && request.Method == HttpMethod.Delete && request.RequestUri!.AbsolutePath == "/api/my/access-key")
+            {
+                added = true;
+                old.WriteFromElsewhere(state =>
+                {
+                    var set = state.For(Ds);
+                    set.History.Add(new RivalMatch { Id = set.NextMatchId, Memo = "late" });
+                    set.NextMatchId++;
+                });
+            }
             return null;
         };
 
-        await Assert.ThrowsAsync<RosterUnavailableException>(() => sync.RotateAsync());
+        Assert.True(await sync.RotateAsync());
 
-        Assert.Equal(oldKey, sync.Key);
-        Assert.False(old.Deleted);                                                  // 足された試合を失わないよう、古いキーは消さない
-        Assert.Equal(4, old.State.For(Ds).History.Count);
+        Assert.NotEqual(oldKey, sync.Key);
+        Assert.True(old.Deleted);
+        var copied = server.For(sync.Key!).State.For(Ds).History;
+        Assert.Equal(4, copied.Count);
+        Assert.Contains(copied, m => m.Memo == "late");   // 足された試合も新しいキーに残る
+    }
+
+    [Fact]
+    public async Task Rotation_that_cannot_delete_the_old_key_reports_failure_but_keeps_the_new_key()
+    {
+        var (sync, js, server, oldKey) = await JoinedWithHistoryAsync(3);
+        var old = server.For(oldKey);
+        old.Override = request => request.Method == HttpMethod.Delete && request.RequestUri!.AbsolutePath == "/api/my/access-key"
+            ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
+            : null;
+
+        Assert.False(await sync.RotateAsync());
+
+        Assert.NotEqual(oldKey, sync.Key);                                          // 新しいキーへ切り替わっている
+        Assert.Equal(3, server.For(sync.Key!).State.For(Ds).History.Count);
+        Assert.False(old.Deleted);
     }
 
     [Fact]

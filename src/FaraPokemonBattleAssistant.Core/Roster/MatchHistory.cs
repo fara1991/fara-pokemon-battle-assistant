@@ -13,8 +13,8 @@ public sealed record MatchPage(int Total, IReadOnlyList<RivalMatch> Items, bool 
 /// </summary>
 public interface IMatchHistory
 {
-    /// <summary>履歴のあるゲームと、その件数（ゲームのキーは小文字）。キーの作り直しで、履歴を写し忘れないために使う。</summary>
-    Task<IReadOnlyDictionary<string, int>> DataSetTotalsAsync(CancellationToken ct = default);
+    /// <summary>履歴のあるゲームと、その件数・次に振る Id（ゲームのキーは小文字）。キーの作り直しで、履歴を写し忘れないために使う。</summary>
+    Task<IReadOnlyDictionary<string, HistoryTotal>> DataSetTotalsAsync(CancellationToken ct = default);
 
     /// <summary>試合の一覧（新しい順）。<paramref name="beforeId"/> を付けると、その Id より前の試合から。</summary>
     Task<MatchPage> ListAsync(string dataSetKey, int limit, int? beforeId = null, CancellationToken ct = default);
@@ -30,6 +30,23 @@ public interface IMatchHistory
 
     /// <summary>新しい <paramref name="keepLatest"/> 件を残して、古い試合を消す。消した件数を返す。</summary>
     Task<int> TrimAsync(string dataSetKey, int keepLatest, CancellationToken ct = default);
+}
+
+/// <summary>1 つのゲームの履歴の件数と、次に振る Id（増える一方。足した・消したことを見分けられる）。</summary>
+public sealed record HistoryTotal(int Total, int NextId);
+
+/// <summary>
+/// キーの作り直しで古いキーを消そうとしたら、写している間に履歴が変わっていた（別の端末・BOT が足した・消した）。何も消されていない。
+/// <see cref="Current"/> は、今の履歴の状態。
+/// </summary>
+public sealed class HistoryChangedException : Exception
+{
+    public HistoryChangedException(IReadOnlyDictionary<string, HistoryTotal> current) : base("履歴が変わったため、古いアクセスキーは消しませんでした")
+    {
+        Current = current;
+    }
+
+    public IReadOnlyDictionary<string, HistoryTotal> Current { get; }
 }
 
 /// <summary>試合の履歴が上限に達していて、足せない。メッセージはそのまま利用者に見せられる。</summary>
