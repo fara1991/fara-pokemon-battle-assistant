@@ -4033,3 +4033,38 @@ html.vt-nav .app-header {
     min-width: 0;
     margin: 0;
 }
+
+/* ---- サイドバーを開く・閉じる間、項目の文字が折り返して崩れないようにする ----
+   MudBlazor のドロワーは、幅を動かして開閉する。その間も、項目は本来の幅（230px）のまま並べて、はみ出した分は、ドロワーで切る */
+.sidebar.mud-drawer {
+    overflow: hidden;
+}
+
+.sidebar .mud-drawer-content {
+    overflow-x: hidden;
+}
+
+.sidebar .mud-navmenu {
+    width: var(--mud-drawer-width-left, 230px);
+}
+
+.sidebar .mud-nav-link,
+.sidebar .mud-nav-link-text,
+.sidebar .nav-section {
+    white-space: nowrap;
+}
+
+/* ライト／ダークのスイッチ: ダークのとき、つまみ（紫）の上のアイコンが同じ色で見えなくなるので、白にする */
+.theme-switch .mud-switch-base.mud-checked [class*="mud-switch-thumb"] svg {
+    color: #fff !important;
+    fill: #fff !important;
+}
+
+/* セレクトの中のグループの見出し（コマンドの種類など） */
+.mud-list-item.app-select-group.mud-disabled {
+    opacity: 1;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--bs-secondary-color);
+    min-height: 1.8rem;
+}
