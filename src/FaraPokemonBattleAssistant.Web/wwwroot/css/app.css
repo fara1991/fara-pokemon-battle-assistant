@@ -3652,4 +3652,17 @@ html.vt-nav .sidebar {
     html.sidebar-hidden main {
         padding-left: 3rem;
     }
+
+    /* サイドバー（230px）を前提にした配置は、隠している間は 0 にする（対戦画面・結果バー・背景のコート） */
+    html.sidebar-hidden .battle-ui {
+        inset: 0;
+    }
+
+    html.sidebar-hidden .result-bar {
+        left: 0;
+    }
+
+    html.sidebar-hidden .bg-scene {
+        --stage-shift: 0px;
+    }
 }
