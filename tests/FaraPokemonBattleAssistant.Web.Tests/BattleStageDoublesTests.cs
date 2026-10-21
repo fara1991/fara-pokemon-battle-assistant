@@ -31,6 +31,8 @@ public class BattleStageDoublesTests
         Assert.NotNull(stage.Mine);
         Assert.NotNull(stage.Foe);
         Assert.NotEqual(stage.Mine!.Id, stage.Foe!.Id);
+        Assert.Null(stage.Mine2);   // シングルでは、2 体目は選ばない
+        Assert.Null(stage.Foe2);
     }
 
     [Fact]
@@ -64,7 +66,7 @@ public class BattleStageDoublesTests
     }
 
     [Fact]
-    public void Switching_back_to_singles_hides_the_second_pair_but_keeps_it_for_later()
+    public void Switching_back_to_singles_and_again_to_doubles_keeps_the_same_four()
     {
         var stage = NewStage();
         var pokemon = Many(8);
@@ -115,12 +117,17 @@ public class BattleStageDoublesTests
     public void Changing_the_data_set_picks_again()
     {
         var stage = NewStage();
-        stage.EnsureDefaults("a", Many(8), doubles: true);
+        var first = Many(8);
+        stage.EnsureDefaults("a", first, doubles: true);
+        stage.Show("a", first[0], first[1], null, null, first[2], first[3]);
+        Assert.NotNull(stage.PickedMine2);
         var other = Enumerable.Range(101, 8).Select(i => P(i)).ToList();
         stage.EnsureDefaults("b", other, doubles: true);
         Assert.Equal("b", stage.DataSetKey);
         Assert.All(Ids(stage), id => Assert.InRange(id, 101, 108));
+        Assert.Null(stage.PickedMine);    // ほかのゲームで選んだものは引き継がない
         Assert.Null(stage.PickedMine2);
+        Assert.Null(stage.PickedFoe2);
     }
 
     [Fact]

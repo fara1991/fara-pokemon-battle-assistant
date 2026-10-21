@@ -212,7 +212,7 @@ public sealed class BattleStage
             UseRosterMine = UseRosterFoe = null;
             RosterKeyMine = RosterKeyFoe = null;
             RosterMegaMine = RosterMegaFoe = null;
-            var picks = PickDistinct(candidates, 4);
+            var picks = PickDistinct(candidates, doubles ? 4 : 2);   // シングルは 2 体。ダブルに切り替えたときに、足りない 2 体を足す
             Mine = picks[0];
             Foe = picks[1];
             Mine2 = picks.Count > 2 ? picks[2] : null;

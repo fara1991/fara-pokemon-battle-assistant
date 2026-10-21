@@ -1197,7 +1197,8 @@ else if (data is not null && dataSet is not null)
                                 <MudSelect T="string" Value="@(Convert.ToString(build.Boosts[stat]))" ValueChanged="@(v => build.Boosts[stat] = ParseBoost(v))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select">
                                     @for (var b = 6; b >= -6; b--)
                                     {
-                                        <MudSelectItem T="string" Value="@(Convert.ToString(b))">@(b > 0 ? "+" + b : b.ToString())</MudSelectItem>
+                                        var boost = b;   // 表示は描画のあとで評価されるので、ループの変数のままだとすべて「-7」になる
+                                        <MudSelectItem T="string" Value="@(Convert.ToString(boost))">@(boost > 0 ? "+" + boost : boost.ToString())</MudSelectItem>
                                     }
                                 </MudSelect>
                             </div>

@@ -4170,3 +4170,10 @@ html.vt-nav .app-header {
 .speed-order-team { font-weight: 600; }
 .speed-order-mine { background: var(--bs-primary, #7c3aed); color: #fff; }
 .speed-order-foe { background: #6b5f8a; color: #fff; }
+
+/* ダブルバトル: 何体目のポケモンを入力するかの切り替え（選んだ 1 体の入力欄だけを出す） */
+.slot-picker { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.4rem; margin: 0 0 0.6rem; }
+.slot-picker-title { align-self: center; font-weight: 700; margin-right: 0.2rem; }
+.slot-picker-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; min-width: 6.5rem; padding: 0.3rem 0.7rem; border: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.4)); border-radius: 0.5rem; background: var(--glass-field, transparent); color: inherit; cursor: pointer; text-align: left; }
+.slot-picker-btn small { color: var(--bs-secondary-color, #8b80a8); max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-picker-btn.active { border-color: var(--bs-primary, #7c3aed); box-shadow: 0 0 0 1px var(--bs-primary, #7c3aed) inset; }

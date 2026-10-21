@@ -29,9 +29,15 @@ else if (data is not null && dataSet is not null)
 {
     var both = Doubles ? s.Builds.Take(SlotCount).Count(x => x is not null) >= 2 : s.Builds[0] is not null && s.Builds[1] is not null;
     <div class="calc-grid pane-fill @(both ? "has-result-bar" : "")">
-        <div class="calc-col">@RenderSide(0)@if (Doubles) { @RenderSide(2) }</div>
+        <div class="calc-col">
+            @if (Doubles) { <SlotPicker Title="自分側" Names="@SlotNames(0)" Selected="s.MineIndex" SelectedChanged="@(i => s.MineIndex = i)" /> }
+            @RenderSide(MineSlot)
+        </div>
         <div class="calc-right">
-        <div class="calc-col">@RenderSide(1)@if (Doubles) { @RenderSide(3) }</div>
+        <div class="calc-col">
+            @if (Doubles) { <SlotPicker Title="相手側" Names="@SlotNames(1)" Selected="s.FoeIndex" SelectedChanged="@(i => s.FoeIndex = i)" /> }
+            @RenderSide(FoeSlot)
+        </div>
 
         <div class="calc-col calc-side">
             <MudCard Elevation="0" Class="card">
@@ -72,10 +78,10 @@ else if (data is not null && dataSet is not null)
                         notes[i] = nt;
                     }
                 }
-                var refSide = s.Builds[s.ReferenceSide] is not null && s.ReferenceSide < SlotCount ? s.ReferenceSide : Enumerable.Range(0, SlotCount).FirstOrDefault(i => s.Builds[i] is not null);
+                var refSide = s.Builds[s.ReferenceSide] is not null && s.ReferenceSide < SlotCount ? s.ReferenceSide : Enumerable.Range(0, SlotCount).FirstOrDefault(i => s.Builds[i] is not null, -1);
                 var order = Doubles ? SpeedOrder.Rank(Enumerable.Range(0, SlotCount).Where(i => speeds[i] is not null).Select(i => new SpeedEntry(s.Builds[i]!.Pokemon.Name, speeds[i]!.Value, SideTeam(i), i)), s.TrickRoom) : null;
             }
-            @if (s.Builds.Any(x => x is not null))
+            @if (Enumerable.Range(0, SlotCount).Any(i => s.Builds[i] is not null))
             {
                 <MudCard Elevation="0" Class="card result-card result-sticky">
                     <MudCardHeader Class="card-header"><CardHeaderContent><h5>結果</h5></CardHeaderContent></MudCardHeader>
@@ -164,6 +170,9 @@ else if (data is not null && dataSet is not null)
         public bool TrickRoom { get; set; }
         /// <summary>結果に振り方例を出しているポケモン（0〜3）。</summary>
         public int ReferenceSide { get; set; }
+        /// <summary>ダブルバトルで、いま入力している体（0 = 1 体目、1 = 2 体目）。自分側・相手側それぞれ。</summary>
+        public int MineIndex { get; set; }
+        public int FoeIndex { get; set; }
         /// <summary>「登録から選ぶ」のスイッチと、選んでいる登録の Key（それぞれの側）。</summary>
         public bool[] UseRoster { get; set; } = new bool[4];
         public string?[] RosterKey { get; set; } = new string?[4];
@@ -183,6 +192,13 @@ else if (data is not null && dataSet is not null)
     private string SideTitle(int side) => !Doubles ? $"ポケモン{side + 1}" : $"{SideTeam(side)} {side / 2 + 1}";
 
     private static string SideTeam(int side) => side % 2 == 0 ? "自分側" : "相手側";
+
+    /// <summary>いま入力しているポケモンの側（0〜3）。シングルは自分側 = 0、相手側 = 1。ダブルは、選んだ体目の入力欄だけを出す。</summary>
+    private int MineSlot => Doubles ? Math.Clamp(s.MineIndex, 0, 1) * 2 : 0;
+    private int FoeSlot => Doubles ? Math.Clamp(s.FoeIndex, 0, 1) * 2 + 1 : 1;
+
+    /// <summary>切り替えの表示名。<paramref name="team"/> は 0 = 自分側、1 = 相手側。</summary>
+    private IReadOnlyList<string> SlotNames(int team) => new[] { s.Builds[team]?.Pokemon.Name ?? "未選択", s.Builds[team + 2]?.Pokemon.Name ?? "未選択" };
 
     private DataSetInfo? dataSet;
     private PokemonDataSet? data;
@@ -483,7 +499,7 @@ else if (data is not null && dataSet is not null)
                         <div class="col-6">
                             <label class="form-label">すばやさランク <Help Title="すばやさランク">こうそくいどう等で上がった S のランクです。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍になります。</Help></label>
                             <MudSelect T="string" Value="@(Convert.ToString(build.Boosts.Speed))" ValueChanged="@(v => build.Boosts[Stat.Speed] = Math.Clamp(ParseId(v), -6, 6))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select">
-                                @for (var st = 6; st >= -6; st--) { <MudSelectItem T="string" Value="@(Convert.ToString(st))">@(st > 0 ? "+" + st : st.ToString())</MudSelectItem> }
+                                @for (var st = 6; st >= -6; st--) { var rank = st; <MudSelectItem T="string" Value="@(Convert.ToString(rank))">@(rank > 0 ? "+" + rank : rank.ToString())</MudSelectItem> }   @* 表示は描画のあとで評価されるので、ループの変数のままだとすべて「-7」になる *@
                             </MudSelect>
                         </div>
                         <div class="col-6 d-flex flex-column justify-content-end">
