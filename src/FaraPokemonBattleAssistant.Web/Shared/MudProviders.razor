@@ -5,7 +5,8 @@
 @inject AppState App
 @implements IDisposable
 
-<MudThemeProvider Theme="_theme" IsDarkMode="@(App.Theme == "dark")" />
+@* テーマを切り替えたら、MudThemeProvider を作り直す（パラメーターの変更だけでは、色が切り替わらないため） *@
+<MudThemeProvider @key="@App.Theme" Theme="_theme" IsDarkMode="@(App.Theme == "dark")" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -52,7 +53,12 @@
         },
     };
 
-    protected override void OnInitialized() => App.Changed += OnChanged;
+    // 保存したテーマ（ライト／ダーク）を読み終えてから描く（最初に「ライト」で描くと、ダークの人は、MudBlazor の部品の色が、ライトのままになる）
+    protected override async Task OnInitializedAsync()
+    {
+        await App.InitializeAsync();
+        App.Changed += OnChanged;
+    }
 
     private Task OnChanged() => InvokeAsync(StateHasChanged);
 
