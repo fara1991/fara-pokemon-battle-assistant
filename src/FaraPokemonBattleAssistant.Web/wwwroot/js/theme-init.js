@@ -6,3 +6,7 @@ try {
     var s = JSON.parse(localStorage.getItem("fara-pokemon-battle-assistant.settings") || "{}");
     if (s.Theme === "dark") document.documentElement.setAttribute("data-bs-theme", "dark");
 } catch (e) { }
+// サイドバーを隠す設定（PC）。描画の前に反映して、開いたときのちらつきを防ぐ（切り替えは page.js）
+try {
+    if (localStorage.getItem("fara-pokemon-battle-assistant.sidebar-hidden") === "1") document.documentElement.classList.add("sidebar-hidden");
+} catch (e) { }

@@ -10,9 +10,14 @@
 <BattleOverlay />
 
 <div class="page @(Stage.BattleActive ? "battle-active" : "")">
-    <div class="sidebar">
+    <div class="sidebar" id="site-sidebar">
         <NavMenu />
     </div>
+
+    @* サイドバーを隠しているときだけ（PC）、左上に出る「開く」ボタン。押す処理は wwwroot/js/page.js *@
+    <button type="button" class="sidebar-reveal" data-sidebar-toggle aria-controls="site-sidebar" aria-expanded="false" title="サイドバーを表示">
+        <span aria-hidden="true">☰</span><span class="visually-hidden">サイドバーを表示</span>
+    </button>
 
     <main>
         <article class="content px-4">
