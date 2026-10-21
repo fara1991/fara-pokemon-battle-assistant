@@ -341,3 +341,18 @@ document.addEventListener("focusin", function (e) {
         observer.observe(document.body, { childList: true, subtree: true });
     }
 })();
+
+// ヘッダーの検索欄へ移る: Ctrl+K（Mac は ⌘K）か「/」（文字を入力中は、「/」を奪わない）。欄は Blazor が描画する（Shared/SiteSearch.razor）
+document.addEventListener("keydown", function (e) {
+    var k = e.key && e.key.toLowerCase();
+    var ctrlK = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && k === "k";
+    var t = e.target;
+    var typing = !!t && t !== document.body && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
+    var slash = e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey && !typing;
+    if (!ctrlK && !slash) return;
+    var input = document.getElementById("site-search-input");
+    if (!input || input.offsetParent === null || e.isComposing) return;   // 欄が無い・見えない（スマホ）ときは、何もしない
+    e.preventDefault();
+    input.focus();
+    input.select();
+});
