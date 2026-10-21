@@ -14,10 +14,8 @@
         <NavMenu />
     </div>
 
-    @* サイドバーを隠しているときだけ（PC）、左上に出る「開く」ボタン。押す処理は wwwroot/js/page.js *@
-    <button type="button" class="sidebar-reveal" data-sidebar-toggle aria-controls="site-sidebar" aria-expanded="false" title="サイドバーを表示">
-        <span aria-hidden="true">☰</span><span class="visually-hidden">サイドバーを表示</span>
-    </button>
+    @* PC の左上に固定する、サイドバーの表示・非表示のハンバーガー（スマホは、サイドバー上部のメニューのボタンを使う）。押す処理は wwwroot/js/page.js *@
+    <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-controls="site-sidebar" aria-expanded="true" aria-label="サイドバーの表示・非表示" title="サイドバーの表示・非表示"></button>
 
     <main>
         <article class="content px-4">
