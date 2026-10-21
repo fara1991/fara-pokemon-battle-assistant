@@ -313,3 +313,29 @@ document.addEventListener("focusin", function (e) {
     var t = e.target;
     if (t && t.tagName === "INPUT" && t.closest && t.closest(".searchable-select")) t.select();
 }, true);
+
+// サイドバーの表示・非表示（PC）。ボタンは [data-sidebar-toggle]（サイドバーの「隠す」と、隠したときの左上の「開く」）。
+// 状態は html の sidebar-hidden クラス（最初の反映は theme-init.js）。選んだ状態はこのブラウザに保存する
+(function () {
+    var KEY = "fara-pokemon-battle-assistant.sidebar-hidden";
+    var root = document.documentElement;
+    function sync() {
+        var hidden = root.classList.contains("sidebar-hidden");
+        var buttons = document.querySelectorAll("[data-sidebar-toggle]");
+        for (var i = 0; i < buttons.length; i++) buttons[i].setAttribute("aria-expanded", hidden ? "false" : "true");
+    }
+    document.addEventListener("click", function (e) {
+        if (!e.target.closest || !e.target.closest("[data-sidebar-toggle]")) return;
+        var hidden = !root.classList.contains("sidebar-hidden");
+        root.classList.toggle("sidebar-hidden", hidden);
+        try { localStorage.setItem(KEY, hidden ? "1" : "0"); } catch (err) { }
+        sync();
+        // 隠す・開くで、ページの幅と選択中の印（motion.js）の位置が変わるので、測り直させる
+        window.dispatchEvent(new Event("resize"));
+        var next = document.querySelector(hidden ? ".sidebar-reveal" : ".sidebar-hide");
+        if (next) next.focus();
+    });
+    // Blazor が描画したあと（ボタンができてから）に、aria-expanded を合わせる
+    new MutationObserver(function () { sync(); }).observe(document.body, { childList: true, subtree: true });
+    sync();
+})();

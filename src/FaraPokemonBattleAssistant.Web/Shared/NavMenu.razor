@@ -35,6 +35,8 @@
         </button>
         @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使え、全ページ共通のスイッチ *@
         <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="CollapseNavMenu" />
+        @* PC では、サイドバーを隠せる（隠したあとは、左上のボタンで開く。処理は wwwroot/js/page.js） *@
+        <button type="button" class="btn btn-sm btn-outline-light w-100 mt-2 sidebar-hide" data-sidebar-toggle aria-controls="site-sidebar" aria-expanded="true">◀ サイドバーを隠す</button>
     </div>
     <nav class="flex-column side-nav" @onclick="CollapseNavMenu">
         @* 選択中の印。項目の間を滑って動く（位置は wwwroot/js/motion.js が決める） *@
