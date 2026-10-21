@@ -1,0 +1,53 @@
+@* MudBlazor の土台（テーマ・ポップアップ・ダイアログ・スナックバー）。全ページで 1 回だけ置く（MainLayout.razor）。
+   テーマの色は、いまのサイトの紫（wwwroot/css/app.css の :root）に合わせてある。ライト／ダークは AppState.Theme に従う。
+   MudBlazor の部品は、これから少しずつ使う。いまは、土台を入れただけで、見た目は変えない *@
+@using MudBlazor
+@inject AppState App
+@implements IDisposable
+
+<MudThemeProvider Theme="_theme" IsDarkMode="@(App.Theme == "dark")" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@code {
+    private static readonly string[] FontFamily = { "Zen Kaku Gothic New", "system-ui", "-apple-system", "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Meiryo", "sans-serif" };
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#7c3aed",
+            PrimaryContrastText = "#ffffff",
+            Background = "#f7f4fd",
+            Surface = "#ffffff",
+            TextPrimary = "#1e1433",
+            TextSecondary = "#6b5f8a",
+            DrawerBackground = "#1e0e2c",
+            AppbarBackground = "#2a1240",
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#a855f7",
+            PrimaryContrastText = "#ffffff",
+            Background = "#0c0616",
+            Surface = "#1a1030",
+            TextPrimary = "#f3edff",
+            TextSecondary = "#b4a7d1",
+            DrawerBackground = "#1e0e2c",
+            AppbarBackground = "#2a1240",
+        },
+        Typography = new Typography
+        {
+            // 字間は、いまのサイトのまま（MudBlazor の既定は、少し広げる）
+            Default = new DefaultTypography { FontFamily = FontFamily, LetterSpacing = "normal" },
+        },
+        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "6px" },
+    };
+
+    protected override void OnInitialized() => App.Changed += OnChanged;
+
+    private Task OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => App.Changed -= OnChanged;
+}

@@ -1,3 +1,15 @@
+/* ---- MudBlazor の土台 CSS が、素の button / option にも効く分を、元（Bootstrap のまま）に戻す ----
+   MudBlazor は index.html で先に読み込むので、同じ詳細度なら、ここ（後）が勝つ。:where で詳細度を足さないので、各部品の指定はこれまでどおり効く */
+button:where(:not([class*="mud-"])) {
+    display: inline-block;
+    vertical-align: baseline;
+    color: buttontext;
+}
+
+option {
+    padding: 0 2px 1px;
+}
+
 /* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる。fara-labs.com と同じ紫系） ---- */
 :root,
 [data-bs-theme="light"] {
