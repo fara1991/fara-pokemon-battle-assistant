@@ -2695,37 +2695,6 @@ button.compact-cell {
     position: relative;
 }
 
-/* サイドバーの選択中の印（NavMenu の nav の中で、項目の間を滑る） */
-.side-nav {
-    position: relative;
-    isolation: isolate;
-}
-
-.nav-indicator {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: -1;
-    border-radius: 4px;
-    background-color: rgba(255, 255, 255, 0.25);
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), width 0.45s cubic-bezier(0.16, 1, 0.3, 1), height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.nav-indicator.on {
-    opacity: 1;
-}
-
-.nav-indicator.no-anim {
-    transition: none;
-}
-
-/* 印が使えるときは、リンク自身の背景（選択中）は出さない */
-html.motion-nav .nav-item a.active {
-    background-color: transparent;
-}
-
 /* ページの切り替え: 画面の前後をなじませる（サイドバーは別の層にして、動かさない） */
 html.vt-nav .sidebar {
     view-transition-name: nav-side;
@@ -2979,9 +2948,6 @@ html.vt-nav .app-header {
     .race-bar,
     .type-chart td,
     .type-chart th,
-    .nav-indicator {
-        transition: none;
-    }
 
     ::view-transition-group(*),
     ::view-transition-old(*),
@@ -3195,15 +3161,14 @@ html.vt-nav .app-header {
     .sidebar .side-battle { display: none; }
     .top-battle {
         display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
-        position: absolute; top: 0.45rem; right: 5.2rem; z-index: 1;
-        margin: 0; padding: 0; min-height: 0; color: rgba(255, 255, 255, 0.85);
+        margin: 0 0 0 auto; padding: 0; min-height: 0; color: rgba(255, 255, 255, 0.85);
     }
     .top-battle .form-check-input { float: none; margin: 0; width: 2.2rem; height: 1.15rem; cursor: pointer; }
     .top-battle .form-check-label { font-size: 0.68rem; line-height: 1; white-space: nowrap; cursor: pointer; }
-    .sidebar .navbar-brand { font-size: 0.95rem; }
+    .app-brand { font-size: 0.95rem; }
 }
 @media (max-width: 380px) {
-    .sidebar .navbar-brand { font-size: 0.88rem; }
+    .app-brand { font-size: 0.88rem; }
 }
 
 .battle-ui {
@@ -3640,23 +3605,41 @@ html.vt-nav .app-header {
     .command-note-legend { display: inline; margin: 0; }
 }
 
-/* ---- ヘッダー（ハンバーガーとサイト名）とサイドバーの表示・非表示（PC。スマホはサイドバー上部のメニューのボタン）。切り替えは js/page.js ---- */
-.app-header {
-    display: none;
+/* ---- レイアウト（MudBlazor の MudLayout / MudAppBar / MudDrawer。Shared/MainLayout.razor・NavMenu.razor） ----
+   - ヘッダー: 上に固定（3.5rem）。ハンバーガー・サイト名・検索・設定（PC）／ハンバーガー・サイト名・対戦画面のスイッチ（スマホ）
+   - サイドバー: PC は Mini ドロワー（隠すと、アイコンだけの細い列。マウスを乗せると広げて、ページの上にかぶせる）。スマホは、ハンバーガーで開く一時的なメニュー
+   - 隠している間の余白（対戦画面・結果バー・背景のコート）は、html の sidebar-hidden クラス（MainLayout が付け外し）で決める */
+.page.mud-layout {
+    position: relative;
+    min-height: 100vh;
 }
 
-.sidebar-toggle {
+.app-header.mud-appbar {
+    height: 3.5rem;
+    z-index: 1040;
+    color: #fff;
+    background: linear-gradient(90deg, #140a26 0%, #241243 100%);
+    border-bottom: 2px solid #c084fc;
+}
+
+.app-header .mud-toolbar {
+    height: 3.5rem;
+    min-height: 3.5rem;
+    gap: 12px;
+    padding: 0 12px;
+}
+
+.app-header .sidebar-toggle {
     flex: 0 0 auto;
     width: 40px;
     height: 40px;
     padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 10px;
-    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.5rem rgba(255, 255, 255, 0.08);
-    cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
-.sidebar-toggle:hover {
+.app-header .sidebar-toggle:hover {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
@@ -3672,129 +3655,101 @@ html.vt-nav .app-header {
     color: #fff;
 }
 
+.app-header :focus-visible {
+    outline-color: #e9d5ff;
+}
+
+/* サイドバー（後ろの宇宙の背景がわずかに透けるよう、少しだけ半透明） */
+.sidebar.mud-drawer {
+    color: #d7d7d7;
+    background-color: #1a0d33;
+    background-image: linear-gradient(180deg, rgba(20, 10, 38, 0.92) 0%, rgba(36, 18, 67, 0.92) 60%, rgba(45, 27, 78, 0.92) 100%);
+    border-right: 1px solid rgba(200, 170, 255, 0.14);
+}
+
+.sidebar .mud-nav-link {
+    color: #d7d7d7;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.sidebar .mud-nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.sidebar .mud-nav-link.active {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+.sidebar .mud-nav-link .mud-icon-root {
+    color: inherit;
+}
+
+.sidebar .mud-nav-link.mud-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* グループの見出し（配信 など）。小さな文字で、項目より控えめに。細い列のときは、文字だけ消して、高さは残す（アイコンが動かない） */
+.sidebar .nav-section {
+    padding: 0 1rem;
+    margin-top: 0.4rem;
+    margin-bottom: 0.2rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sidebar.mud-drawer--closed:not(:hover) .nav-section,
+.sidebar.mud-drawer-mini:not(.mud-drawer--open):not(:hover) .nav-section {
+    opacity: 0;
+}
+
 @media (min-width: 768px) {
-    .app-header {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 1040;
-        height: 3.5rem;
+    /* ページ全体はスクロールさせず、画面の高さに収める。中身は各ページの .pane-fill / .pane-scroll が受け持ち、一覧や長い表の中だけがスクロールする */
+    .page.mud-layout {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .page .mud-main-content {
         display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 0 12px;
-        color: #fff;
-        background: linear-gradient(90deg, #140a26 0%, #241243 100%);
-        border-bottom: 2px solid #c084fc;
+        flex-direction: column;
+        height: 100vh;
+        min-height: 0;
     }
 
-    /* サイドバーは、ヘッダーの下。サイドバー上部のサイト名は、ヘッダーがあるので出さない。
-       中身（.sidebar-panel）は枠（.sidebar）の中に重ねて置く。隠している間は、枠を細くして（アイコンの列）、中身も同じ幅にする */
-    /* NavMenu の scoped CSS（.sidebar の overflow-y: auto）に負けないよう、強くする。枠より広がる中身が切れないように */
-    html .page > .sidebar {
-        overflow: visible;
-        /* 枠そのものは、ヘッダー（ハンバーガー）を覆わないよう、何も描かず、クリックも受けない（中身 .sidebar-panel だけが受ける） */
-        pointer-events: none;
-        background: none;
-        border-right: 0;
+    .page .mud-main-content > main {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
     }
 
-    /* 広げた中身が、画面下の結果バーなどの上に出るよう、隠しているときだけ前に置く（開いているときは、ヘッダーの検索結果などの下にならないよう、前に置かない） */
-    html.sidebar-hidden .page > .sidebar {
-        z-index: 1045;
+    /* 収まらない画面（高さが低いとき）は、ここがスクロールして何も切れないようにする */
+    .content {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        padding-bottom: 1rem;
     }
 
-    .sidebar .top-row {
+    /* 隠している間は、細い列にマウスを乗せて広げても、ページの中身は動かさない（広げた分は、ページの上にかぶせる。MudBlazor の既定は、中身を押し出す） */
+    html.sidebar-hidden .page .mud-main-content {
+        margin-left: var(--mud-drawer-width-mini-left) !important;
+    }
+
+    /* 設定は、ヘッダーに出すので、サイドバーの上のほうの同じ欄は、PC では出さない（スマホは、そのまま出す） */
+    .sidebar .side-settings {
         display: none;
-    }
-
-    .sidebar-panel {
-        position: absolute;
-        top: 3.5rem;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        pointer-events: auto;
-        border-right: 1px solid rgba(200, 170, 255, 0.14);
-        overflow: hidden;
-        background-color: #1a0d33;
-        background-image: linear-gradient(180deg, rgba(20, 10, 38, 0.92) 0%, rgba(36, 18, 67, 0.92) 60%, rgba(45, 27, 78, 0.92) 100%);
-        transition: width 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    /* 項目は、いつも本来の幅（230px）で並べておき、細い列のときは、枠で切る（広げたときに並べ直さない・選択中の印（motion.js）の大きさが変わらない） */
-    .sidebar-panel .nav-scrollable {
-        width: 230px;
-    }
-
-    /* ページの中身も、ヘッダーの下から始める */
-    main {
-        padding-top: 3.5rem;
-    }
-
-    /* アイコンを、細い列の真ん中に置く。項目の左右の余白を 0.5rem にし、アイコン（18px）が、列（3.5rem）から左右 0.5rem を除いた幅（2.5rem）の中で中央になるよう、左の余白を 11px にする。
-       この位置は、開いているときも、広げたときも同じ（アイコンが動かない） */
-    .sidebar-panel .nav-item.px-3 {
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
-    }
-
-    html .sidebar-panel .nav-item .nav-link {
-        padding-left: 11px;
-    }
-
-    /* 選択中の印（motion.js が大きさを決める）は、項目の幅（230px - 左右の余白）にそろえる。細い列のときは、列の幅（2.5rem）の中で左右対称にする */
-    .sidebar-panel .nav-indicator {
-        width: calc(100% - 1rem) !important;
-    }
-
-    html.sidebar-hidden .sidebar:not(:hover):not(:has(:focus-visible)) .sidebar-panel .nav-link {
-        width: 2.5rem;
-        white-space: nowrap;
-        overflow: hidden;
-        clip-path: inset(0 3px 0 0);   /* 項目名の頭が、列の端に 1px ほど見えるのを隠す */
-    }
-
-    html.sidebar-hidden .sidebar:not(:hover):not(:has(:focus-visible)) .sidebar-panel .nav-indicator {
-        width: 2.5rem !important;
-    }
-
-    /* 隠しているとき: サイドバーは、アイコンだけの細い列（56px）にする。項目の名前は、枠の外にはみ出して切れる。
-       この列にマウスを乗せている間（または、キーボードで入ったとき）は、本来の幅まで広げて、ページの上にかぶせて出す。
-       ハンバーガーを押すと、クラスが外れて、ふつうに広がったまま並ぶ */
-    html.sidebar-hidden .sidebar {
-        width: 3.5rem;
-    }
-
-    html.sidebar-hidden .sidebar-panel {
-        width: 3.5rem;
-    }
-
-    html.sidebar-hidden .sidebar-panel .nav-section {
-        opacity: 0;
-        transition: opacity 0.15s ease;
-    }
-
-
-    html.sidebar-hidden .sidebar:has(:focus-visible) .sidebar-panel {
-        width: 230px;
-        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
-    }
-
-    html.sidebar-hidden .sidebar:has(:focus-visible) .sidebar-panel .nav-section {
-        opacity: 1;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .sidebar-panel,
-        html.sidebar-hidden .sidebar-panel .nav-section {
-            transition-duration: 0s;
-        }
-    }
-
-    .app-header :focus-visible {
-        outline-color: #e9d5ff;
     }
 
     /* サイドバー（230px）を前提にした配置は、隠している間は、細い列（56px）の分にする（対戦画面・結果バー・背景のコート） */
@@ -3811,19 +3766,18 @@ html.vt-nav .app-header {
     }
 }
 
-@media (min-width: 768px) and (hover: hover) {
-    /* 隠しているときの、細い列にマウスを乗せたら広げる。広げるときだけ、少し待つ（ほかのモニターへ向かってマウスを大きく動かしたときに、ちらつかないように） */
-    html.sidebar-hidden .sidebar:hover .sidebar-panel {
-        width: 230px;
-        transition-delay: 0.12s;
-        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+@media (max-width: 767.98px) {
+    .page .mud-main-content > main {
+        width: 100%;
     }
 
-    html.sidebar-hidden .sidebar:hover .sidebar-panel .nav-section {
-        opacity: 1;
-        transition-delay: 0.12s;
+    .app-header .mud-toolbar {
+        gap: 8px;
     }
+}
 
+.content {
+    padding-top: 1.1rem;
 }
 
 /* ---- ヘッダーの検索欄・全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク） ---- */
@@ -4170,10 +4124,6 @@ html.vt-nav .app-header {
         cursor: pointer;
     }
 
-    /* 設定は、ヘッダーに出すので、サイドバーの上のほうの同じ欄は、PC では出さない（スマホは、そのまま出す） */
-    .sidebar .side-settings {
-        display: none;
-    }
 }
 
 @media (min-width: 768px) and (max-width: 1199.98px) {

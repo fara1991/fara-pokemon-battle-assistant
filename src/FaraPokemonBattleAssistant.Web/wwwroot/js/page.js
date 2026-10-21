@@ -320,33 +320,22 @@ document.addEventListener("focusin", function (e) {
     if (t && t.tagName === "INPUT" && t.closest && t.closest(".searchable-select")) t.select();
 }, true);
 
-// サイドバーの表示・非表示（PC）。左上のハンバーガー（[data-sidebar-toggle]）を押すたびに切り替える（Google の管理画面と同じ）。
-// 状態は html の sidebar-hidden クラス（最初の反映は theme-init.js）。選んだ状態はこのブラウザに保存する
-(function () {
-    var KEY = "fara-pokemon-battle-assistant.sidebar-hidden";
-    var root = document.documentElement;
-    // aria-expanded は、サイドバーが開いているとき true、隠しているとき false
-    function sync() {
-        var open = !root.classList.contains("sidebar-hidden");
-        var buttons = document.querySelectorAll("[data-sidebar-toggle]");
-        for (var i = 0; i < buttons.length; i++) buttons[i].setAttribute("aria-expanded", open ? "true" : "false");
-        return buttons.length > 0;
-    }
-    document.addEventListener("click", function (e) {
-        if (!e.target.closest || !e.target.closest("[data-sidebar-toggle]")) return;
-        var hidden = !root.classList.contains("sidebar-hidden");
-        root.classList.toggle("sidebar-hidden", hidden);
-        try { localStorage.setItem(KEY, hidden ? "1" : "0"); } catch (err) { }
-        sync();
-        // 隠す・開くで、ページの幅と選択中の印（motion.js）の位置が変わるので、測り直させる
-        window.dispatchEvent(new Event("resize"));
-    });
-    // ボタンは Blazor が描画する。できたら一度だけ状態に合わせて、監視をやめる
-    if (!sync()) {
-        var observer = new MutationObserver(function () { if (sync()) observer.disconnect(); });
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-})();
+// サイドバーの表示・非表示（PC）。ハンバーガー（MudBlazor の MudIconButton。Shared/MainLayout.razor）を押すたびに、MainLayout が呼ぶ。
+// 状態は html の sidebar-hidden クラス（最初の反映は theme-init.js。対戦画面などの余白は、このクラスで決まる）。選んだ状態はこのブラウザに保存する
+window.faraSidebarChanged = function (hidden) {
+    document.documentElement.classList.toggle("sidebar-hidden", !!hidden);
+    try { localStorage.setItem("fara-pokemon-battle-assistant.sidebar-hidden", hidden ? "1" : "0"); } catch (err) { }
+    // 隠す・開くで、ページの幅が変わるので、測り直させる
+    window.dispatchEvent(new Event("resize"));
+};
+
+// 画面の幅がスマホ（768px 未満）かどうかを、Blazor（Shared/MainLayout.razor）に知らせる。最初の状態を返し、変わったら OnMobileChanged を呼ぶ
+window.faraWatchMobile = function (ref) {
+    var mq = window.matchMedia("(max-width: 767.98px)");
+    var handler = function (e) { ref.invokeMethodAsync("OnMobileChanged", e.matches); };
+    if (mq.addEventListener) mq.addEventListener("change", handler); else if (mq.addListener) mq.addListener(handler);
+    return mq.matches;
+};
 
 // ヘッダーの検索欄へ移る: Ctrl+K（Mac は ⌘K）か「/」（文字を入力中は、「/」を奪わない）。欄は Blazor が描画する（Shared/SiteSearch.razor）
 document.addEventListener("keydown", function (e) {

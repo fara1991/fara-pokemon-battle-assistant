@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @inject BattleStage Stage
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+@using MudBlazor
 @implements IDisposable
 
 @* MudBlazor の土台（テーマ・ポップアップ・ダイアログ。Shared/MudProviders.razor） *@
@@ -12,39 +14,105 @@
 @* 対戦画面（結果をフィールドの上に重ねて出す。Shared/BattleOverlay.razor）。出している間は main（入力欄）を隠す *@
 <BattleOverlay />
 
-<div class="page @(Stage.BattleActive ? "battle-active" : "")">
-    @* PC の上に固定するヘッダー（ハンバーガーとサイト名）。ハンバーガーを押すたびに、サイドバーの表示・非表示を切り替える（処理は wwwroot/js/page.js）。
-       スマホは、サイドバー上部のサイト名とメニューのボタンを使う。キーボードで最初に届くよう、サイドバーの前に置く *@
-    <header class="app-header">
-        <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-controls="site-sidebar" aria-expanded="true" aria-label="サイドバーの表示・非表示" title="サイドバーの表示・非表示"></button>
+<MudLayout Class="@("page " + (Stage.BattleActive ? "battle-active" : ""))">
+    @* 上に固定するヘッダー。ハンバーガーを押すたびに、サイドバーの表示・非表示を切り替える（PC は、隠すとアイコンだけの細い列、マウスを乗せると広がる）。
+       検索欄と、全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク）は PC だけ。スマホは、メニューの上のほうに同じものがある（NavMenu.razor） *@
+    <MudAppBar Fixed="true" Elevation="0" Gutters="false" Class="app-header">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Class="sidebar-toggle" OnClick="ToggleDrawer"
+                       aria-label="サイドバーの表示・非表示" aria-controls="site-sidebar" aria-expanded="@(DrawerOpen ? "true" : "false")" title="サイドバーの表示・非表示" />
         <a class="app-brand" href="/" title="ホームへ">Pokémon Battle Assistant</a>
-        @* 検索欄と、全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク）。スマホは、サイドバーの上のほうに同じものがある（NavMenu.razor） *@
-        <SiteSearch />
-        <HeaderControls />
-    </header>
+        @if (Mobile)
+        {
+            @* スマホでは、メニューを開かずに切り替えられるよう、ヘッダーに置く *@
+            <BattleViewSwitch InputId="top-battle-view" Class="top-battle" Compact="true" />
+        }
+        else
+        {
+            <SiteSearch />
+            <HeaderControls />
+        }
+    </MudAppBar>
 
-    @* 隠しているとき（PC）は、アイコンだけの細い列になる。マウスを乗せている間は、広げて出す（CSS の :hover）。ハンバーガーを押すと、広げたままにする *@
-    <div class="sidebar" id="site-sidebar">
-        <div class="sidebar-panel">
-            <NavMenu />
-        </div>
-    </div>
+    @* PC: 隠すと、アイコンだけの細い列になる。マウスを乗せている間は、広げて出す（MudBlazor の Mini ドロワー）。ハンバーガーを押すと、広げたままにする。スマホ: ハンバーガーで開く一時的なメニュー *@
+    <MudDrawer Open="DrawerOpen" OpenChanged="OnDrawerOpenChanged" Variant="@(Mobile ? DrawerVariant.Temporary : DrawerVariant.Mini)" OpenMiniOnHover="true"
+               ClipMode="@(Mobile ? DrawerClipMode.Never : DrawerClipMode.Always)" Elevation="0" Class="sidebar" id="site-sidebar">
+        <NavMenu Mobile="Mobile" OnNavigate="CloseOnMobile" />
+    </MudDrawer>
 
-    <main>
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+    <MudMainContent>
+        <main>
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </MudMainContent>
+</MudLayout>
 
 <Toasts />
 
 @code {
     private string currentGroup = "";
 
+    // サイドバーの状態。PC は、開いている（本来の幅）／隠している（細い列）。スマホは、メニューが開いているか。
+    // PC の「隠している」は、html の sidebar-hidden クラス（描画前の反映は theme-init.js、対戦画面などの余白は app.css）とブラウザの保存に合わせる
+    private const string SidebarKey = "fara-pokemon-battle-assistant.sidebar-hidden";
+    private bool desktopOpen = true;
+    private bool mobileOpen;
+    private bool mobile;
+
+    private DotNetObjectReference<MainLayout>? self;
+
+    /// <summary>スマホ（768px 未満）かどうか。スマホは、サイドバーを、ハンバーガーで開く一時的なメニューにする（js/page.js の faraWatchMobile が知らせる）。</summary>
+    private bool Mobile => mobile;
+
+    [JSInvokable]
+    public void OnMobileChanged(bool matches)
+    {
+        if (mobile == matches) return;
+        mobile = matches;
+        mobileOpen = false;
+        StateHasChanged();
+    }
+
+    private bool DrawerOpen => Mobile ? mobileOpen : desktopOpen;
+
+    private void ToggleDrawer() => SetDrawerOpen(!DrawerOpen);
+
+    /// <summary>
+    /// MudBlazor が知らせる開閉。PC の細い列に、マウスを乗せて広げたり、離して戻ったりしたときも来るが、それは「見た目だけの一時的な広がり」なので、
+    /// 保存する状態（desktopOpen）は変えない。変えるのは、ハンバーガー（ToggleDrawer）と、スマホのメニュー（外をタップして閉じる）だけ
+    /// </summary>
+    private void OnDrawerOpenChanged(bool open)
+    {
+        if (Mobile) mobileOpen = open;
+    }
+
+    private void SetDrawerOpen(bool open)
+    {
+        if (Mobile) { mobileOpen = open; return; }
+        desktopOpen = open;
+        _ = ApplyDesktopStateAsync();
+    }
+
+    private void CloseOnMobile() { if (Mobile) mobileOpen = false; }
+
+    /// <summary>PC の開閉を、html のクラスとブラウザの保存に反映する（対戦画面の余白などは、このクラスで決まる。js/page.js の faraSidebarChanged）。</summary>
+    private async Task ApplyDesktopStateAsync()
+    {
+        try { await JS.InvokeVoidAsync("faraSidebarChanged", !desktopOpen); }
+        catch { /* JS が使えないときは、反映しない */ }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         Stage.Changed += OnStageChanged;
+        try { desktopOpen = await JS.InvokeAsync<string?>("localStorage.getItem", SidebarKey) != "1"; } catch { }
+        try
+        {
+            self = DotNetObjectReference.Create(this);
+            mobile = await JS.InvokeAsync<bool>("faraWatchMobile", self);
+        }
+        catch { /* JS が使えないときは PC として扱う */ }
         currentGroup = GroupOf(Nav.ToBaseRelativePath(Nav.Uri));
         Nav.LocationChanged += OnLocationChanged;
         await Stage.InitializeAsync();
@@ -79,5 +147,6 @@
     {
         Stage.Changed -= OnStageChanged;
         Nav.LocationChanged -= OnLocationChanged;
+        self?.Dispose();
     }
 }
