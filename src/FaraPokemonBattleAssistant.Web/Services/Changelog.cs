@@ -25,6 +25,7 @@ public sealed class Changelog
             var list = new List<ChangelogEntry>();
             foreach (var e in entries.EnumerateArray())
             {
+                if (e.ValueKind != JsonValueKind.Object) throw new FormatException("entries の要素がオブジェクトではありません");
                 var dateText = e.TryGetProperty("date", out var d) && d.ValueKind == JsonValueKind.String ? d.GetString() : null;
                 if (!DateOnly.TryParseExact(dateText, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
                     throw new FormatException($"date が yyyy-MM-dd ではありません: {dateText}");

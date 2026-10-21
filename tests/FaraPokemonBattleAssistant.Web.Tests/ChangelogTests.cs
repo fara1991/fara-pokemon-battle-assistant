@@ -25,6 +25,7 @@ public class ChangelogTests
     [Theory]
     [InlineData("<!doctype html><html></html>")]                                      // ファイルが無いときの SPA のフォールバック
     [InlineData("[]")]                                                                  // entries が無い
+    [InlineData("""{ "entries": ["x"] }""")]                                            // 要素がオブジェクトでない
     [InlineData("""{ "entries": {} }""")]                                               // entries が配列でない
     [InlineData("""{ "entries": [ { "date": "2026/10/20", "title": "x" } ] }""")]       // 日付の形が違う
     [InlineData("""{ "entries": [ { "date": "2026-10-20", "title": " " } ] }""")]       // 見出しが空
