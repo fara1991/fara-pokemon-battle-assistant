@@ -7,9 +7,9 @@
     <p class="text-muted mb-0">自作のツールやスクリプトから、登録データを直接読み書きしたい人向けの説明です。ブラウザと配信用BOTで使うだけなら、ここは読まなくて大丈夫です。</p>
 </div>
 
-<div class="card mb-3">
-    <div class="card-header"><h5>API で使うには <span class="badge bg-secondary ms-1">上級者向け</span></h5></div>
-    <div class="card-body">
+<MudCard Elevation="0" Class="card mb-3">
+    <MudCardHeader Class="card-header"><CardHeaderContent><h5>API で使うには <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Default" Class="app-badge ms-1">上級者向け</MudChip></h5></CardHeaderContent></MudCardHeader>
+    <MudCardContent Class="card-body">
         <p class="small mb-2">アクセスキーを使うと、登録したポケモンとチームを、このサイトの外から API で読み書きできます。</p>
         <ol class="mb-2 ps-3">
             <li><a href="data-share">データ共有</a>ページで「データ共有を始める」を押して、アクセスキーを作り、「コピー」でコピーします。</li>
@@ -36,5 +36,5 @@
         <p class="small text-muted mb-2">使い方の一例が、チャットの配信用BOTです。<a href="https://github.com/fara1991/fara-bot-moderator" target="_blank" rel="noopener noreferrer">FaraBotModerator</a>（Auto Bot Settings）の Game タブ → ポケモンシリーズ の「アクセスキー」欄に貼り付けると、チャットの <code>add -m</code> / <code>use -t</code> などと、このサイトが同じデータを読み書きするようになります。</p>
         <p class="small text-muted mb-2">データ共有中はクラウドのデータだけを使い、このブラウザには保存しません（コピーを取り合うのではなく、全員が同じデータを使います）。アクセスキーを作り直したら、API を使うほかのツールや端末にも新しいアクセスキーを入れ直してください（古いキーは使えなくなります）。</p>
         <p class="small text-muted mb-0">ポケモン・技・持ち物などのゲームデータ（このサイトが使っている CSV）は、アクセスキーなしで <code>/api/game/</code> から読めます（<a href="api/game/datasets.csv" target="_blank" rel="noopener noreferrer"><code>/api/game/datasets.csv</code></a> がゲームの一覧、<code>/api/game/ゲームのキー/pokemon.csv</code> などがその中身）。</p>
-        </div>
-</div>
+        </MudCardContent>
+</MudCard>

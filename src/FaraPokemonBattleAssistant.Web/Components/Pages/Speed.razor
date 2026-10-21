@@ -14,11 +14,11 @@
 
 @if (!string.IsNullOrEmpty(loadError))
 {
-    <div class="alert alert-danger">@loadError</div>
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" NoIcon="true">@loadError</MudAlert>
 }
 @if (!string.IsNullOrEmpty(rosterError))
 {
-    <div class="alert alert-warning">@rosterError</div>
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" NoIcon="true">@rosterError</MudAlert>
 }
 
 @if (dataSet is { CalcSupported: false })
@@ -398,8 +398,8 @@ else if (data is not null && dataSet is not null)
                                 <input type="number" class="form-control form-control-sm" min="0" max="@max" step="@EvRules.Step(dataSet.EvSystem)"
                                        value="@build.EVs.Speed" @onchange="@(e => build.EVs[Stat.Speed] = Clamp(e.Value, max))" />
                                 <div class="ev-buttons">
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[Stat.Speed] = 0">0</button>
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[Stat.Speed] = EvRules.MaxAllowed(dataSet.EvSystem, build.EVs, Stat.Speed)">@max</button>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => build.EVs[Stat.Speed] = 0)">0</MudButton>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => build.EVs[Stat.Speed] = EvRules.MaxAllowed(dataSet.EvSystem, build.EVs, Stat.Speed))">@max</MudButton>
                                 </div>
                             </div>
                         </div>

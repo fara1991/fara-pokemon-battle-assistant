@@ -29,9 +29,18 @@ builder.Services.AddSingleton(sp => new PokeCommand(sp.GetRequiredService<DataCa
 builder.Services.AddSingleton(sp => new AppState(sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<IJSRuntime>()));
 builder.Services.AddSingleton<PageStateStore>();
 builder.Services.AddSingleton<BattleStage>();
-builder.Services.AddSingleton<ToastService>();
+// MudBlazor の ISnackbar（スコープ付き）を使うので、ToastService もスコープ付き（WebAssembly では、アプリの間ずっと 1 つ）
+builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton(sp => new SearchService(sp.GetRequiredService<HttpClient>(), sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<AppState>()));
 
-builder.Services.AddMudServices();
+builder.Services.AddMudServices(config =>
+{
+    // 通知（ToastService）: 画面の右上に、同時に 5 つまで。閉じるボタン付き
+    config.SnackbarConfiguration.PositionClass = MudBlazor.Defaults.Classes.Position.TopRight;
+    config.SnackbarConfiguration.MaxDisplayedSnackbars = 5;
+    config.SnackbarConfiguration.ShowCloseIcon = true;
+    config.SnackbarConfiguration.PreventDuplicates = false;
+    config.SnackbarConfiguration.SnackbarVariant = MudBlazor.Variant.Filled;
+});
 
 await builder.Build().RunAsync();

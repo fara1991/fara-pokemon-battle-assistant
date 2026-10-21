@@ -1,11 +1,11 @@
 @using FaraPokemonBattleAssistant.Core.Roster
-@* 「登録から選ぶ」のスイッチ。オンにすると、ポケモンの入力欄の候補が登録済みのポケモンだけになる（RosterPokemonSelect）。
+@* 「登録から選ぶ」のスイッチ（MudBlazor の MudSwitch）。オンにすると、ポケモンの入力欄の候補が登録済みのポケモンだけになる（RosterPokemonSelect）。
    登録が 1 件もなければスイッチは出さず、登録ページへの案内だけを出す。 *@
 @if (Groups.Count > 0)
 {
-    <div class="form-check form-switch mb-2">
-        <input class="form-check-input" type="checkbox" role="switch" id="@id" checked="@Enabled" @onchange="Toggle" />
-        <label class="form-check-label" for="@id">登録から選ぶ</label> <Help Title="登録から選ぶ">オンにすると、ポケモンの候補が登録済みのポケモン（チームのメンバーと、チームに入っていない登録）だけになり、選ぶと登録した性格・努力値（ポイント）・特性と、チームで持たせた持ち物が入ります。入れたあとに値を変えても、登録データは変わりません。オフのときは、すべてのポケモンから選べます。</Help>
+    <div class="roster-switch mb-2">
+        <MudSwitch T="bool" Value="@Enabled" ValueChanged="@(v => EnabledChanged.InvokeAsync(v))" Color="Color.Primary" Size="Size.Small" Label="登録から選ぶ" LabelPlacement="Placement.End" Class="roster-switch-input" />
+        <Help Title="登録から選ぶ">オンにすると、ポケモンの候補が登録済みのポケモン（チームのメンバーと、チームに入っていない登録）だけになり、選ぶと登録した性格・努力値（ポイント）・特性と、チームで持たせた持ち物が入ります。入れたあとに値を変えても、登録データは変わりません。オフのときは、すべてのポケモンから選べます。</Help>
     </div>
 }
 else if (ShowEmptyHint)
@@ -19,8 +19,4 @@ else if (ShowEmptyHint)
     [Parameter] public EventCallback<bool> EnabledChanged { get; set; }
     /// <summary>登録が無いときに案内を出すか（読み込みに失敗したときは出さない）。</summary>
     [Parameter] public bool ShowEmptyHint { get; set; } = true;
-
-    private readonly string id = "rs-" + Guid.NewGuid().ToString("N")[..8];
-
-    private Task Toggle(ChangeEventArgs e) => EnabledChanged.InvokeAsync(e.Value is true);
 }

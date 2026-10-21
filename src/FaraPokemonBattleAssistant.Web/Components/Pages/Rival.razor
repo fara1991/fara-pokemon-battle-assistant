@@ -32,7 +32,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             SelectedValueChanged="@OnNewPokemonChanged"
                             Placeholder="ポケモン名を入力..." />
                     </div>
-                    <button class="btn btn-primary mb-3" @onclick="AddRivalAsync" disabled="@(newPokemon is null || roster.Rivals.Count >= PokeCommand.MaxRivals)">対戦中の相手に追加</button>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-3" OnClick="AddRivalAsync" Disabled="@(newPokemon is null || roster.Rivals.Count >= PokeCommand.MaxRivals)">対戦中の相手に追加</MudButton>
 
                     @if (roster.Rivals.Count == 0)
                     {
@@ -52,9 +52,9 @@ else if (data is not null && roster is not null && dataSet is not null)
                                         </div>
                                         <div class="d-flex flex-shrink-0 gap-1">
                                             @* 選出された（試合に出てきた）相手は、履歴で分かるように印を付ける *@
-                                            <button class="btn btn-sm @(rival.Picked ? "btn-success" : "btn-outline-success")" aria-pressed="@(rival.Picked ? "true" : "false")" title="試合に出てきた相手に付けます。履歴で、選出した相手が分かります" @onclick="() => TogglePickedAsync(rival)">@(rival.Picked ? "選出済み" : "選出")</button>
-                                            <button class="btn btn-outline-primary btn-sm" @onclick="() => StartEdit(rival)">@(editingId == rival.Id ? "編集中" : "編集")</button>
-                                            <button class="btn btn-outline-secondary btn-sm" @onclick="() => RemoveRivalAsync(rival)">外す</button>
+                                            <MudButton Size="Size.Small" Color="Color.Success" Variant="@(rival.Picked ? Variant.Filled : Variant.Outlined)" aria-pressed="@(rival.Picked ? "true" : "false")" title="試合に出てきた相手に付けます。履歴で、選出した相手が分かります" OnClick="@(() => TogglePickedAsync(rival))">@(rival.Picked ? "選出済み" : "選出")</MudButton>
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="@(() => StartEdit(rival))">@(editingId == rival.Id ? "編集中" : "編集")</MudButton>
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" OnClick="@(() => RemoveRivalAsync(rival))">外す</MudButton>
                                         </div>
                                     </div>
                                     @if (editingId == rival.Id && pokemon is not null)
@@ -83,9 +83,9 @@ else if (data is not null && roster is not null && dataSet is not null)
                                                             <input type="number" class="form-control form-control-sm" aria-label="@StatNames.Japanese(st)" title="@StatNames.Japanese(st)" min="0" max="@EvRules.MaxPerStat(dataSet.EvSystem)" step="@EvRules.Step(dataSet.EvSystem)"
                                                                    placeholder="不明" value="@editEvs[st]" @onchange="@(e => { editEvs[st] = ClampText(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)); evVersion++; })" />
                                                             <div class="ev-buttons">
-                                                                <button type="button" class="btn btn-outline-secondary" @onclick="() => { editEvs[st] = 0.ToString(); evVersion++; }">0</button>
-                                                                <button type="button" class="btn btn-outline-secondary" @onclick="() => { editEvs[st] = EditMaxAllowed(st).ToString(); evVersion++; }">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
-                                                                <button type="button" class="btn btn-outline-secondary" title="不明に戻す" @onclick="() => { editEvs[st] = string.Empty; evVersion++; }">?</button>
+                                                                <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => { editEvs[st] = 0.ToString(); evVersion++; })">0</MudButton>
+                                                                <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => { editEvs[st] = EditMaxAllowed(st).ToString(); evVersion++; })">@EvRules.MaxPerStat(dataSet.EvSystem)</MudButton>
+                                                                <MudButton Variant="Variant.Outlined" Color="Color.Default" title="不明に戻す" OnClick="@(() => { editEvs[st] = string.Empty; evVersion++; })">?</MudButton>
                                                             </div>
                                                         </div>
                                                     }
@@ -133,8 +133,8 @@ else if (data is not null && roster is not null && dataSet is not null)
                                                 </div>
                                             </div>
                                             <div class="d-flex gap-2 mt-2">
-                                                <button class="btn btn-success btn-sm" @onclick="() => SaveEditAsync(rival)">保存</button>
-                                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => editingId = null">取り消し</button>
+                                                <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" OnClick="@(() => SaveEditAsync(rival))">保存</MudButton>
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" OnClick="@(() => editingId = null)">取り消し</MudButton>
                                             </div>
                                         </div>
                                     }
@@ -147,7 +147,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                         <label class="form-label">試合を終える <Help Title="試合を終える">対戦中の相手を全員（名前だけの相手も）履歴に移して、対戦中の相手を空にします。選出した相手・見えた技・ポイント・性格・特性・推定も一緒に残ります。メモ（相手の名前など）を付けておくと、あとで探しやすくなります。</Help></label>
                         <div class="input-group">
                             <input class="form-control" placeholder="メモ（任意。例: ○○さん戦）" maxlength="60" @bind="memo" @bind:event="oninput" />
-                            <button class="btn btn-warning" @onclick="EndMatchAsync" disabled="@(roster.Rivals.Count == 0)">試合を終える（履歴へ）</button>
+                            <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="EndMatchAsync" Disabled="@(roster.Rivals.Count == 0)">試合を終える（履歴へ）</MudButton>
                         </div>
                     </div>
                 </div>
@@ -173,26 +173,26 @@ else if (data is not null && roster is not null && dataSet is not null)
                                             <strong>#@match.Id</strong> <span class="small text-muted">@DateText(match.Date)</span>
                                             @if (match.Memo.Length > 0) { <span class="ms-1">「@match.Memo」</span> }
                                         </div>
-                                        <button class="btn btn-outline-secondary btn-sm flex-shrink-0" @onclick="() => RemoveMatchAsync(match)">削除</button>
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="flex-shrink-0" OnClick="@(() => RemoveMatchAsync(match))">削除</MudButton>
                                     </div>
                                     @* 選出した相手を先に並べ、印を付ける。選出しなかった相手も残る *@
                                     @foreach (var foe in match.Foes.OrderByDescending(f => f.Picked))
                                     {
-                                        <div class="small mt-1"><PokemonLabel Pokemon="data.FindPokemon(foe.PokemonId)" Small="true" /> @if (foe.Picked) { <span class="badge text-bg-success">選出</span> } <span class="text-muted">@PokeCommand.DescribeRival(foe, data, dataSet.EvSystem, withName: false, withNotes: true, withPicked: false)</span></div>
+                                        <div class="small mt-1"><PokemonLabel Pokemon="data.FindPokemon(foe.PokemonId)" Small="true" /> @if (foe.Picked) { <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" Class="app-badge">選出</MudChip> } <span class="text-muted">@PokeCommand.DescribeRival(foe, data, dataSet.EvSystem, withName: false, withNotes: true, withPicked: false)</span></div>
                                     }
                                 </li>
                             }
                         </ul>
                         @if (historyHasMore)
                         {
-                            <button class="btn btn-outline-secondary btn-sm mt-2" disabled="@historyLoading" @onclick="LoadMoreHistoryAsync">さらに表示（古い試合）</button>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="mt-2" Disabled="@(historyLoading)" OnClick="LoadMoreHistoryAsync">さらに表示（古い試合）</MudButton>
                         }
                         @* 件数が上限（ブラウザ 2,000 件・クラウド 1 万件）に近づいたとき用。新しい N 件を残して、古い履歴を削除する *@
                         <div class="input-group input-group-sm mt-3">
                             <span class="input-group-text">古い履歴を整理</span>
                             <input type="number" class="form-control" min="0" aria-label="残す件数" @bind="keepLatest" />
                             <span class="input-group-text">件を残して削除</span>
-                            <button class="btn btn-outline-danger" disabled="@(historyLoading || keepLatest >= historyTotal)" @onclick="TrimHistoryAsync">削除</button>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="@(historyLoading || keepLatest >= historyTotal)" OnClick="TrimHistoryAsync">削除</MudButton>
                         </div>
                     }
                 </div>

@@ -23,9 +23,9 @@
             <option value="@BattleFormat.Singles">シングル</option>
             <option value="@BattleFormat.Doubles">ダブル</option>
         </select>
-        <button type="button" class="btn btn-sm btn-outline-light w-100 mt-2" @onclick="App.ToggleThemeAsync">
+        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Size="Size.Small" FullWidth="true" Class="mt-2" OnClick="App.ToggleThemeAsync">
             @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
-        </button>
+        </MudButton>
         @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使え、全ページ共通のスイッチ *@
         <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="OnNavigate" />
     </div>

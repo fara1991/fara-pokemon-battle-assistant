@@ -11,7 +11,7 @@
 
 @if (!string.IsNullOrEmpty(LoadError))
 {
-    <div class="alert alert-danger">@LoadError</div>
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" NoIcon="true">@LoadError</MudAlert>
 }
 
 @if (data is not null)
@@ -56,7 +56,7 @@
             </div>
             <div class="dex-summary">
                 <strong>@results.Count 件</strong>
-                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto dex-clear" @onclick="ClearFilters">条件をクリア</button>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="ms-auto dex-clear" OnClick="ClearFilters">条件をクリア</MudButton>
                 <div class="dex-sort-mobile">
                     @* スマホ: 向きまで含めた選択肢にする（PC は見出しを押して切り替える） *@
                     <select class="form-select form-select-sm" aria-label="並び順" value="@SortValue(f.Sort, f.Descending)" @onchange="@(e => SetSort(e.Value?.ToString()))">

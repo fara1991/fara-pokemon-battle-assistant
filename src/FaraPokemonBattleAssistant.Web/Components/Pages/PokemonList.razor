@@ -12,7 +12,7 @@
 
 @if (!string.IsNullOrEmpty(LoadError))
 {
-    <div class="alert alert-danger">@LoadError</div>
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" NoIcon="true">@LoadError</MudAlert>
 }
 
 @if (data is not null && dex is not null)
@@ -75,7 +75,7 @@
                         <label class="form-check-label" for="dex-prov">未収録も表示</label>
                     </div>
                 }
-                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto dex-clear" @onclick="ClearFilters">条件をクリア</button>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="ms-auto dex-clear" OnClick="ClearFilters">条件をクリア</MudButton>
                 <div class="dex-sort-mobile">
                     @* スマホ: 向きまで含めた選択肢にする（PC は見出しを押して切り替える） *@
                     <select class="form-select form-select-sm" aria-label="並び順" value="@SortValue(f.Sort, f.Descending)" @onchange="@(e => SetSort(e.Value?.ToString()))">
@@ -133,10 +133,10 @@
                 {
                     <div class="dex-actions">
                         <span class="small text-muted">@p.Name を開く:</span>
-                        <a class="btn btn-sm btn-outline-primary" href="@($"damage-calculator?attacker={p.Id}")">ダメージ計算（攻撃側）</a>
-                        <a class="btn btn-sm btn-outline-primary" href="@($"damage-calculator?defender={p.Id}")">ダメージ計算（防御側）</a>
-                        <a class="btn btn-sm btn-outline-primary" href="@($"speed-comparison?p1={p.Id}")">素早さ比較</a>
-                        <a class="btn btn-sm btn-outline-primary" href="@($"type-chart?pokemon={p.Id}")">タイプ相性表</a>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="@($"damage-calculator?attacker={p.Id}")">ダメージ計算（攻撃側）</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="@($"damage-calculator?defender={p.Id}")">ダメージ計算（防御側）</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="@($"speed-comparison?p1={p.Id}")">素早さ比較</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="@($"type-chart?pokemon={p.Id}")">タイプ相性表</MudButton>
                     </div>
                 }
             </div>

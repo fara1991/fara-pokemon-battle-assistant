@@ -33,7 +33,7 @@
     </div>
     @if (OnClear.HasDelegate)
     {
-        <button type="button" class="btn btn-sm btn-outline-secondary nature-clear" disabled="@ClearDisabled" @onclick="OnClear">@ClearText</button>
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="nature-clear" Disabled="@(ClearDisabled)" OnClick="OnClear">@ClearText</MudButton>
     }
 </div>
 

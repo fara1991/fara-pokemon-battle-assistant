@@ -66,7 +66,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             }
                         </div>
                     </div>
-                    <button class="btn btn-primary mt-3" @onclick="AddToTeamAsync" disabled="@(s.TeamEntryId == 0 || s.TeamNumber < 1)">チームに追加</button>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="AddToTeamAsync" Disabled="@(s.TeamEntryId == 0 || s.TeamNumber < 1)">チームに追加</MudButton>
                 </div>
             </div>
         </div>
@@ -84,13 +84,13 @@ else if (data is not null && roster is not null && dataSet is not null)
                         <div>
                             @if (!isActive)
                             {
-                                <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => UseTeamAsync(team.Number)">このチームを使用</button>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="me-1" OnClick="@(() => UseTeamAsync(team.Number))">このチームを使用</MudButton>
                             }
                             else
                             {
-                                <button class="btn btn-outline-secondary btn-sm me-1" @onclick="UnuseTeamAsync">使用を解除</button>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="me-1" OnClick="UnuseTeamAsync">使用を解除</MudButton>
                             }
-                            <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveTeamAsync(team.Number)">チーム削除</button>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveTeamAsync(team.Number))">チーム削除</MudButton>
                         </div>
                     </div>
                     <ul class="list-group list-group-flush">
@@ -108,7 +108,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                         }</div>
                                     }
                                 </div>
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => RemoveFromTeamAsync(team.Number, slot.EntryId)">外す</button>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" OnClick="@(() => RemoveFromTeamAsync(team.Number, slot.EntryId))">外す</MudButton>
                             </li>
                         }
                     </ul>

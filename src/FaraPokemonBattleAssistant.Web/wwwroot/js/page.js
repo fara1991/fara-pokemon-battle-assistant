@@ -255,24 +255,6 @@ window.faraScrollIntoView = function (id) { var el = document.getElementById(id)
         update();
     })();
 
-    window.faraPlaceNote = function (id) {
-        var el = document.getElementById(id);
-        if (!el || !wide.matches || el.closest(".sidebar")) return;
-        var btn = el.parentElement.querySelector(".help-btn");
-        track(el, function () {
-            var r = btn.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
-            var w = Math.min(288, vw - 16);
-            el.classList.add("is-floating");
-            el.style.width = w + "px";
-            var left = r.right + 8, nudged = false;
-            if (left + w > vw - 8) { left = r.left - 8 - w; nudged = true; }
-            if (left < 8) { left = Math.max(8, vw - w - 8); nudged = true; }
-            var top = Math.max(8, Math.min(r.top - 6, vh - el.offsetHeight - 8));
-            el.classList.toggle("is-nudged", nudged || top !== r.top - 6);
-            el.style.left = left + "px";
-            el.style.top = top + "px";
-        });
-    };
 })();
 // 検索付きセレクトの ↑↓・Enter で、ページのスクロールなどを起こさない。
 // Blazor の @onkeydown:preventDefault は前回の描画時の値で決まり、次のキーに効いてしまうので、ここで止める
