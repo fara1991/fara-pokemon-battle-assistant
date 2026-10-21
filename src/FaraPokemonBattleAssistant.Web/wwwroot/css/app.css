@@ -2872,7 +2872,8 @@ html.vt-nav .app-header {
     --field-stand: rgba(91, 33, 182, 0.16);
     --field-mon-opacity: 0.8;
     --glass: rgba(255, 255, 255, 0.72);
-    --brand-grad: linear-gradient(120deg, #7c3aed 0%, #c026d3 50%, #4f46e5 100%);
+    /* ホームのサイト名の文字: ライトはバイオレット、ダークは淡いラベンダー（3 サイト共通。ピンクに寄りすぎないように） */
+    --brand-grad: linear-gradient(120deg, #7c3aed 0%, #6d28d9 100%);
 }
 
 [data-bs-theme="dark"] {
@@ -2893,7 +2894,7 @@ html.vt-nav .app-header {
     --field-stand: rgba(196, 181, 253, 0.08);
     --field-mon-opacity: 0.6;
     --glass: rgba(26, 14, 48, 0.66);
-    --brand-grad: linear-gradient(120deg, #c084fc 0%, #e879f9 45%, #818cf8 100%);
+    --brand-grad: linear-gradient(135deg, #d1c4e9 0%, #b39ddb 45%, #9575cd 100%);
 }
 
 .bg-scene {
@@ -3293,7 +3294,7 @@ html.vt-nav .app-header {
     font-weight: 600;
 }
 
-/* ホームのサイト名：紫からピンクへのグラデーションの文字 */
+/* ホームのサイト名：グラデーションの文字（色は --brand-grad） */
 .home-title {
     font-size: clamp(2rem, 4.2vw, 3.4rem);
     line-height: 1.1;
