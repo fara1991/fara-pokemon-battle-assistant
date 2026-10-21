@@ -102,6 +102,20 @@ public class BattleStageDoublesTests
     }
 
     [Fact]
+    public void Doubles_fills_only_the_missing_second_pokemon_even_with_exactly_four_candidates()
+    {
+        var stage = NewStage();
+        var pokemon = Many(4);
+        stage.EnsureDefaults("set", pokemon, doubles: false);
+        // 1 体目の 2 体だけが立っていて、2 体目のうち自分側だけが入っている状態から、ダブルにする
+        stage.Show("set", pokemon.First(p => p.Id == stage.Mine!.Id), pokemon.First(p => p.Id == stage.Foe!.Id), null, null, pokemon.First(p => p.Id != stage.Mine!.Id && p.Id != stage.Foe!.Id), null);
+        stage.EnsureDefaults("set", pokemon, doubles: true);
+        Assert.NotNull(stage.Mine2);
+        Assert.NotNull(stage.Foe2);
+        Assert.Equal(4, Ids(stage).Distinct().Count());
+    }
+
+    [Fact]
     public void Provisional_and_iconless_pokemon_are_never_picked()
     {
         var pokemon = new List<Pokemon> { P(1), P(2), P(3), P(4), P(5, provisional: true), P(6, icon: "") };

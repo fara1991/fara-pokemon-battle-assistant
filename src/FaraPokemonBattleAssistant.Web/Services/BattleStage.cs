@@ -219,15 +219,16 @@ public sealed class BattleStage
             Foe2 = picks.Count > 3 ? picks[3] : null;
             changed = true;
         }
-        if (Doubles && (Mine2 is null || Foe2 is null) && candidates.Count >= 4)
+        if (Doubles && (Mine2 is null || Foe2 is null) && candidates.Count >= 3)
         {
             // ダブルに切り替えたとき、足りない側を、今立っているポケモンと重ならないように足す
             var taken = new HashSet<int> { Mine!.Id, Foe!.Id };
             if (Mine2 is not null) taken.Add(Mine2.Id);
             if (Foe2 is not null) taken.Add(Foe2.Id);
             var extra = PickDistinct(candidates.Where(p => !taken.Contains(p.Id)).ToList(), 2);
-            if (Mine2 is null && extra.Count > 0) { Mine2 = extra[0]; changed = true; }
-            if (Foe2 is null && extra.Count > 1) { Foe2 = extra[^1]; changed = true; }
+            var next = 0;   // 足す候補を、先頭から順に 1 つずつ使う（空いている側の数だけ）
+            if (Mine2 is null && next < extra.Count) { Mine2 = extra[next++]; changed = true; }
+            if (Foe2 is null && next < extra.Count) { Foe2 = extra[next++]; changed = true; }
         }
         if (changed) Changed?.Invoke();
     }

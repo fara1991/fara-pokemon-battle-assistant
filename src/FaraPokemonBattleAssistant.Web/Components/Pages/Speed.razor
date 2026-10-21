@@ -78,7 +78,7 @@ else if (data is not null && dataSet is not null)
                         notes[i] = nt;
                     }
                 }
-                var refSide = s.Builds[s.ReferenceSide] is not null && s.ReferenceSide < SlotCount ? s.ReferenceSide : Enumerable.Range(0, SlotCount).FirstOrDefault(i => s.Builds[i] is not null, -1);
+                var refSide = s.ReferenceSide < SlotCount && s.Builds[s.ReferenceSide] is not null ? s.ReferenceSide : Enumerable.Range(0, SlotCount).FirstOrDefault(i => s.Builds[i] is not null, -1);
                 var order = Doubles ? SpeedOrder.Rank(Enumerable.Range(0, SlotCount).Where(i => speeds[i] is not null).Select(i => new SpeedEntry(s.Builds[i]!.Pokemon.Name, speeds[i]!.Value, SideTeam(i), i)), s.TrickRoom) : null;
             }
             @if (Enumerable.Range(0, SlotCount).Any(i => s.Builds[i] is not null))
