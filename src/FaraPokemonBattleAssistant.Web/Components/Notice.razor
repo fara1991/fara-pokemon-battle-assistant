@@ -1,9 +1,6 @@
-@* サイト共通の「お知らせ」「空の状態」の表示。文字は本文と同じ色・大きさ、リンクは通常のリンク色。
+@* サイト共通の「お知らせ」「空の状態」の表示（MudBlazor の MudAlert）。文字は本文と同じ色・大きさ、リンクは通常のリンク色。
    Empty=false: お知らせ（背景やや濃い）/ Empty=true: 空の状態（背景を薄く）。余白は Class で足す（例: mb-3）。 *@
-<div class="@CssClass" role="status">
-    <i class="@IconClass" aria-hidden="true"></i>
-    <div class="app-notice-body">@ChildContent</div>
-</div>
+<MudAlert Severity="Severity.Normal" Variant="Variant.Outlined" Dense="true" Icon="@IconName" Class="@CssClass" role="status">@ChildContent</MudAlert>
 
 @code {
     /// <summary>true なら空の状態（まだ何も無い・該当なし）、false ならお知らせ。</summary>
@@ -12,5 +9,5 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     private string CssClass => string.Join(' ', new[] { "app-notice", Empty ? "app-notice-empty" : "", Class ?? "" }.Where(c => c.Length > 0));
-    private string IconClass => Empty ? "bi bi-inbox" : "bi bi-info-circle";
+    private string IconName => Empty ? Icons.Material.Outlined.Inbox : Icons.Material.Outlined.Info;
 }

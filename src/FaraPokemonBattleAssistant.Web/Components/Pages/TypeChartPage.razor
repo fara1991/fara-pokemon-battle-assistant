@@ -14,7 +14,7 @@
 <div class="type-chart-layout @(s.ShowTable ? "show-table" : "")">
 @* スマホでは表の代わりに、選んだポケモン（またはタイプ）の受ける倍率を一覧で出す。表も切り替えて見られる *@
 <div class="type-view-toggle">
-    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => s.ShowTable = !s.ShowTable">@(s.ShowTable ? "一覧で見る" : "表で見る")</button>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="@(() => s.ShowTable = !s.ShowTable)">@(s.ShowTable ? "一覧で見る" : "表で見る")</MudButton>
 </div>
 <div class="type-chart-main">
 <div class="type-legend mb-2">
@@ -32,7 +32,7 @@
 
 @if (!string.IsNullOrEmpty(LoadError))
 {
-    <div class="alert alert-danger">@LoadError</div>
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" NoIcon="true">@LoadError</MudAlert>
 }
 
 @if (chart is not null)
@@ -150,7 +150,7 @@
                         <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
                             @foreach (var t in s.AttackTypes)
                             {
-                                <button type="button" class="btn btn-sm type-chip" title="選択を外す" @onclick="() => ToggleAttackType(t)"><TypeIcon Type="@t" Small="true" /> @TypeNames.ToJapanese(t) <span aria-hidden="true">×</span></button>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="type-chip" title="選択を外す" OnClick="@(() => ToggleAttackType(t))"><TypeIcon Type="@t" Small="true" /> @TypeNames.ToJapanese(t) <span aria-hidden="true">×</span></MudButton>
                             }
                             <h6 class="mb-0 ms-1">@(s.AttackTypes.Count == 2 ? "両方を持つ" : "を持つ")ポケモン <span class="text-muted small">（@typeAttackers.Count 匹）</span></h6>
                         </div>

@@ -50,9 +50,9 @@ else if (data is not null && roster is not null && dataSet is not null)
                                     <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(dataSet.EvSystem)" step="@EvRules.Step(dataSet.EvSystem)"
                                            value="@s.NewEvs[stat]" @onchange="@(e => s.NewEvs[stat] = Clamp(e.Value, EvRules.MaxPerStat(dataSet.EvSystem)))" />
                                     <div class="ev-buttons">
-                                        <button type="button" class="btn btn-outline-secondary" @onclick="() => s.NewEvs[stat] = 0">0</button>
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => s.NewEvs[stat] = 0)">0</MudButton>
                                         @* 合計の上限を超えるときは、入る分だけ振る *@
-                                        <button type="button" class="btn btn-outline-secondary" @onclick="() => s.NewEvs[stat] = EvRules.MaxAllowed(dataSet.EvSystem, s.NewEvs, stat)">@EvRules.MaxPerStat(dataSet.EvSystem)</button>
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => s.NewEvs[stat] = EvRules.MaxAllowed(dataSet.EvSystem, s.NewEvs, stat))">@EvRules.MaxPerStat(dataSet.EvSystem)</MudButton>
                                     </div>
                                 </div>
                             }
@@ -117,9 +117,9 @@ else if (data is not null && roster is not null && dataSet is not null)
                     }
                     @* 登録 = 新しく登録する。更新・取り消し = 登録一覧で選んだポケモンを編集しているとき（登録は押せない） *@
                     <div class="d-flex flex-wrap gap-2 align-items-center">
-                        <button class="btn btn-primary" @onclick="AddPokemonAsync" disabled="@(s.EditingId is not null || s.NewPokemon is null || s.NewNature is null)">登録</button>
-                        <button class="btn btn-success" @onclick="UpdatePokemonAsync" disabled="@(s.EditingId is null || s.NewNature is null)">更新</button>
-                        <button class="btn btn-outline-secondary" @onclick="CancelEdit" disabled="@(s.EditingId is null)">取り消し</button>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddPokemonAsync" Disabled="@(s.EditingId is not null || s.NewPokemon is null || s.NewNature is null)">登録</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="UpdatePokemonAsync" Disabled="@(s.EditingId is null || s.NewNature is null)">更新</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="CancelEdit" Disabled="@(s.EditingId is null)">取り消し</MudButton>
                         @if (s.EditingId is { } editing)
                         {
                             <span class="small text-muted">#@editing を編集中</span>
@@ -149,7 +149,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                         <span class="text-muted small me-1">#@e.Id</span><PokemonLabel Pokemon="data.FindPokemon(e.PokemonId)" Small="true" />
                                         <small class="text-muted ms-1">@(build?.Ability?.Name)</small>
                                     </div>
-                                    <button class="btn btn-outline-danger btn-sm flex-shrink-0" @onclick="() => RemovePokemonAsync(e.Id)" @onclick:stopPropagation="true">削除</button>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" Class="flex-shrink-0" OnClick="@(() => RemovePokemonAsync(e.Id))" ClickPropagation="false">削除</MudButton>
                                 </div>
                                 <div class="small mt-1">@NatureText(e.Nature)　@EvRules.Label(dataSet.EvSystem) @e.EVs.ToShortString()</div>
                                 @if (e.MoveIds.Count > 0)

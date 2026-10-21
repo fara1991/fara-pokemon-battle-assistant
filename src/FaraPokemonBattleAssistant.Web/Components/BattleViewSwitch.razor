@@ -1,20 +1,21 @@
-@* 「対戦画面で表示」のスイッチ（サイドバーに置く）。オンにすると、背景のフィールドを止めて、結果をフィールドの上に重ねて出す（Shared/BattleOverlay.razor）。
+@* 「対戦画面で表示」のスイッチ（ヘッダー・サイドバーに置く。MudBlazor の MudSwitch）。オンにすると、背景のフィールドを止めて、結果をフィールドの上に重ねて出す（Shared/BattleOverlay.razor）。
    オン・オフは BattleStage が持ち、ブラウザに保存する。ダメージ計算機・素早さ比較・「育成ポケモン」で効く *@
+@using MudBlazor
 @inject BattleStage Stage
 @implements IDisposable
 
-<div class="form-check form-switch battle-switch @Class">
-    <input class="form-check-input" type="checkbox" role="switch" id="@InputId" checked="@Stage.BattleView" @onchange="@(async e => { Stage.SetBattleView(e.Value is true); await OnChanged.InvokeAsync(); })" />
-    @if (Compact)
-    {
-        @* スマホの上のバー用: 狭いので、説明（?）は付けず、短い名前だけにする *@
-        <label class="form-check-label" for="@InputId">対戦画面</label>
-    }
-    else
-    {
-    <label class="form-check-label" for="@InputId">対戦画面で表示</label> <Help Title="対戦画面で表示">背景のフィールドの回転を止め、ダメージ計算機・素早さ比較・育成ポケモンの内容を、実際の対戦画面のようにフィールドの上に重ねて出します（入力欄は隠れます。入力した内容は残ります）。オフにすると入力欄に戻ります。全ページ共通で、前回の状態を覚えています。</Help>
-    }
-</div>
+@if (Compact)
+{
+    @* ヘッダー用: 狭いので、説明（?）は付けず、短い名前だけにする *@
+    <MudSwitch T="bool" Value="@Stage.BattleView" ValueChanged="Toggle" Color="Color.Primary" Size="Size.Small" Label="対戦画面" LabelPlacement="Placement.End" Class="@("battle-switch " + Class)" AriaLabel="対戦画面で表示" />
+}
+else
+{
+    <div class="battle-switch-wrap @Class">
+        <MudSwitch T="bool" Value="@Stage.BattleView" ValueChanged="Toggle" Color="Color.Primary" Size="Size.Small" Label="対戦画面で表示" LabelPlacement="Placement.End" Class="battle-switch" AriaLabel="対戦画面で表示" />
+        <Help Title="対戦画面で表示">背景のフィールドの回転を止め、ダメージ計算機・素早さ比較・育成ポケモンの内容を、実際の対戦画面のようにフィールドの上に重ねて出します（入力欄は隠れます。入力した内容は残ります）。オフにすると入力欄に戻ります。全ページ共通で、前回の状態を覚えています。</Help>
+    </div>
+}
 
 @code {
     protected override void OnInitialized() => Stage.Changed += OnStageChanged;
@@ -24,9 +25,15 @@
 
     public void Dispose() => Stage.Changed -= OnStageChanged;
 
+    private async Task Toggle(bool on)
+    {
+        Stage.SetBattleView(on);
+        await OnChanged.InvokeAsync();
+    }
+
     [Parameter] public string InputId { get; set; } = "battle-view";
     [Parameter] public string? Class { get; set; }
-    /// <summary>スマホの上のバーに置く小さい表示（ラベルだけ。説明の ? は付けない）。</summary>
+    /// <summary>ヘッダー・スマホの上のバーに置く小さい表示（ラベルだけ。説明の ? は付けない）。</summary>
     [Parameter] public bool Compact { get; set; }
     /// <summary>切り替えたあとに呼ぶ（スマホでメニューを閉じて、結果が見えるようにする）。</summary>
     [Parameter] public EventCallback OnChanged { get; set; }

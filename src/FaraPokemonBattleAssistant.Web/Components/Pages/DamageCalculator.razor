@@ -14,11 +14,11 @@
 
 @if (!string.IsNullOrEmpty(loadError))
 {
-    <div class="alert alert-danger">@loadError</div>
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" NoIcon="true">@loadError</MudAlert>
 }
 @if (!string.IsNullOrEmpty(rosterError))
 {
-    <div class="alert alert-warning">@rosterError</div>
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" NoIcon="true">@rosterError</MudAlert>
 }
 
 @if (dataSet is { CalcSupported: false })
@@ -133,20 +133,20 @@ else if (data is not null && dataSet is not null)
                         {
                             @* 対戦中の相手として登録している、分かっている振り方（範囲でもよい）。試合ごとに相手が変わるので、外せる *@
                             var foe = FoeOf(rival);
-                            <div class="alert alert-info py-2 small mb-2">
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" NoIcon="true" Class="py-2 small mb-2">
                                 <div><strong>対戦中の相手として登録済み</strong>: @RivalSummary(rival)</div>
                                 <div class="d-flex flex-wrap gap-1 mt-1">
                                     @if (foe is not null)
                                     {
-                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.Low)">@(StatNames.Letter(foe.DefenseStat))最小で計算</button>
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="@(() => ApplyFoe(foe.Low))">@(StatNames.Letter(foe.DefenseStat))最小で計算</MudButton>
                                         @if (foe.IsRange)
                                         {
-                                            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyFoe(foe.High)">@(StatNames.Letter(foe.DefenseStat))最大で計算</button>
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="@(() => ApplyFoe(foe.High))">@(StatNames.Letter(foe.DefenseStat))最大で計算</MudButton>
                                         }
                                     }
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => RemoveRivalAsync(rival)">対戦中の相手から外す</button>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" OnClick="@(() => RemoveRivalAsync(rival))">対戦中の相手から外す</MudButton>
                                 </div>
-                            </div>
+                            </MudAlert>
                         }
                         @RenderBuildEditor(s.Defender, false)
                     }
@@ -223,7 +223,7 @@ else if (data is not null && dataSet is not null)
                         }
                         else if (!string.IsNullOrEmpty(s.EstimateText))
                         {
-                            <div class="alert alert-warning mt-2 mb-0">@s.EstimateText</div>
+                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" NoIcon="true" Class="mt-2 mb-0">@s.EstimateText</MudAlert>
                         }
                         else
                         {
@@ -247,10 +247,10 @@ else if (data is not null && dataSet is not null)
                     <button type="button" class="result-bar-summary" aria-expanded="@(resultBarOpen ? "true" : "false")" @onclick="() => resultBarOpen = !resultBarOpen">
                         <TypeIcon Type="@s.Result.MoveType" Small="true" />
                         <strong>@s.Result.RangeText</strong>
-                        <span class="badge @(s.Result.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@s.Result.KnockOut</span>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@(s.Result.KnockOut.IsGuaranteed ? Color.Error : Color.Warning)" Class="app-badge">@s.Result.KnockOut</MudChip>
                         @if (s.ResultCrit is { } cr)
                         {
-                            <span class="result-bar-crit">急所 <strong>@($"{cr.MinPercent:0.0}〜{cr.MaxPercent:0.0}%")</strong> <span class="badge @(cr.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@cr.KnockOut</span></span>
+                            <span class="result-bar-crit">急所 <strong>@($"{cr.MinPercent:0.0}〜{cr.MaxPercent:0.0}%")</strong> <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@(cr.KnockOut.IsGuaranteed ? Color.Error : Color.Warning)" Class="app-badge">@cr.KnockOut</MudChip></span>
                         }
                         <span class="result-bar-toggle" aria-hidden="true">@(resultBarOpen ? "▾ 閉じる" : "▴ 詳細")</span>
                     </button>
@@ -263,7 +263,7 @@ else if (data is not null && dataSet is not null)
                     <div class="card-body">
                         @if (!string.IsNullOrEmpty(errorMessage))
                         {
-                            <div class="alert alert-warning mb-0">@errorMessage</div>
+                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" NoIcon="true" Class="mb-0">@errorMessage</MudAlert>
                         }
                         else
                         {
@@ -668,7 +668,7 @@ else if (data is not null && dataSet is not null)
             <p class="estimate-caption small text-muted mb-1">@s.EstimateCaption　受けたダメージ <strong>@observed</strong></p>
             @if (!e.HasResult)
             {
-                <div class="alert alert-warning mb-0">そのダメージになる @letter（@StatNames.Japanese(e.DefenseStat)）の振り方は見つかりませんでした。持ち物・特性・ランク・天候・フィールドが違うか、ダメージの入力を見直してください（相手は持ち物なしで計算しています）。</div>
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" NoIcon="true" Class="mb-0">そのダメージになる @letter（@StatNames.Japanese(e.DefenseStat)）の振り方は見つかりませんでした。持ち物・特性・ランク・天候・フィールドが違うか、ダメージの入力を見直してください（相手は持ち物なしで計算しています）。</MudAlert>
             }
             else
             {
@@ -697,7 +697,7 @@ else if (data is not null && dataSet is not null)
                             @if (b.MinEv == b.MaxEv)
                             {
                                 @* 振り方が 1 つに決まったときは、その振り方を防御側に入れて計算に切り替えられる *@
-                                <button type="button" class="btn btn-sm btn-outline-primary mt-1" @onclick="() => ApplyEstimate(e, b)">この振り方で計算する</button>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="mt-1" OnClick="@(() => ApplyEstimate(e, b))">この振り方で計算する</MudButton>
                             }
                         </div>
                     }
@@ -710,10 +710,10 @@ else if (data is not null && dataSet is not null)
                 {
                     var registered = RivalFor(s.Defender.Pokemon);
                     <div class="mt-2">
-                        <button type="button" class="btn btn-sm btn-primary" @onclick="() => RegisterRivalAsync(e)">@(registered is null ? "この推定を相手チームに登録" : "この推定で絞り込む")</button>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="@(() => RegisterRivalAsync(e))">@(registered is null ? "この推定を相手チームに登録" : "この推定で絞り込む")</MudButton>
                         @if (registered is not null)
                         {
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => RemoveRivalAsync(registered)">対戦中の相手から外す</button>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="ms-1" OnClick="@(() => RemoveRivalAsync(registered))">対戦中の相手から外す</MudButton>
                             <div class="small text-success mt-1">登録済み: @RivalSummary(registered)</div>
                         }
                         @if (!string.IsNullOrEmpty(rivalMessage))
@@ -1185,9 +1185,9 @@ else if (data is not null && dataSet is not null)
                                 <input type="number" class="form-control form-control-sm" min="0" max="@EvRules.MaxPerStat(build.EvSystem)" step="@EvRules.Step(build.EvSystem)"
                                        value="@build.EVs[stat]" @onchange="@(e => build.EVs[stat] = ClampEv(e.Value, build.EvSystem))" />
                                 <div class="ev-buttons">
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = 0">0</button>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => build.EVs[stat] = 0)">0</MudButton>
                                     @* 合計の上限を超えるときは、入る分だけ振る *@
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="() => build.EVs[stat] = EvRules.MaxAllowed(build.EvSystem, build.EVs, stat)">@EvRules.MaxPerStat(build.EvSystem)</button>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => build.EVs[stat] = EvRules.MaxAllowed(build.EvSystem, build.EVs, stat))">@EvRules.MaxPerStat(build.EvSystem)</MudButton>
                                 </div>
                             </div>
                         }
@@ -1275,14 +1275,14 @@ else if (data is not null && dataSet is not null)
         <p class="result-main result-main-row mb-1">
             <span class="result-kind">@(sel is null ? "通常" : $"通常 {sel.Value.Label}")</span>
             <strong><span data-count="@Inv(shown.MinPercent)" data-count-dec="1">@($"{shown.MinPercent:0.0}")</span>〜<span data-count="@Inv(shown.MaxPercent)" data-count-dec="1">@($"{shown.MaxPercent:0.0}")</span>% (<span data-count="@shown.MinDamage">@shown.MinDamage</span>〜<span data-count="@shown.MaxDamage">@shown.MaxDamage</span>)</strong>
-            <span class="ms-2 badge @(shown.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")" data-pop="@shown.KnockOut">@shown.KnockOut</span>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@(shown.KnockOut.IsGuaranteed ? Color.Error : Color.Warning)" Class="app-badge ms-2" data-pop="@shown.KnockOut">@shown.KnockOut</MudChip>
         </p>
         @if (shownCrit is not null)
         {
             <p class="result-main result-main-row result-main-crit mb-2">
                 <span class="result-kind">急所</span>
                 <strong>@($"{shownCrit.MinPercent:0.0}〜{shownCrit.MaxPercent:0.0}% ({shownCrit.MinDamage}〜{shownCrit.MaxDamage})")</strong>
-                <span class="ms-2 badge @(shownCrit.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@shownCrit.KnockOut</span>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@(shownCrit.KnockOut.IsGuaranteed ? Color.Error : Color.Warning)" Class="app-badge ms-2">@shownCrit.KnockOut</MudChip>
             </p>
         }
         @RenderHpBar(shown, lastRequest, perHit is { Count: > 1 } ? perHit : null, sel?.N ?? 0)
@@ -1296,7 +1296,7 @@ else if (data is not null && dataSet is not null)
                     <p class="mb-1 small">
                         <strong>@h.Label</strong>
                         @($"{h.Normal.MinPercent:0.0}〜{h.Normal.MaxPercent:0.0}% ({h.Normal.MinDamage}〜{h.Normal.MaxDamage})")
-                        <span class="badge @(h.Normal.KnockOut.IsGuaranteed ? "bg-danger" : "bg-warning text-dark")">@h.Normal.KnockOut</span>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@(h.Normal.KnockOut.IsGuaranteed ? Color.Error : Color.Warning)" Class="app-badge">@h.Normal.KnockOut</MudChip>
                         @if (h.Crit is not null)
                         {
                             <span class="text-muted">／ 急所 @($"{h.Crit.MinPercent:0.0}〜{h.Crit.MaxPercent:0.0}% ({h.Crit.MinDamage}〜{h.Crit.MaxDamage})")</span>

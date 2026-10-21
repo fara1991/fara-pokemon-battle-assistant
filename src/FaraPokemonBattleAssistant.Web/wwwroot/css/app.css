@@ -644,113 +644,12 @@ body {
     }
 }
 
-/* ---- トースト（画面の右上に重ねて出す通知。Components/Toasts.razor） ---- */
-.toast-stack {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    z-index: 2000;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    width: min(24rem, calc(100vw - 2rem));
-    pointer-events: none;
-}
-
-.app-toast {
-    pointer-events: auto;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    padding: 0.65rem 0.5rem 0.65rem 0.8rem;
-    border: 1px solid var(--toast-border);
-    border-left-width: 4px;
-    border-radius: 0.5rem;
-    background: var(--toast-bg);
-    color: var(--toast-fg);
-    box-shadow: 0 6px 20px rgba(20, 10, 38, 0.25);
-    font-size: 0.9rem;
-    line-height: 1.45;
-    animation: toast-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.app-toast-success {
-    --toast-bg: var(--bs-success-bg-subtle);
-    --toast-border: var(--bs-success-border-subtle);
-    --toast-fg: var(--bs-success-text-emphasis);
-    --toast-accent: var(--bs-success);
-    border-left-color: var(--bs-success);
-}
-
-.app-toast-warning {
-    --toast-bg: var(--bs-warning-bg-subtle);
-    --toast-border: var(--bs-warning-border-subtle);
-    --toast-fg: var(--bs-warning-text-emphasis);
-    border-left-color: var(--bs-warning);
-}
-
-.app-toast-error {
-    --toast-bg: var(--bs-danger-bg-subtle);
-    --toast-border: var(--bs-danger-border-subtle);
-    --toast-fg: var(--bs-danger-text-emphasis);
-    border-left-color: var(--bs-danger);
-}
-
-.app-toast-icon {
-    flex: none;
-    margin-top: 0.1rem;
-}
-
-.app-toast-text {
-    flex: 1;
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.app-toast-close {
-    flex: none;
-    width: 1.75rem;
-    height: 1.75rem;
-    margin-top: -0.2rem;
-    border: 0;
-    border-radius: 0.3rem;
-    background: transparent;
-    color: inherit;
-    font-size: 1.2rem;
-    line-height: 1;
-    opacity: 0.7;
-    cursor: pointer;
-}
-
-.app-toast-close:hover,
-.app-toast-close:focus-visible {
-    opacity: 1;
-    background: rgba(127, 127, 127, 0.2);
-}
-
-@keyframes toast-in {
-    from { opacity: 0; transform: translateX(1.5rem); }
-    to { opacity: 1; transform: none; }
-}
-
-/* スマホ: 画面の上部に全幅で出す（見切れない） */
+/* ---- 通知（トースト）は MudBlazor の Snackbar（Services/ToastService.cs）。スマホは、画面の上部に全幅で出す ---- */
 @media (max-width: 767.98px) {
-    .toast-stack {
+    .mud-snackbar-location-top-right {
         top: 0.5rem;
         left: 0.5rem;
         right: 0.5rem;
-        width: auto;
-    }
-
-    @keyframes toast-in {
-        from { opacity: 0; transform: translateY(-1rem); }
-        to { opacity: 1; transform: none; }
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .app-toast {
-        animation: none;
     }
 }
 
@@ -1327,59 +1226,49 @@ body {
     gap: 0.3rem;
 }
 
-/* ---- ヘルプ（Excel のコメント風） ---- */
+/* ---- ヘルプ（Excel のコメント風。Components/Help.razor。吹き出しは MudBlazor の MudPopover） ---- */
 .help-wrap {
-    position: relative;
     display: inline-block;
     margin-left: 0.25rem;
     vertical-align: middle;
 }
 
-.help-btn {
+.help-wrap .help-btn.mud-icon-button {
     width: 1.1rem;
     height: 1.1rem;
-    border-radius: 50%;
+    padding: 0;
     border: 1px solid var(--app-input-border);
     background: var(--bs-body-bg);
     color: var(--app-muted);
-    font-size: 0.7rem;
-    font-weight: 700;
-    line-height: 1;
-    padding: 0;
-    cursor: pointer;
 }
 
-.help-btn:hover {
+.help-wrap .help-btn.mud-icon-button .mud-icon-root {
+    width: 0.8rem;
+    height: 0.8rem;
+}
+
+.help-wrap .help-btn.mud-icon-button:hover {
     background: var(--bs-tertiary-bg);
 }
 
-.help-note {
-    position: absolute;
-    left: 1.4rem;
-    top: -0.4rem;
-    z-index: 1100;
+.mud-popover.help-popover {
     width: 18rem;
     max-width: 80vw;
-    padding: 0.5rem 1.4rem 0.5rem 0.6rem;
     background: var(--app-note-bg);
     border: 1px solid var(--app-note-border);
     border-radius: 0.25rem;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    z-index: 1100;
+}
+
+.help-note {
+    position: relative;
+    padding: 0.5rem 1.4rem 0.5rem 0.6rem;
     font-size: 0.8rem;
     font-weight: 400;
     line-height: 1.5;
     color: var(--bs-body-color);
     white-space: normal;
     text-align: left;
-}
-
-.help-note::before {
-    content: "";
-    position: absolute;
-    left: -0.5rem;
-    top: 0.5rem;
-    border: 0.25rem solid transparent;
-    border-right-color: var(--app-note-border);
 }
 
 .help-close {
@@ -1690,31 +1579,14 @@ body {
     line-height: 1.3;
 }
 
-.sidebar .help-btn {
+.sidebar .help-wrap .help-btn.mud-icon-button {
     background: transparent;
     border-color: rgba(255, 255, 255, 0.6);
     color: #f1f3f5;
 }
 
-.sidebar .help-btn:hover {
+.sidebar .help-wrap .help-btn.mud-icon-button:hover {
     background: rgba(255, 255, 255, 0.15);
-}
-
-/* サイドバー内の吹き出しはサイドバーの幅に収める（横にはみ出すと切れるため） */
-.sidebar .help-wrap {
-    position: static;
-}
-
-.sidebar .help-note {
-    left: 0.75rem;
-    right: 0.75rem;
-    top: auto;
-    width: auto;
-    margin-top: 0.4rem;
-}
-
-.sidebar .help-note::before {
-    display: none;
 }
 
 .sidebar .form-select {
@@ -2933,16 +2805,6 @@ html.vt-nav .app-header {
     box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.15);
 }
 
-.help-note.is-floating {
-    position: fixed;
-    right: auto;
-    max-width: none;
-}
-
-.help-note.is-nudged::before {
-    display: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
     .hp-calc-fill,
     .race-bar,
@@ -2957,10 +2819,8 @@ html.vt-nav .app-header {
 }
 
 /* ---- お知らせ・空の状態（Notice.razor）。文字は本文と同じ色・大きさ、リンクは通常のリンク色 ---- */
-.app-notice {
-    display: flex;
+.mud-alert.app-notice {
     align-items: baseline;
-    gap: 0.6rem;
     padding: 0.65rem 0.9rem;
     border: 1px solid var(--bs-primary-border-subtle);
     border-radius: var(--bs-border-radius);
@@ -2970,17 +2830,19 @@ html.vt-nav .app-header {
 }
 
 /* 空の状態は背景だけ薄くする（枠・角丸・余白・文字は同じ） */
-.app-notice-empty {
+.mud-alert.app-notice-empty {
     background: color-mix(in srgb, var(--bs-primary-bg-subtle) 40%, transparent);
 }
 
-.app-notice > .bi {
-    flex: none;
+.mud-alert.app-notice .mud-alert-icon {
     color: var(--bs-primary);
+    margin-right: 0.6rem;
+    align-self: center;
 }
 
-.app-notice-body {
+.mud-alert.app-notice .mud-alert-message {
     min-width: 0;
+    padding: 0;
 }
 
 /* =========================================================
@@ -3160,11 +3022,10 @@ html.vt-nav .app-header {
 @media (max-width: 767.98px) {
     .sidebar .side-battle { display: none; }
     .top-battle {
-        display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
-        margin: 0 0 0 auto; padding: 0; min-height: 0; color: rgba(255, 255, 255, 0.85);
+        margin: 0 0 0 auto; padding: 0; color: rgba(255, 255, 255, 0.85);
     }
-    .top-battle .form-check-input { float: none; margin: 0; width: 2.2rem; height: 1.15rem; cursor: pointer; }
-    .top-battle .form-check-label { font-size: 0.68rem; line-height: 1; white-space: nowrap; cursor: pointer; }
+    .top-battle.mud-switch { flex-direction: column; align-items: center; }
+    .top-battle .mud-typography, .top-battle .mud-switch-label { font-size: 0.68rem; line-height: 1; white-space: nowrap; color: rgba(255, 255, 255, 0.85); }
     .app-brand { font-size: 0.95rem; }
 }
 @media (max-width: 380px) {
@@ -3785,68 +3646,10 @@ html.vt-nav .app-header {
     display: none;
 }
 
-.theme-switch {
-    position: relative;
+/* ライト／ダークのスイッチ（MudBlazor の MudSwitch。ON = ダーク（月）、OFF = ライト（太陽）） */
+.theme-switch.mud-switch {
+    margin: 0;
     flex: 0 0 auto;
-    width: 56px;
-    height: 30px;
-    padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 999px;
-    background: #cbd5e1;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-}
-
-.theme-switch[aria-checked="true"] {
-    background: #7c3aed;
-}
-
-.theme-knob {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: #fff;
-    color: #f59e0b;
-    display: grid;
-    place-items: center;
-    transition: transform 0.15s ease;
-}
-
-.theme-switch[aria-checked="true"] .theme-knob {
-    transform: translateX(26px);
-    color: #6d28d9;
-}
-
-.theme-knob svg {
-    width: 16px;
-    height: 16px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.theme-moon {
-    display: none;
-}
-
-.theme-switch[aria-checked="true"] .theme-sun {
-    display: none;
-}
-
-.theme-switch[aria-checked="true"] .theme-moon {
-    display: block;
-    fill: currentColor;
-}
-
-.theme-switch:focus-visible {
-    outline: 2px solid #e9d5ff;
-    outline-offset: 2px;
 }
 
 .site-search {
@@ -4078,25 +3881,40 @@ html.vt-nav .app-header {
         gap: 6px;
     }
 
-    .hdr-field label {
+    .hdr-field .hdr-label {
         margin: 0;
         color: #d8c7f5;
         font-size: 0.75rem;
         white-space: nowrap;
     }
 
-    .hdr-field .form-select {
-        height: 34px;
-        padding-top: 0;
-        padding-bottom: 0;
+    /* MudSelect: 白い入力欄（ヘッダーの暗い背景の上で、これまでと同じ見た目） */
+    .hdr-select.mud-input-control {
+        margin: 0;
     }
 
-    #hdr-dataset {
-        width: 210px;
+    .hdr-select .mud-input.mud-input-outlined {
+        height: 34px;
+        background: #fff;
+        color: #1e1433;
+        font-size: 0.875rem;
+    }
+
+    .hdr-select .mud-input-outlined .mud-input-outlined-border {
+        border-color: rgba(0, 0, 0, 0.25);
+    }
+
+    .hdr-select .mud-input-slot.mud-select-input {
+        padding-top: 0;
+        padding-bottom: 0;
         text-overflow: ellipsis;
     }
 
-    #hdr-format {
+    .hdr-dataset {
+        width: 210px;
+    }
+
+    .hdr-format {
         width: 110px;
     }
 
@@ -4120,19 +3938,21 @@ html.vt-nav .app-header {
         white-space: nowrap;
     }
 
-    .hdr-battle .form-check-label {
-        cursor: pointer;
+    .hdr-battle .mud-typography,
+    .hdr-battle .mud-switch-label {
+        color: #fff;
+        font-size: 0.85rem;
     }
 
 }
 
 @media (min-width: 768px) and (max-width: 1199.98px) {
-    .hdr-field label,
+    .hdr-field .hdr-label,
     .site-search-hint {
         display: none;
     }
 
-    #hdr-dataset {
+    .hdr-dataset {
         width: 170px;
     }
 }
@@ -4143,9 +3963,3 @@ html.vt-nav .app-header {
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .theme-switch,
-    .theme-knob {
-        transition: none;
-    }
-}

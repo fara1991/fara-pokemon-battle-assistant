@@ -9,8 +9,8 @@
 
 @* PC: 見出しは固定にして、説明のカードの中だけがスクロールする *@
 <div class="pane-scroll">
-<div class="card mb-3">
-    <div class="card-body">
+<MudCard Elevation="0" Class="card mb-3">
+    <MudCardContent Class="card-body">
         <h5 class="card-title">H・A・B・C・D・S（能力の略語）</h5>
         <p class="card-text small">6 つの能力を 1 文字で表します。ポケモン一覧の種族値、登録したポケモンの努力値、チャットコマンドの <code>H252 A252 S4</code> などで使います。</p>
         <div class="table-responsive">
@@ -28,11 +28,11 @@
         </div>
         <p class="card-text small mb-1">例: <code>H252 A252 S4</code> は、HP とこうげきに 252、すばやさに 4 の努力値を振ったという意味です。0 の能力は書きません。</p>
         <p class="card-text small text-muted mb-0">由来は HP・Attack・Block・Contact・Defense・Speed の頭文字とされています（B〜D は英語版の能力名とは一致しません）。</p>
-    </div>
-</div>
+    </MudCardContent>
+</MudCard>
 
-<div class="card mb-3">
-    <div class="card-body">
+<MudCard Elevation="0" Class="card mb-3">
+    <MudCardContent Class="card-body">
         <h5 class="card-title">能力値に関する用語</h5>
         <dl class="row small mb-0">
             <dt class="col-sm-3">種族値</dt>
@@ -48,11 +48,11 @@
             <dt class="col-sm-3">ランク補正</dt>
             <dd class="col-sm-9">つるぎのまい などで上がる・下がる能力の段階（-6〜+6）。<code>+1</code> は 1.5 倍です。</dd>
         </dl>
-    </div>
-</div>
+    </MudCardContent>
+</MudCard>
 
-<div class="card mb-3">
-    <div class="card-body">
+<MudCard Elevation="0" Class="card mb-3">
+    <MudCardContent Class="card-body">
         <h5 class="card-title">ダメージ計算に関する用語</h5>
         <dl class="row small mb-0">
             <dt class="col-sm-3">乱数</dt>
@@ -64,6 +64,6 @@
             <dt class="col-sm-3">急所</dt>
             <dd class="col-sm-9">ダメージが 1.5 倍（第 5 世代までは 2 倍）になり、こちらに不利なランク補正と相手の壁を無視します。</dd>
         </dl>
-    </div>
-</div>
+    </MudCardContent>
+</MudCard>
 </div>
