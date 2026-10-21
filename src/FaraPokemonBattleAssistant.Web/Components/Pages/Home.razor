@@ -1,6 +1,6 @@
 @page "/"
 @inherits AppPageBase
-@inject HttpClient Http
+@inject Changelog Log
 
 <PageTitle>ホーム | Pokémon Battle Assistant</PageTitle>
 
@@ -11,7 +11,7 @@
 
 @* PC: 見出しは固定にして、カードの並びの中だけがスクロールする *@
 <div class="pane-scroll">
-@* 上に対応ゲームと更新日、下に機能の一覧（どの機能も同じ大きさで並べる） *@
+@* 上に対応ゲームと更新履歴、下に機能の一覧（どの機能も同じ大きさで並べる） *@
 <div class="row g-3">
     <div class="col-lg-7">
         <MudCard Elevation="0" Class="card h-100">
@@ -28,13 +28,21 @@
     <div class="col-lg-5">
         <MudCard Elevation="0" Class="card h-100">
             <MudCardContent Class="card-body">
-                <h6 class="card-title">サイト内ポケモンデータの更新 <Help Title="サイト内ポケモンデータの更新">ポケモン・技・持ち物・使用率のデータは毎週月曜の昼に自動で更新されます。更新後にページを再読み込みすると新しいデータになります。</Help></h6>
-                <table class="table table-sm mb-0 small">
-                    <tbody>
-                        <tr><th class="text-nowrap">最終更新</th><td>@(lastUpdated ?? "取得中…")</td></tr>
-                        <tr><th class="text-nowrap">次回更新</th><td>@nextUpdate</td></tr>
-                    </tbody>
-                </table>
+                <h6 class="card-title">更新履歴</h6>
+                @if (recent is null)
+                {
+                    <p class="small text-muted mb-0">@(failed ? "読み込めませんでした" : "読み込み中…")</p>
+                }
+                else
+                {
+                    <ul class="changelog-recent small">
+                        @foreach (var e in recent)
+                        {
+                            <li><span class="changelog-date">@e.Date.ToString("MM/dd")</span> @e.Title</li>
+                        }
+                    </ul>
+                }
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="changelog">すべて見る</MudButton>
             </MudCardContent>
         </MudCard>
     </div>
@@ -86,46 +94,21 @@
 </div>
 
 @code {
-    // update-data.yml の cron（17 3 * * 1 UTC = 毎週月曜 12:17 JST）
-    private static readonly TimeSpan UpdateTimeUtc = new(3, 17, 0);
-    private static readonly TimeSpan Jst = TimeSpan.FromHours(9);
+    /// <summary>ホームに出す更新履歴の件数（細かい内容は更新履歴ページ）。</summary>
+    private const int RecentCount = 3;
 
-    private string? lastUpdated;
-    private string nextUpdate = "";
+    private IReadOnlyList<ChangelogEntry>? recent;
+    private bool failed;
 
     protected override async Task OnAppReadyAsync()
     {
-        nextUpdate = FormatJst(NextUpdateUtc(DateTime.UtcNow));
         try
         {
-            // データと同じ読み方にする（ファイルが無いと SPA のフォールバックで index.html が 200 で返るため）
-            var text = (await new HttpDataSource(Http, HttpDataSource.GameDataPath).ReadTextAsync("updated.txt"))?.Trim();
-            lastUpdated = string.IsNullOrEmpty(text) ? "不明" : DateTime.TryParse(text, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var dt)
-                ? FormatJst(dt)
-                : text;
+            recent = (await Log.LoadAsync()).Take(RecentCount).ToList();
         }
         catch
         {
-            lastUpdated = "不明";
+            failed = true;
         }
-    }
-
-    private static DateTime NextUpdateUtc(DateTime nowUtc)
-    {
-        var candidate = nowUtc.Date + UpdateTimeUtc;
-        while (candidate.DayOfWeek != DayOfWeek.Monday || candidate <= nowUtc)
-            candidate = candidate.AddDays(1);
-        return DateTime.SpecifyKind(candidate, DateTimeKind.Utc);
-    }
-
-    private static string FormatJst(DateTime utc)
-    {
-        var jst = utc + Jst;
-        var day = jst.DayOfWeek switch
-        {
-            DayOfWeek.Monday => "月", DayOfWeek.Tuesday => "火", DayOfWeek.Wednesday => "水", DayOfWeek.Thursday => "木",
-            DayOfWeek.Friday => "金", DayOfWeek.Saturday => "土", _ => "日",
-        };
-        return $"{jst:yyyy/MM/dd}（{day}）{jst:HH:mm} 日本時間";
     }
 }
