@@ -592,6 +592,10 @@ body {
 }
 
 .cmd-build .cmd-f-poke { flex: 1 1 7rem; }
+/* set -r: ポケモンの欄は短くし、性格（名前で探す欄・▲▼・選択解除）はポイントの右に並べる */
+.cmd-build .cmd-f-poke.cmd-f-poke-short { flex: 0 0 11rem; }
+.cmd-build .cmd-f-nature.cmd-f-nature-inline { flex: 1 1 38rem; }
+.cmd-build .cmd-break { flex: 0 0 100%; height: 0; order: 3; margin-top: -0.5rem; }
 .cmd-build .cmd-f-move { flex: 1 1 7rem; }
 .cmd-build .cmd-f-weather { flex: 0 0 6.2rem; }
 .cmd-build .cmd-f-terrain { flex: 0 0 8.4rem; }
@@ -602,6 +606,7 @@ body {
 }
 
 @media (max-width: 767.98px) {
+    .cmd-build .cmd-break { display: none; }
     .cmd-build > div,
     .cmd-build .cmd-f-kind,
     .cmd-build .cmd-f-nature,
@@ -615,7 +620,9 @@ body {
     .cmd-build .cmd-f-opt,
     .cmd-build .cmd-f-num,
     .cmd-build .cmd-f-damage,
-    .cmd-build .cmd-f-evs {
+    .cmd-build .cmd-f-evs,
+    .cmd-build .cmd-f-poke.cmd-f-poke-short,
+    .cmd-build .cmd-f-nature.cmd-f-nature-inline {
         flex: 1 1 100%;
     }
 
