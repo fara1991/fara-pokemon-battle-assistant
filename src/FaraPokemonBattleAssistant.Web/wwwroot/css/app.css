@@ -2719,6 +2719,23 @@ html.vt-nav .sidebar {
     view-transition-name: nav-side;
 }
 
+/* 左上のハンバーガーも、サイドバーと同じく別の層にして、ページの切り替えの間も動かさず、消えないようにする */
+html.vt-nav .sidebar-toggle {
+    view-transition-name: sidebar-toggle;
+}
+
+::view-transition-group(sidebar-toggle) {
+    animation: none;
+}
+
+::view-transition-old(sidebar-toggle) {
+    display: none;
+}
+
+::view-transition-new(sidebar-toggle) {
+    animation: none;
+}
+
 ::view-transition-group(nav-side) {
     animation: none;
 }
@@ -3655,6 +3672,11 @@ html.vt-nav .sidebar {
     /* ハンバーガーと、ページの見出しが重ならないよう、左に余白をとる */
     html.sidebar-hidden main {
         padding-left: 3rem;
+    }
+
+    /* 対戦画面の天候・フィールドの表示が、ハンバーガーに隠れないよう、右へずらす */
+    html.sidebar-hidden .bv-conditions {
+        left: calc(var(--bv-gap) + 44px);
     }
 
     /* サイドバー（230px）を前提にした配置は、隠している間は 0 にする（対戦画面・結果バー・背景のコート） */
