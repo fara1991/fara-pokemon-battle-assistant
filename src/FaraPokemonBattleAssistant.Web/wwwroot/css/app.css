@@ -3232,6 +3232,54 @@ html.vt-nav .app-header {
     --bs-table-bg: transparent;
 }
 
+/* 入力欄・一覧・お知らせ・コマンドの小さな印も、カードと同じく半透明にして、背景のバトルフィールドを透かす。入力した文字が読めるよう、不透明度は高め。
+   （表の見出し行・ドロップダウンの候補は、スクロールで重なる・文字が読みにくくなるので、そのまま） */
+:root,
+[data-bs-theme="light"] {
+    --glass-field: rgba(255, 255, 255, 0.68);
+    --glass-field-off: rgba(233, 236, 239, 0.55);
+    --glass-notice: rgba(237, 233, 254, 0.7);
+    --glass-chip: rgba(237, 233, 254, 0.7);
+}
+
+[data-bs-theme="dark"] {
+    --glass-field: rgba(12, 6, 22, 0.55);
+    --glass-field-off: rgba(26, 16, 48, 0.5);
+    --glass-notice: rgba(42, 25, 74, 0.6);
+    --glass-chip: rgba(42, 25, 74, 0.6);
+}
+
+.form-control,
+.form-select,
+.nature-stat,
+.searchable-select-combo {
+    background-color: var(--glass-field);
+}
+
+.form-control:disabled,
+.form-control[readonly],
+.form-select:disabled,
+.searchable-select-combo:disabled,
+.searchable-select-combo[readonly] {
+    background-color: var(--glass-field-off);
+}
+
+.dex-list {
+    background: var(--glass);
+}
+
+.cmd-kind {
+    background: var(--glass-chip);
+}
+
+.cmd-ph {
+    background: color-mix(in srgb, var(--bs-primary-bg-subtle) 55%, transparent);
+}
+
+.mud-alert.app-notice {
+    background: var(--glass-notice);
+}
+
 .card > .card-header {
     background: transparent;
 }
