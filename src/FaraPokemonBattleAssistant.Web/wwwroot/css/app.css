@@ -3026,22 +3026,23 @@ html.vt-nav .app-header {
    ========================================================= */
 :root,
 [data-bs-theme="light"] {
-    --space-0: #f7f4fd;
-    --space-1: #efe7fd;
-    --space-glow: rgba(168, 85, 247, 0.18);
-    --nebula-1: rgba(168, 85, 247, 0.32);
-    --nebula-2: rgba(232, 121, 249, 0.24);
-    --nebula-3: rgba(99, 102, 241, 0.2);
+    /* ライトの背景のフィールドは、白っぽくなりすぎないよう、少し濃い紫にして、コートの線・足場・ポケモンもはっきり出す */
+    --space-0: #e6dcf9;
+    --space-1: #d3c3f1;
+    --space-glow: rgba(124, 58, 237, 0.24);
+    --nebula-1: rgba(168, 85, 247, 0.36);
+    --nebula-2: rgba(232, 121, 249, 0.26);
+    --nebula-3: rgba(99, 102, 241, 0.24);
     --nebula-blend: normal;
-    --field-line: rgba(124, 58, 237, 0.3);
-    --field-fill: rgba(168, 85, 247, 0.07);
-    --field-band: rgba(168, 85, 247, 0.05);
-    --field-pad: rgba(124, 58, 237, 0.22);
-    --field-pad-fill: rgba(168, 85, 247, 0.06);
-    --field-beam: rgba(168, 85, 247, 0.12);
-    --field-sky: rgba(196, 181, 253, 0.35);
-    --field-stand: rgba(124, 58, 237, 0.1);
-    --field-mon-opacity: 0.55;
+    --field-line: rgba(91, 33, 182, 0.5);
+    --field-fill: rgba(124, 58, 237, 0.15);
+    --field-band: rgba(124, 58, 237, 0.1);
+    --field-pad: rgba(91, 33, 182, 0.4);
+    --field-pad-fill: rgba(124, 58, 237, 0.14);
+    --field-beam: rgba(124, 58, 237, 0.16);
+    --field-sky: rgba(167, 139, 250, 0.4);
+    --field-stand: rgba(91, 33, 182, 0.16);
+    --field-mon-opacity: 0.8;
     --glass: rgba(255, 255, 255, 0.72);
     --brand-grad: linear-gradient(120deg, #7c3aed 0%, #c026d3 50%, #4f46e5 100%);
 }
