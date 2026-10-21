@@ -6,6 +6,7 @@ using FaraPokemonBattleAssistant.Web.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
+using MudBlazor.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -30,5 +31,7 @@ builder.Services.AddSingleton<PageStateStore>();
 builder.Services.AddSingleton<BattleStage>();
 builder.Services.AddSingleton<ToastService>();
 builder.Services.AddSingleton(sp => new SearchService(sp.GetRequiredService<HttpClient>(), sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<AppState>()));
+
+builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();
