@@ -32,6 +32,12 @@ public abstract class CalcPageBase : AppPageBase
     protected abstract Pokemon? GetMega(int side);
     protected abstract PokemonBuild? GetBuild(int side);
 
+    /// <summary>
+    /// 扱うポケモンの数。シングルバトルは 2（側 0 = 自分側 1、側 1 = 相手側 1）。ダブルバトルの素早さ比較は 4
+    /// （側 2 = 自分側 2、側 3 = 相手側 2）。3 つ目以降は、ポケモンと性格だけを、もう一方のページに引き継ぐ。
+    /// </summary>
+    protected virtual int SlotCount => 2;
+
     /// <summary>登録から選んだ構成を、その側に入れる（メガシンカの姿つき）。</summary>
     protected abstract void PickRosterChoice(int side, RosterChoice choice, Pokemon? mega);
 
@@ -83,6 +89,15 @@ public abstract class CalcPageBase : AppPageBase
             // 同じポケモンのときだけ、性格も引き継ぐ
             if (!rosterOn[side] && nature is not null && GetBuild(side) is { } build && build.Pokemon.Id == picked?.Id) build.Nature = nature;
         }
+        // ダブルバトルの 2 体目（側 2・3）は、「登録から選ぶ」の引き継ぎはせず、ポケモンと性格だけ入れる
+        for (var side = 2; side < SlotCount; side++)
+        {
+            var picked = side == 2 ? Stage.PickedMine2 : Stage.PickedFoe2;
+            var nature = side == 2 ? Stage.PickedMine2Nature : Stage.PickedFoe2Nature;
+            if (RosterOn(side) || picked is null) continue;
+            if (GetBuild(side)?.Pokemon.Id != picked.Id) SelectPokemon(side, picked.Id);
+            if (nature is not null && GetBuild(side) is { } build && build.Pokemon.Id == picked.Id) build.Nature = nature;
+        }
     }
 
     /// <summary>今のポケモン・性格・「登録から選ぶ」を、もう一方のページに引き継げるよう、Stage に書く（読み込みが終わってから）。</summary>
@@ -90,7 +105,9 @@ public abstract class CalcPageBase : AppPageBase
     {
         if (!stageReady) return;
         Stage.ShareRosterMode(CalcDataSetKey, RosterOn(0), RosterOn(1), GetRosterKey(0), GetMega(0), GetRosterKey(1), GetMega(1));
-        Stage.Show(CalcDataSetKey, GetBuild(0)?.Pokemon, GetBuild(1)?.Pokemon, GetBuild(0)?.Nature, GetBuild(1)?.Nature);
+        var extra = SlotCount > 2;
+        Stage.Show(CalcDataSetKey, GetBuild(0)?.Pokemon, GetBuild(1)?.Pokemon, GetBuild(0)?.Nature, GetBuild(1)?.Nature,
+            extra ? GetBuild(2)?.Pokemon : null, extra ? GetBuild(3)?.Pokemon : null, extra ? GetBuild(2)?.Nature : null, extra ? GetBuild(3)?.Nature : null);
     }
 
     public override void Dispose()

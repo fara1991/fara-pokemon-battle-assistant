@@ -1,12 +1,12 @@
 @* 背景のバトルフィールド（見た目だけの飾りで、操作には関わらない）。CSS は app.css の「バトルフィールドの背景」。
-   足場に立つ 2 体は BattleStage（ダメージ計算機・素早さ比較で選んだポケモン。どちらも未選択ならランダム） *@
+   足場に立つ 2 体（ダブルバトルは 4 体）は BattleStage（ダメージ計算機・素早さ比較で選んだポケモン。どちらも未選択ならランダム） *@
 @inject AppState App
 @inject DataCatalog Catalog
 @inject BattleStage Stage
 @inject IJSRuntime JS
 @implements IDisposable
 
-<div class="bg-scene @(Stage.BattleActive ? "battle" : "") @ConditionClass" aria-hidden="true">
+<div class="bg-scene @(Stage.BattleActive ? "battle" : "") @(Stage.Doubles ? "doubles" : "") @ConditionClass" aria-hidden="true">
     <div class="bg-layer bg-blob blob-1"><span></span></div>
     <div class="bg-layer bg-blob blob-2"><span></span></div>
     <div class="bg-layer bg-blob blob-3"><span></span></div>
@@ -34,6 +34,9 @@
             </svg>
             <div class="field-pad field-pad-foe"></div>
             <div class="field-pad field-pad-mine"></div>
+            @* ダブルバトルのときだけ、それぞれの側に足場をもう 1 つ（CSS の .doubles で出す） *@
+            <div class="field-pad field-pad-foe2"></div>
+            <div class="field-pad field-pad-mine2"></div>
         </div>
     </div>
     @* ポケモンは床とは別に置き、足場の位置に合わせる（js/page.js の faraPlaceStage） *@
@@ -44,6 +47,14 @@
     @if (Stage.Mine is { Icon.Length: > 0 } mine)
     {
         <img class="field-mon field-mon-mine" src="@mine.Icon" alt="" data-onerror="display" />
+    }
+    @if (Stage.Doubles && Stage.Foe2 is { Icon.Length: > 0 } foe2)
+    {
+        <img class="field-mon field-mon-foe2" src="@foe2.Icon" alt="" data-onerror="display" />
+    }
+    @if (Stage.Doubles && Stage.Mine2 is { Icon.Length: > 0 } mine2)
+    {
+        <img class="field-mon field-mon-mine2" src="@mine2.Icon" alt="" data-onerror="display" />
     }
     <div class="field-horizon"></div>
     <div class="field-beam field-beam-1"></div>
@@ -83,7 +94,7 @@
         try
         {
             var data = await Catalog.GetDataSetAsync(App.DataSetKey);
-            Stage.EnsureDefaults(App.DataSetKey, data);
+            Stage.EnsureDefaults(App.DataSetKey, data, App.Format == BattleFormat.Doubles);
         }
         catch
         {
