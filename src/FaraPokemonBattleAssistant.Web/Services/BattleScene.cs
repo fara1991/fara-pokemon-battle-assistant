@@ -33,6 +33,18 @@ public sealed record DamageScene(
     string? CritKnockOut,
     bool CritKnockOutGuaranteed) : BattleScene;
 
+/// <summary>
+/// ダブルバトルのダメージ計算機の結果。自分側 2 体・相手側 2 体のうち、攻撃側・技・防御側がそろっている組み合わせの分
+/// （最大 4 つ）。攻撃側が自分側、防御側が相手側。
+/// </summary>
+public sealed record DamagePairScene(IReadOnlyList<DamageScene> Scenes) : BattleScene
+{
+    // 一覧は参照ではなく中身で比べる（同じ内容なら描き直さない）
+    public bool Equals(DamagePairScene? other) => other is not null && Scenes.SequenceEqual(other.Scenes);
+
+    public override int GetHashCode() => HashCode.Combine(Scenes.Count, Scenes.FirstOrDefault());
+}
+
 /// <summary>育成ポケモンで選んでいる技 1 つ。</summary>
 public sealed record MoveSlot(string Name, string Type, int Power);
 
