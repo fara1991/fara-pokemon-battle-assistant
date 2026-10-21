@@ -449,7 +449,7 @@ else if (data is not null && dataSet is not null)
                         </div>
                         <div class="col-6 d-flex flex-column justify-content-end">
                             <div class="app-check-row"><MudSwitch T="bool" Value="@(build.Status == StatusCondition.Paralysis)" ValueChanged="@(v => build.Status = v ? StatusCondition.Paralysis : StatusCondition.None)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">まひ（@(dataSet.Generation <= 6 ? "1/4" : "0.5 倍")）</MudSwitch></div>
-                            <div class="app-check-row mb-2"><MudSwitch T="bool" Value="@(s.Tailwind[side])" ValueChanged="@(v => s.Tailwind[side] = v)" Color="Color.Primary" Size="Size.Small" Label="おいかぜ（2 倍）" LabelPlacement="Placement.End" /></div>
+                            <div class="app-check-row mb-2"><MudSwitch T="bool" Value="@(s.Tailwind[side])" ValueChanged="@(v => s.Tailwind[side] = v)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">おいかぜ（2 倍）</MudSwitch></div>
                         </div>
                     </div>
                 }

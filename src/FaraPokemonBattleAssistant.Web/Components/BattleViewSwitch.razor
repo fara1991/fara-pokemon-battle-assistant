@@ -7,12 +7,12 @@
 @if (Compact)
 {
     @* ヘッダー用: 狭いので、説明（?）は付けず、短い名前だけにする *@
-    <MudSwitch T="bool" Value="@Stage.BattleView" ValueChanged="Toggle" Color="Color.Primary" Size="Size.Small" Label="対戦画面" LabelPlacement="Placement.End" Class="@("battle-switch " + Class)" AriaLabel="対戦画面で表示" />
+    <MudSwitch T="bool" Value="@Stage.BattleView" ValueChanged="Toggle" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End" Class="@("battle-switch " + Class)" AriaLabel="対戦画面で表示">対戦画面</MudSwitch>
 }
 else
 {
     <div class="battle-switch-wrap @Class">
-        <MudSwitch T="bool" Value="@Stage.BattleView" ValueChanged="Toggle" Color="Color.Primary" Size="Size.Small" Label="対戦画面で表示" LabelPlacement="Placement.End" Class="battle-switch" AriaLabel="対戦画面で表示" />
+        <MudSwitch T="bool" Value="@Stage.BattleView" ValueChanged="Toggle" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End" Class="battle-switch" AriaLabel="対戦画面で表示">対戦画面で表示</MudSwitch>
         <Help Title="対戦画面で表示">背景のフィールドの回転を止め、ダメージ計算機・素早さ比較・育成ポケモンの内容を、実際の対戦画面のようにフィールドの上に重ねて出します（入力欄は隠れます。入力した内容は残ります）。オフにすると入力欄に戻ります。全ページ共通で、前回の状態を覚えています。</Help>
     </div>
 }

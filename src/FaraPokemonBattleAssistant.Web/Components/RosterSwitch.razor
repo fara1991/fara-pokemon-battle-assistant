@@ -4,7 +4,7 @@
 @if (Groups.Count > 0)
 {
     <div class="roster-switch mb-2">
-        <MudSwitch T="bool" Value="@Enabled" ValueChanged="@(v => EnabledChanged.InvokeAsync(v))" Color="Color.Primary" Size="Size.Small" Label="登録から選ぶ" LabelPlacement="Placement.End" Class="roster-switch-input" />
+        <MudSwitch T="bool" Value="@Enabled" ValueChanged="@(v => EnabledChanged.InvokeAsync(v))" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End" Class="roster-switch-input">登録から選ぶ</MudSwitch>
         <Help Title="登録から選ぶ">オンにすると、ポケモンの候補が登録済みのポケモン（チームのメンバーと、チームに入っていない登録）だけになり、選ぶと登録した性格・努力値（ポイント）・特性と、チームで持たせた持ち物が入ります。入れたあとに値を変えても、登録データは変わりません。オフのときは、すべてのポケモンから選べます。</Help>
     </div>
 }

@@ -63,11 +63,11 @@
                 <strong>@results.Count 匹</strong>
                 @if (hasMega)
                 {
-                    <div class="app-check-row mb-0"><MudSwitch T="bool" Value="@(f.MegaOnly)" ValueChanged="@(v => { f.MegaOnly = v; Refresh(); })" Color="Color.Primary" Size="Size.Small" Label="メガシンカのみ" LabelPlacement="Placement.End" /></div>
+                    <div class="app-check-row mb-0"><MudSwitch T="bool" Value="@(f.MegaOnly)" ValueChanged="@(v => { f.MegaOnly = v; Refresh(); })" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">メガシンカのみ</MudSwitch></div>
                 }
                 @if (hasProvisional)
                 {
-                    <div class="app-check-row mb-0"><MudSwitch T="bool" Value="@(f.IncludeProvisional)" ValueChanged="@(v => { f.IncludeProvisional = v; Refresh(); })" Color="Color.Primary" Size="Size.Small" Label="未収録も表示" LabelPlacement="Placement.End" /></div>
+                    <div class="app-check-row mb-0"><MudSwitch T="bool" Value="@(f.IncludeProvisional)" ValueChanged="@(v => { f.IncludeProvisional = v; Refresh(); })" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">未収録も表示</MudSwitch></div>
                 }
                 <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="ms-auto dex-clear" OnClick="ClearFilters">条件をクリア</MudButton>
                 <div class="dex-sort-mobile">
