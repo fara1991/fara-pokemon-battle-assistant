@@ -10,14 +10,19 @@
 <BattleOverlay />
 
 <div class="page @(Stage.BattleActive ? "battle-active" : "")">
-    @* ボタンは、画面では左上に固定するが、キーボードで最初に届くよう、サイドバーの前に置く *@
-    @* PC の左上に固定する、サイドバーの表示・非表示のハンバーガー（スマホは、サイドバー上部のメニューのボタンを使う）。押す処理は wwwroot/js/page.js *@
-    <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-controls="site-sidebar" aria-expanded="true" aria-label="サイドバーの表示・非表示" title="サイドバーの表示・非表示"></button>
+    @* PC の上に固定するヘッダー（ハンバーガーとサイト名）。ハンバーガーを押すたびに、サイドバーの表示・非表示を切り替える（処理は wwwroot/js/page.js）。
+       スマホは、サイドバー上部のサイト名とメニューのボタンを使う。キーボードで最初に届くよう、サイドバーの前に置く *@
+    <header class="app-header">
+        <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-controls="site-sidebar" aria-expanded="true" aria-label="サイドバーの表示・非表示" title="サイドバーの表示・非表示"></button>
+        <a class="app-brand" href="/" title="ホームへ">Pokémon Battle Assistant</a>
+    </header>
+
+    @* サイドバーを隠しているとき、画面の左端にマウスを近づけると、サイドバーが一時的に出る（CSS の :hover）。ハンバーガーを押すと、出したままにする *@
+    <div class="sidebar-edge" aria-hidden="true"></div>
 
     <div class="sidebar" id="site-sidebar">
         <NavMenu />
     </div>
-
 
     <main>
         <article class="content px-4">

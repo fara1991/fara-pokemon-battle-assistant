@@ -889,7 +889,7 @@ body {
     .type-chart {
         /* 縦: 画面の高さから見出し・凡例の分を引いて 19 行（見出し行 + 18 タイプ）で割る
            横: 画面の幅からサイドバー・右のパネル・余白を引いて 21 列（見出し + 18 タイプ + 合計）で割る */
-        --tc-cell: clamp(1.5rem, min(calc((100vh - 13.5rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem);
+        --tc-cell: clamp(1.5rem, min(calc((100vh - 17rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem);
     }
 }
 
@@ -1164,11 +1164,11 @@ body {
     .type-chart-main {
         width: min-content;
         /* 表がまだ無い（読み込み中の）ときも、表と同じくらいの幅を取って凡例が縦に潰れないようにする（.type-chart の --tc-cell × ポケモンを選んでいないときの 19 列。選ぶと列が増え、表に合わせて広がる） */
-        min-width: calc(clamp(1.5rem, min(calc((100vh - 13.5rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem) * 19);
+        min-width: calc(clamp(1.5rem, min(calc((100vh - 17rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem) * 19);
     }
 
     .matchup-panel .card {
-        max-height: calc(100vh - 8.5rem);
+        max-height: calc(100vh - 12rem);
     }
 
     .matchup-panel .card-body {
@@ -2719,20 +2719,20 @@ html.vt-nav .sidebar {
     view-transition-name: nav-side;
 }
 
-/* 左上のハンバーガーも、サイドバーと同じく別の層にして、ページの切り替えの間も動かさず、消えないようにする */
-html.vt-nav .sidebar-toggle {
-    view-transition-name: sidebar-toggle;
+/* 上のヘッダー（ハンバーガーとサイト名）も、サイドバーと同じく別の層にして、ページの切り替えの間も動かさず、消えないようにする */
+html.vt-nav .app-header {
+    view-transition-name: app-header;
 }
 
-::view-transition-group(sidebar-toggle) {
+::view-transition-group(app-header) {
     animation: none;
 }
 
-::view-transition-old(sidebar-toggle) {
+::view-transition-old(app-header) {
     display: none;
 }
 
-::view-transition-new(sidebar-toggle) {
+::view-transition-new(app-header) {
     animation: none;
 }
 
@@ -3202,7 +3202,7 @@ html.vt-nav .sidebar-toggle {
 }
 .battle-ui > * { pointer-events: auto; }
 @media (min-width: 768px) {
-    .battle-ui { inset: 0 0 0 230px; --bv-gap: 1.25rem; }
+    .battle-ui { inset: 3.5rem 0 0 230px; --bv-gap: 1.25rem; }
 }
 
 .bv-box,
@@ -3627,61 +3627,97 @@ html.vt-nav .sidebar-toggle {
     .command-note-legend { display: inline; margin: 0; }
 }
 
-/* ---- サイドバーの表示・非表示（PC。スマホは上のメニューのボタンで開閉する）。切り替えは js/page.js ---- */
-.sidebar-toggle {
+/* ---- ヘッダー（ハンバーガーとサイト名）とサイドバーの表示・非表示（PC。スマホはサイドバー上部のメニューのボタン）。切り替えは js/page.js ---- */
+.app-header,
+.sidebar-edge {
     display: none;
 }
 
+.sidebar-toggle {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.5rem rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+}
+
+.sidebar-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.app-brand {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.app-brand:hover {
+    color: #fff;
+}
+
 @media (min-width: 768px) {
-    /* 左上に固定するハンバーガー。サイドバーを開いていても隠していても同じ場所にあり、押すたびに切り替える */
-    .sidebar-toggle {
+    .app-header {
         position: fixed;
-        top: 8px;
-        left: 12px;
+        top: 0;
+        left: 0;
+        right: 0;
         z-index: 1040;
-        display: block;
-        width: 40px;
-        height: 40px;
-        padding: 0;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        border-radius: 10px;
-        background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.5rem #2d1b4e;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-        cursor: pointer;
+        height: 3.5rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 12px;
+        color: #fff;
+        background: linear-gradient(90deg, #140a26 0%, #241243 100%);
+        border-bottom: 2px solid #c084fc;
     }
 
-    .sidebar-toggle:hover {
-        background-color: #3d2563;
+    /* サイドバーは、ヘッダーの下。サイドバー上部のサイト名は、ヘッダーがあるので出さない */
+    .sidebar {
+        padding-top: 3.5rem;
     }
 
-    /* サイドバー上部のサイト名は、ハンバーガーの右に置く（2 行まで折り返して収める） */
     .sidebar .top-row {
-        padding-left: 3.7rem !important;
-    }
-
-    html .sidebar .top-row .navbar-brand {
-        font-size: 0.95rem;
-        line-height: 1.15;
-        white-space: normal;
-    }
-
-    html.sidebar-hidden .sidebar {
         display: none;
     }
 
-    /* ハンバーガーと、ページの見出しが重ならないよう、左に余白をとる */
-    html.sidebar-hidden main {
-        padding-left: 3rem;
+    /* ページの中身も、ヘッダーの下から始める */
+    main {
+        padding-top: 3.5rem;
     }
 
-    /* 対戦画面の天候・フィールドの表示が、ハンバーガーに隠れないよう、右へずらす */
-    html.sidebar-hidden .bv-conditions {
-        left: calc(var(--bv-gap) + 44px);
+    /* 隠しているとき: サイドバーは画面の外に置き、左端にマウスを近づけている間（または、キーボードで入ったとき）だけ、上にかぶせて出す。
+       ハンバーガーを押すと、クラスが外れて、ふつうに並んで出たままになる */
+    html.sidebar-hidden .sidebar {
+        position: fixed;
+        top: 3.5rem;
+        left: 0;
+        height: calc(100vh - 3.5rem);
+        padding-top: 0;
+        z-index: 1045;
+        background-color: #1a0d33;
+        transform: translateX(-100%);
+        transition: transform 0.15s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        html.sidebar-hidden .sidebar {
+            transition: none;
+        }
+    }
+
+    .app-header :focus-visible {
+        outline-color: #e9d5ff;
     }
 
     /* サイドバー（230px）を前提にした配置は、隠している間は 0 にする（対戦画面・結果バー・背景のコート） */
     html.sidebar-hidden .battle-ui {
-        inset: 0;
+        inset: 3.5rem 0 0 0;
     }
 
     html.sidebar-hidden .result-bar {
@@ -3690,5 +3726,37 @@ html.vt-nav .sidebar-toggle {
 
     html.sidebar-hidden .bg-scene {
         --stage-shift: 0px;
+    }
+
+    /* 左端へのマウスオーバーで出す仕組みは、マウスのある環境だけ（タッチでは、タップで出たまま戻らなくなるのを避ける）。
+       キーボードで中に入ったときも出す（マウスのクリックでは、フォーカスが残っても出たままにしない） */
+    html.sidebar-hidden .sidebar-edge {
+        position: fixed;
+        top: 3.5rem;
+        bottom: 0;
+        left: 0;
+        width: 14px;
+        z-index: 1046;
+    }
+
+    html.sidebar-hidden .sidebar:has(:focus-visible) {
+        transform: none;
+        transition-delay: 0s;
+        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+    }
+}
+
+@media (min-width: 768px) and (hover: hover) {
+    html.sidebar-hidden .sidebar-edge {
+        display: block;
+    }
+
+    /* 出すときだけ、少し待つ（ほかのモニターへ向かってマウスを大きく動かしたときに、ちらつかないように） */
+    html.sidebar-hidden .sidebar-edge:hover + .sidebar,
+    html.sidebar-hidden .sidebar:hover {
+        transform: none;
+        transition-delay: 0.12s;
+        /* 影は、出ている間だけ（隠れている間に、画面の左端へ染み出さないように） */
+        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
     }
 }
