@@ -95,4 +95,43 @@ public class SearchServiceTests
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "FaraPokemonBattleAssistant.sln"))) dir = dir.Parent;
         return dir?.FullName ?? throw new InvalidOperationException("リポジトリのルートが見つかりません");
     }
+
+    [Theory]
+    [InlineData("adoon", "あどおん")]
+    [InlineData("addon", "あっどん")]
+    [InlineData("gaburiasu", "がぶりあす")]
+    [InlineData("kyou", "きょう")]
+    [InlineData("konna", "こんな")]
+    [InlineData("kanji", "かんじ")]
+    [InlineData("shinkansen", "しんかんせん")]
+    [InlineData("taima-", "たいまー")]
+    [InlineData("chotto", "ちょっと")]
+    [InlineData("ADOON", "あどおん")]
+    public void Romaji_converts_to_hiragana(string input, string expected) =>
+        Assert.Equal(expected, Romaji.ToHiragana(input));
+
+    [Theory]
+    [InlineData("dmg")]        // 母音がなく、ローマ字として成り立たない
+    [InlineData("speed")]
+    [InlineData("hp252")]      // 数字が入る
+    [InlineData("")]
+    public void Romaji_returns_null_when_not_convertible(string input) =>
+        Assert.Null(Romaji.ToHiragana(input));
+
+    [Fact]
+    public void Alternatives_add_the_hiragana_form_only_for_romaji_like_terms()
+    {
+        Assert.Equal(new[] { "adoon", "あどおん" }, SearchService.Alternatives("adoon"));
+        Assert.Equal(new[] { "dmg" }, SearchService.Alternatives("dmg"));
+        Assert.Equal(new[] { "ka" }, SearchService.Alternatives("ka"));              // 2 文字以下は、ひらがなにしない（a・ka などが、ほぼ全部に一致してしまうため）
+        Assert.Equal(new[] { "がぶりあす" }, SearchService.Alternatives("がぶりあす"));
+    }
+
+    [Fact]
+    public void Split_highlights_the_text_for_a_romaji_term()
+    {
+        var parts = SearchService.Split("メガガブリアスZ", SearchService.Terms("gaburiasu")).ToList();
+        Assert.Equal(new[] { "メガ", "ガブリアス", "Z" }, parts.Select(p => p.Text));
+        Assert.Equal(new[] { false, true, false }, parts.Select(p => p.Match));
+    }
 }

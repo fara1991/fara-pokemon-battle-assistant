@@ -20,6 +20,7 @@ public sealed record SearchAction(string Label, string Url);
 /// サイト内検索。ページ・項目・用語・コマンドの索引（wwwroot/search-index.json。tools/gen-search-index.mjs が各ページから作る）と、
 /// いま選んでいるゲームのポケモン・わざ・特性のデータを、1 つの検索欄で探す。
 /// 日本語は単語区切りがないので、スペースで区切った語が「すべて含まれる」ものを一致とする。全角・半角、ひらがな・カタカナ、大文字・小文字は区別しない。
+/// ローマ字（gaburiasu）も、ひらがなにした形で探す（3 文字以上で、ひらがなにできる語だけ。dmg のように、ローマ字として成り立たない語は、そのまま探す）。
 /// </summary>
 public sealed class SearchService
 {
@@ -76,6 +77,16 @@ public sealed class SearchService
     /// <summary>検索語を、空白で区切った語にする（折りたたみ済み）。</summary>
     public static string[] Terms(string? query) =>
         Fold(query).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().ToArray();
+
+    /// <summary>1 つの語の、探す形（入力どおり、ローマ字ならひらがなにした形も）。語ごとに、どれか 1 つが含まれればよい。</summary>
+    public static string[] Alternatives(string term)
+    {
+        if (term.Length >= 3 && Romaji.ToHiragana(term) is { Length: >= 2 } kana && kana != term) return new[] { term, kana };
+        return new[] { term };
+    }
+
+    /// <summary>強調・抜き出し用に、すべての形を 1 列にする。</summary>
+    private static string[] AllForms(string[] terms) => terms.SelectMany(Alternatives).Distinct().ToArray();
 
     private static Entry MakeEntry(string kind, string title, string page, string url, string text, double bonus = 0, IReadOnlyList<SearchAction>? actions = null) => new()
     {
@@ -147,20 +158,26 @@ public sealed class SearchService
         foreach (var e in entries)
         {
             double score = 0;
-            foreach (var t in terms)
+            foreach (var term in terms)
             {
-                double s;
-                if (e.FoldedTitle == t) s = 30;
-                else if (e.FoldedTitle.StartsWith(t, StringComparison.Ordinal)) s = 15;
-                else if (e.FoldedTitle.Contains(t, StringComparison.Ordinal)) s = 10;
-                else if (e.FoldedPage.Contains(t, StringComparison.Ordinal)) s = 4;
-                else if (e.FoldedText.Contains(t, StringComparison.Ordinal)) s = 1;
-                else { score = 0; break; }
+                var s = Alternatives(term).Max(t => ScoreOf(e, t));
+                if (s == 0) { score = 0; break; }
                 score += s;
             }
             if (score > 0) scored.Add((e, score + e.Bonus));
         }
         return scored.OrderByDescending(x => x.Score).Select(x => x.Entry);
+    }
+
+    /// <summary>1 つの語の点数（含まれなければ 0）。</summary>
+    private static double ScoreOf(Entry e, string t)
+    {
+        if (e.FoldedTitle == t) return 30;
+        if (e.FoldedTitle.StartsWith(t, StringComparison.Ordinal)) return 15;
+        if (e.FoldedTitle.Contains(t, StringComparison.Ordinal)) return 10;
+        if (e.FoldedPage.Contains(t, StringComparison.Ordinal)) return 4;
+        if (e.FoldedText.Contains(t, StringComparison.Ordinal)) return 1;
+        return 0;
     }
 
     private static SearchHit ToHit(Entry e, string[] terms)
@@ -179,7 +196,7 @@ public sealed class SearchService
     {
         if (text.Length == 0) return "";
         var pos = -1;
-        foreach (var t in terms)
+        foreach (var t in AllForms(terms))
         {
             pos = foldedText.IndexOf(t, StringComparison.Ordinal);
             if (pos >= 0) break;
@@ -198,7 +215,7 @@ public sealed class SearchService
         if (terms.Length == 0 || text.Length == 0) { yield return (text, false); yield break; }
         var folded = Fold(text);
         var marks = new bool[text.Length];
-        foreach (var t in terms)
+        foreach (var t in AllForms(terms))
         {
             for (var i = folded.IndexOf(t, StringComparison.Ordinal); i >= 0; i = folded.IndexOf(t, i + Math.Max(1, t.Length), StringComparison.Ordinal))
                 for (var k = i; k < i + t.Length && k < marks.Length; k++) marks[k] = true;
