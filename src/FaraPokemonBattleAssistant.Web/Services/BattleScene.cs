@@ -75,6 +75,19 @@ public sealed record EstimateScene(
     public override int GetHashCode() => HashCode.Combine(AttackerName, DefenderName, MoveName, Observed, StatRange, Bands.Count);
 }
 
+/// <summary>ダブルバトルの素早さ比較の 1 行（ポケモン 1 体）。<paramref name="Rank"/> は動く順（同速は同じ順位）。</summary>
+public sealed record SpeedOrderLine(string Name, int Speed, bool Mine, int Rank, bool Tie);
+
+/// <summary>ダブルバトルの素早さ比較の結果（自分側 2 体・相手側 2 体の動く順番）。</summary>
+public sealed record SpeedOrderScene(IReadOnlyList<SpeedOrderLine> Lines, string Order, bool TrickRoom) : BattleScene
+{
+    // 行の一覧は参照ではなく中身で比べる（同じ内容なら描き直さない）
+    public bool Equals(SpeedOrderScene? other) =>
+        other is not null && Order == other.Order && TrickRoom == other.TrickRoom && Lines.SequenceEqual(other.Lines);
+
+    public override int GetHashCode() => HashCode.Combine(Order, TrickRoom, Lines.Count);
+}
+
 /// <summary>素早さ比較の結果。ポケモン1が自分側、ポケモン2が相手側。</summary>
 public sealed record SpeedScene(
     string MineName,

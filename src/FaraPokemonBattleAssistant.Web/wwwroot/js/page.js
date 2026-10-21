@@ -35,16 +35,20 @@ window.faraScrollIntoView = function (id) { var el = document.getElementById(id)
     // 背景のバトルフィールド：ポケモンの画像を、画面に描かれた足場の真ん中に足元を合わせて置く。
     // 大きさは足場の幅に比例させるので、奥の足場のポケモンは遠近で小さくなる
     window.faraPlaceStage = function () {
-        var sides = ["foe", "mine"].map(function (name) {
+        // 足場は、シングルが 2 つ（foe・mine）、ダブルが 4 つ（foe・foe2・mine・mine2）。出ていない足場（display: none）は幅が 0
+        var sides = ["foe", "foe2", "mine", "mine2"].map(function (name) {
             var pad = document.querySelector(".field-pad-" + name);
-            return { img: document.querySelector(".field-mon-" + name), r: pad ? pad.getBoundingClientRect() : null };
+            var r = pad ? pad.getBoundingClientRect() : null;
+            return { team: name.indexOf("foe") === 0 ? "foe" : "mine", img: document.querySelector(".field-mon-" + name), r: r && r.width > 0 ? r : null };
         });
-        sides.forEach(function (s, i) {
+        sides.forEach(function (s) {
             if (!s.img || !s.r) return;
             var r = s.r, w = r.width * 1.3, cx = r.left + r.width / 2;
-            var other = sides[1 - i].r;
-            // 2 体を向き合わせる。画像はもともと左向きなので、相手より左にいるときだけ左右反転して右を向かせる
-            var faceRight = other ? cx < other.left + other.width / 2 : i === 1;
+            // 向き合わせる: 相手の側の足場の真ん中（2 つあれば平均）より左にいるときだけ、左右反転して右を向かせる（画像はもともと左向き）
+            var others = sides.filter(function (o) { return o.team !== s.team && o.r; });
+            var faceRight = others.length
+                ? cx < others.reduce(function (sum, o) { return sum + o.r.left + o.r.width / 2; }, 0) / others.length
+                : s.team === "mine";
             var img = s.img;
             img.style.transform = faceRight ? "scaleX(-1)" : "none";
             // フィールドが回って手前に来た足場のポケモンほど、前に重ねる

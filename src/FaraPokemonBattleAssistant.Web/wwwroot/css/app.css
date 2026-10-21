@@ -2947,12 +2947,22 @@ html.vt-nav .app-header {
 .field-pad-foe { top: 12%; }
 .field-pad-foe::after { animation-delay: -2s; }
 .field-pad-mine { top: 88%; margin-top: calc(-8.5 * var(--u)); }
+/* ダブルバトル: 2 つ目の足場は、ダブルのときだけ出す。それぞれの側の足場を左右に分ける */
+.field-pad-foe2, .field-pad-mine2 { display: none; }
+.field-pad-foe2 { top: 12%; }
+.field-pad-foe2::after { animation-delay: -1s; }
+.field-pad-mine2 { top: 88%; margin-top: calc(-8.5 * var(--u)); }
+.bg-scene.doubles .field-pad-foe2, .bg-scene.doubles .field-pad-mine2 { display: block; }
+.bg-scene.doubles .field-pad-foe, .bg-scene.doubles .field-pad-mine { left: 27%; }
+.bg-scene.doubles .field-pad-foe2, .bg-scene.doubles .field-pad-mine2 { left: 73%; }
 
 /* ポケモン：床とは別の平らな画像。足場の位置を JS（js/page.js の faraPlaceStage）で測って、足場の真ん中に足元を合わせる。
    床の傾きを打ち消して立たせる作り（preserve-3d）は、iPhone のブラウザで床に寝てつぶれるため使わない */
 .field-mon { position: fixed; left: 0; top: 0; visibility: hidden; image-rendering: pixelated; opacity: var(--field-mon-opacity); animation: field-mon-idle 2.6s ease-in-out infinite; }
 /* 向き（左右反転）は faraPlaceStage が、2 体が向き合うように毎フレーム決める */
 .field-mon-mine { animation-delay: -1.3s; }
+.field-mon-foe2 { animation-delay: -0.6s; }
+.field-mon-mine2 { animation-delay: -1.9s; }
 @keyframes field-mon-idle { 50% { translate: 0 -4%; } }
 
 .field-beam { position: absolute; top: -10%; width: 260px; height: 130%; transform-origin: top center; background: linear-gradient(180deg, var(--field-beam), transparent 75%); clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); animation: field-beam-sway 14s ease-in-out infinite alternate; }
@@ -2974,7 +2984,7 @@ html.vt-nav .app-header {
     .field-plane { top: 50%; width: calc(46 * var(--u)); height: calc(72 * var(--u)); margin: calc(-36 * var(--u)) 0 0 calc(-23 * var(--u)); transform: rotateX(66deg) rotateZ(48deg); animation-name: field-spin-tall; }
     .field-pad { width: calc(11 * var(--u)); height: calc(11 * var(--u)); margin-left: calc(-5.5 * var(--u)); }
     .field-pad-foe { top: 12%; }
-    .field-pad-mine { top: 88%; margin-top: calc(-11 * var(--u)); }
+    .field-pad-mine, .field-pad-mine2 { top: 88%; margin-top: calc(-11 * var(--u)); }
     .field-beam { width: 160px; }
 }
 
@@ -4149,3 +4159,14 @@ html.vt-nav .app-header {
 .changelog-recent li { padding: 0.15rem 0; }
 .changelog-entry ul { padding-left: 1.2rem; }
 .changelog-entry li { margin-bottom: 0.25rem; }
+
+/* ダブルバトルの素早さ比較: 4 体の動く順番 */
+.speed-order { list-style: none; margin: 0; padding: 0; }
+.speed-order-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; padding: 0.35rem 0.1rem; border-bottom: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); }
+.speed-order-row:last-child { border-bottom: 0; }
+.speed-order-rank { min-width: 3.2rem; font-weight: 700; }
+.speed-order-first .speed-value { color: var(--bs-success, #198754); }
+.speed-order-row .speed-value { margin-left: auto; font-size: 1.15rem; font-weight: 700; }
+.speed-order-team { font-weight: 600; }
+.speed-order-mine { background: var(--bs-primary, #7c3aed); color: #fff; }
+.speed-order-foe { background: #6b5f8a; color: #fff; }

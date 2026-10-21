@@ -26,6 +26,9 @@
             case SpeedScene sp:
                 @RenderSpeed(sp)
                 break;
+            case SpeedOrderScene so:
+                @RenderSpeedOrder(so)
+                break;
             case RegisterScene r:
                 @RenderRegister(r)
                 break;
@@ -166,6 +169,30 @@
                     }
                 }
             </div>
+        </div>
+    };
+
+    /// <summary>ダブルバトルの素早さ比較：右上に相手側 2 体、左下に自分側 2 体（それぞれ S と動く順）、下に動く順番。</summary>
+    private RenderFragment RenderSpeedOrder(SpeedOrderScene so) => __builder =>
+    {
+        <div class="bv-box bv-foe">
+            @foreach (var line in so.Lines.Where(l => !l.Mine))
+            {
+                <div class="bv-name">@line.Name</div>
+                <div class="bv-unknown @(line.Rank == 1 ? "bv-first" : "")">@(line.Rank) 番目　S @line.Speed@(line.Tie ? "（同速）" : "")</div>
+            }
+        </div>
+        <div class="bv-bottom">
+        <div class="bv-box bv-mine">
+            @foreach (var line in so.Lines.Where(l => l.Mine))
+            {
+                <div class="bv-name">@line.Name</div>
+                <div class="bv-unknown @(line.Rank == 1 ? "bv-first" : "")">@(line.Rank) 番目　S @line.Speed@(line.Tie ? "（同速）" : "")</div>
+            }
+        </div>
+        <div class="bv-msg">
+            <div class="bv-msg-move"><strong>動く順: @so.Order</strong>@(so.TrickRoom ? "（トリックルーム）" : "")</div>
+        </div>
         </div>
     };
 
