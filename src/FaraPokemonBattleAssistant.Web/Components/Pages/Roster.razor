@@ -20,9 +20,9 @@ else if (data is not null && roster is not null && dataSet is not null)
     @* PC: 左（登録フォーム）と右（登録一覧）がそれぞれ画面内に収まり、中だけがスクロールする *@
     <div class="reg-layout pane-fill">
         <div class="reg-col">
-            <div class="card mb-3">
-                <div class="card-header"><h5>ポケモンを登録</h5></div>
-                <div class="card-body">
+            <MudCard Elevation="0" Class="card mb-3">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>ポケモンを登録</h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body">
                     <div class="form-group mb-2">
                         <label>ポケモン</label>
                         <SearchableSelect TItem="Pokemon"
@@ -125,13 +125,13 @@ else if (data is not null && roster is not null && dataSet is not null)
                             <span class="small text-muted">#@editing を編集中</span>
                         }
                     </div>
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
         </div>
         <div class="reg-col">
-            <div class="card mb-3">
-                <div class="card-header"><h5>登録一覧（@roster.Pokemon.Count 体）</h5></div>
-                <div class="card-body p-0">
+            <MudCard Elevation="0" Class="card mb-3">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>登録一覧（@roster.Pokemon.Count 体）</h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body p-0">
                     @if (roster.Pokemon.Count == 0)
                     {
                         <Notice Empty="true" Class="m-3">まだ登録がありません。</Notice>
@@ -164,8 +164,8 @@ else if (data is not null && roster is not null && dataSet is not null)
                         }
                         </ul>
                     }
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
         </div>
     </div>
 }

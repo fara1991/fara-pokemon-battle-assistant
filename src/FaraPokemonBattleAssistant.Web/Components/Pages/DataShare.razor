@@ -27,8 +27,7 @@
             <div class="d-flex flex-wrap gap-2 align-items-start">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="@(syncBusy)" OnClick="StartSyncAsync">データ共有を始める（新しいアクセスキーを作る）</MudButton>
                 <div class="input-group input-group-sm sync-join">
-                    <input type="password" class="form-control" placeholder="アクセスキー（43 文字）" autocomplete="off" spellcheck="false" aria-label="アクセスキー"
-                           value="@joinKey" @oninput="@(e => joinKey = e.Value?.ToString() ?? "")" />
+                    <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" InputType="InputType.Password" Immediate="true" Placeholder="アクセスキー（43 文字）" aria-label="アクセスキー" Value="@(joinKey)" ValueChanged="@(v => joinKey = v?.ToString() ?? "")" / />
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@(syncBusy || string.IsNullOrWhiteSpace(joinKey))" OnClick="JoinSyncAsync">アクセスキーを入力して共有</MudButton>
                 </div>
             </div>

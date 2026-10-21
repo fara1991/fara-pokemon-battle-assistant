@@ -17,21 +17,21 @@
 @if (data is not null)
 {
     var f = s.Filter;
-    <div class="card mb-2">
-        <div class="card-body dex-filters">
+    <MudCard Elevation="0" Class="card mb-2">
+        <MudCardContent Class="card-body dex-filters">
             <div class="dex-filter-grid">
                 <div class="form-group">
                     <label for="mv-name">技名</label>
-                    <input id="mv-name" class="form-control" placeholder="カタカナ・ひらがな・ローマ字" value="@f.Name" @oninput="@(e => { f.Name = e.Value?.ToString() ?? ""; f.MoveId = 0; Refresh(); })" />
+                    <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" Immediate="true" InputId="mv-name" Placeholder="カタカナ・ひらがな・ローマ字" Value="@(f.Name)" ValueChanged="@(v => { f.Name = v?.ToString() ?? ""; f.MoveId = 0; Refresh(); })" / />
                 </div>
                 <div class="form-group">
                     <label for="mv-category">分類</label>
-                    <select id="mv-category" class="form-select" value="@(f.Category?.ToString() ?? "")" @onchange="@(e => { f.Category = Enum.TryParse<MoveCategory>(e.Value?.ToString(), out var c) ? c : null; Refresh(); })">
-                        <option value="">すべて</option>
-                        <option value="@MoveCategory.Physical">物理</option>
-                        <option value="@MoveCategory.Special">特殊</option>
-                        <option value="@MoveCategory.Status">変化</option>
-                    </select>
+                    <MudSelect T="string" Value="@((f.Category?.ToString() ?? "")?.ToString())" ValueChanged="@(v => { f.Category = Enum.TryParse<MoveCategory>(v?.ToString(), out var c) ? c : null; Refresh(); })" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="mv-category">
+                        <MudSelectItem T="string" Value="@("")">すべて</MudSelectItem>
+                        <MudSelectItem T="string" Value="@((MoveCategory.Physical).ToString())">物理</MudSelectItem>
+                        <MudSelectItem T="string" Value="@((MoveCategory.Special).ToString())">特殊</MudSelectItem>
+                        <MudSelectItem T="string" Value="@((MoveCategory.Status).ToString())">変化</MudSelectItem>
+                    </MudSelect>
                 </div>
                 <div class="form-group dex-select-field">
                     <label>覚えるポケモンを探す <Help Title="覚えるポケモンを探す">技を選ぶと、その技だけを表示して、覚えるポケモンを開きます。</Help></label>
@@ -59,17 +59,17 @@
                 <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="ms-auto dex-clear" OnClick="ClearFilters">条件をクリア</MudButton>
                 <div class="dex-sort-mobile">
                     @* スマホ: 向きまで含めた選択肢にする（PC は見出しを押して切り替える） *@
-                    <select class="form-select form-select-sm" aria-label="並び順" value="@SortValue(f.Sort, f.Descending)" @onchange="@(e => SetSort(e.Value?.ToString()))">
+                    <MudSelect T="string" Value="@((SortValue(f.Sort, f.Descending))?.ToString())" ValueChanged="@(v => SetSort(v?.ToString()))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" aria-label="並び順">
                         @foreach (var (sort, label) in SortColumns)
                         {
-                            <option value="@SortValue(sort, false)">@label（@(sort == MoveSort.Name ? "五十音順" : sort == MoveSort.Type ? "昇順" : "低い順")）</option>
-                            <option value="@SortValue(sort, true)">@label（@(sort == MoveSort.Name ? "逆順" : sort == MoveSort.Type ? "降順" : "高い順")）</option>
+                            <MudSelectItem T="string" Value="@((SortValue(sort, false)).ToString())">@label（@(sort == MoveSort.Name ? "五十音順" : sort == MoveSort.Type ? "昇順" : "低い順")）</MudSelectItem>
+                            <MudSelectItem T="string" Value="@((SortValue(sort, true)).ToString())">@label（@(sort == MoveSort.Name ? "逆順" : sort == MoveSort.Type ? "降順" : "高い順")）</MudSelectItem>
                         }
-                    </select>
+                    </MudSelect>
                 </div>
             </div>
-        </div>
-    </div>
+        </MudCardContent>
+    </MudCard>
 
     <div class="dex-list pane-scroll">
         <div class="dex-row mv-row dex-head">

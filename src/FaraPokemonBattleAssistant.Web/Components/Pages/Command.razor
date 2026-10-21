@@ -26,23 +26,23 @@
 }
 else if (data is not null)
 {
-    <div class="card mb-3">
-        <div class="card-header"><h5>コマンドを作る</h5></div>
-        <div class="card-body py-2">
+    <MudCard Elevation="0" Class="card mb-3">
+        <MudCardHeader Class="card-header"><CardHeaderContent><h5>コマンドを作る</h5></CardHeaderContent></MudCardHeader>
+        <MudCardContent Class="card-body py-2">
             <div class="cmd-build">
                 <div class="cmd-f-kind">
                     <label class="form-label" for="cmd-kind">種類 <Help Title="種類">実行したいコマンドの種類です。選ぶと、そのコマンドに必要な入力欄だけが出て、下のコマンド欄に文字列を組み立てます。dmg はダメージと確定数、scan は受けたダメージから相手の振り方を推定して相手チームに登録します。</Help></label>
-                    <select id="cmd-kind" class="form-select" value="@s.Kind" @onchange="@(e => { s.Kind = e.Value?.ToString() ?? "add -m"; BuildText(); })">
+                    <MudSelect T="string" Value="@(Convert.ToString(s.Kind))" ValueChanged="@(v => { s.Kind = v?.ToString() ?? "add -m"; BuildText(); })" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="cmd-kind">
                         @foreach (var group in KindGroups())
                         {
                             <optgroup label="@group.Key">
                                 @foreach (var k in group)
                                 {
-                                    <option value="@k.Key">@k.Label</option>
+                                    <MudSelectItem T="string" Value="@(Convert.ToString(k.Key))">@k.Label</MudSelectItem>
                                 }
                             </optgroup>
                         }
-                    </select>
+                    </MudSelect>
                 </div>
 
                 @if (Has(Field.Subject))
@@ -154,14 +154,14 @@ else if (data is not null)
                         {
                             <label class="form-label" for="cmd-entry">@(s.Kind == "set -m" ? "登録 ID（任意）" : "登録 ID") <Help Title="登録 ID">登録したポケモンの番号です。「育成ポケモン」ページか ls -m コマンドで分かります。@(s.Kind == "set -m" ? "set -m は名前でも指定できます。同じポケモンを複数登録しているときだけ、登録 ID を入れてください。" : "")</Help></label>
                         }
-                        <input id="cmd-entry" class="form-control" inputmode="numeric" placeholder="例: 1" value="@s.EntryId" @onchange="@(e => { s.EntryId = e.Value?.ToString()?.Trim() ?? ""; BuildText(); })" />
+                        <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" InputId="cmd-entry" Placeholder="例: 1" Value="@(s.EntryId)" ValueChanged="@(v => { s.EntryId = v?.ToString()?.Trim() ?? ""; BuildText(); })" / />
                     </div>
                 }
                 @if (Has(Field.TeamNo))
                 {
                     <div class="cmd-f-num">
                         <label class="form-label" for="cmd-team">チーム番号</label>
-                        <input id="cmd-team" class="form-control" inputmode="numeric" placeholder="例: 1" value="@s.TeamNo" @onchange="@(e => { s.TeamNo = e.Value?.ToString()?.Trim() ?? ""; BuildText(); })" />
+                        <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" InputId="cmd-team" Placeholder="例: 1" Value="@(s.TeamNo)" ValueChanged="@(v => { s.TeamNo = v?.ToString()?.Trim() ?? ""; BuildText(); })" / />
                     </div>
                 }
                 @if (Has(Field.TeamItem))
@@ -212,39 +212,39 @@ else if (data is not null)
                 {
                     <div class="cmd-f-weather">
                         <label class="form-label" for="cmd-weather">天候（任意）</label>
-                        <select id="cmd-weather" class="form-select" value="@s.Weather" @onchange="@(e => { s.Weather = ParseEnum(e.Value, Weather.None); BuildText(); })">
-                            @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w)</option> }
-                        </select>
+                        <MudSelect T="string" Value="@(Convert.ToString(s.Weather))" ValueChanged="@(v => { s.Weather = ParseEnum(v, Weather.None); BuildText(); })" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="cmd-weather">
+                            @foreach (var w in Enum.GetValues<Weather>()) { <MudSelectItem T="string" Value="@(Convert.ToString(w))">@FieldNames.Japanese(w)</MudSelectItem> }
+                        </MudSelect>
                     </div>
                 }
                 @if (Has(Field.Terrain))
                 {
                     <div class="cmd-f-terrain">
                         <label class="form-label" for="cmd-terrain">フィールド（任意）</label>
-                        <select id="cmd-terrain" class="form-select" value="@s.Terrain" @onchange="@(e => { s.Terrain = ParseEnum(e.Value, Terrain.None); BuildText(); })">
-                            @foreach (var t in Enum.GetValues<Terrain>()) { <option value="@t">@FieldNames.Japanese(t)</option> }
-                        </select>
+                        <MudSelect T="string" Value="@(Convert.ToString(s.Terrain))" ValueChanged="@(v => { s.Terrain = ParseEnum(v, Terrain.None); BuildText(); })" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="cmd-terrain">
+                            @foreach (var t in Enum.GetValues<Terrain>()) { <MudSelectItem T="string" Value="@(Convert.ToString(t))">@FieldNames.Japanese(t)</MudSelectItem> }
+                        </MudSelect>
                     </div>
                 }
                 @if (Has(Field.Damage))
                 {
                     <div class="cmd-f-damage">
                         <label class="form-label" for="cmd-damage">受けたダメージ <Help Title="受けたダメージ">実数（93）か割合（45%）で入力します。割合のときは HP の振りも推定します。</Help></label>
-                        <input id="cmd-damage" class="form-control" placeholder="例: 93 / 45%" value="@s.Damage" @onchange="@(e => { s.Damage = e.Value?.ToString() ?? ""; BuildText(); })" />
+                        <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" InputId="cmd-damage" Placeholder="例: 93 / 45%" Value="@(s.Damage)" ValueChanged="@(v => { s.Damage = v?.ToString() ?? ""; BuildText(); })" / />
                     </div>
                 }
                 @if (Has(Field.Memo))
                 {
                     <div class="cmd-f-opt">
                         <label class="form-label" for="cmd-memo">メモ（任意） <Help Title="メモ">試合の履歴に残すメモです（例: 相手の名前）。</Help></label>
-                        <input id="cmd-memo" class="form-control" placeholder="例: 〇〇さん戦" value="@s.Memo" @onchange="@(e => { s.Memo = e.Value?.ToString() ?? ""; BuildText(); })" />
+                        <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" InputId="cmd-memo" Placeholder="例: 〇〇さん戦" Value="@(s.Memo)" ValueChanged="@(v => { s.Memo = v?.ToString() ?? ""; BuildText(); })" / />
                     </div>
                 }
                 @if (Has(Field.Options))
                 {
                     <div class="cmd-f-opt">
                         <label class="form-label" for="cmd-options">オプション（任意） <Help Title="オプション">+1（自分のランク）、まひ（相手）、自:まひ（自分）などをそのまま書きます。</Help></label>
-                        <input id="cmd-options" class="form-control" placeholder="例: +1 まひ" value="@string.Join(" ", s.Extras)" @onchange="@(e => { s.Extras = (e.Value?.ToString() ?? "").Split(new[] { ' ', '　' }, StringSplitOptions.RemoveEmptyEntries).ToList(); BuildText(); })" />
+                        <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" InputId="cmd-options" Placeholder="例: +1 まひ" Value="@(string.Join(" ", s.Extras))" ValueChanged="@(v => { s.Extras = (v?.ToString() ?? "").Split(new[] { ' ', '　' }, StringSplitOptions.RemoveEmptyEntries).ToList(); BuildText(); })" / />
                     </div>
                 }
                 @if (NoFields)
@@ -252,8 +252,8 @@ else if (data is not null)
                     <p class="cmd-f-none text-muted small mb-0">このコマンドは入力するものがありません。そのまま「実行」できます。</p>
                 }
             </div>
-        </div>
-    </div>
+        </MudCardContent>
+    </MudCard>
 }
 
 @* 計算に対応していないゲームでは案内だけを出し、入力欄・コマンド一覧は出さない *@
@@ -261,7 +261,7 @@ else if (data is not null)
 {
 <label class="form-label" for="cmd-input">コマンド <Help Title="コマンド欄">Enter か「実行」で配信用BOTと同じ結果が返ります。接頭辞を省略すると選択中のゲーム（!@(App.CommandPrefix)）として実行します。オプション（努力値・性格・持ち物・急所など）は末尾に続けて書けます。</Help></label>
 <div class="input-group mb-2">
-    <input id="cmd-input" class="form-control" placeholder="!@(App.CommandPrefix) add -m ガブリアス 4 32 0 0 0 30 ようき" value="@s.Input" @oninput="OnInput" @onkeydown="OnKeyDown" />
+    <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" Immediate="true" InputId="cmd-input" Placeholder="@("!" + (App.CommandPrefix) + " add -m ガブリアス 4 32 0 0 0 30 ようき")" Value="@(s.Input)" ValueChanged="@(v => OnInput(new ChangeEventArgs { Value = v }))" OnKeyDown="OnKeyDown" / />
     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Run" Disabled="@(running)">実行</MudButton>
 </div>
 
@@ -271,9 +271,9 @@ else if (data is not null)
     <MudAlert Severity="@(s.Success ? Severity.Success : Severity.Warning)" Variant="Variant.Outlined" Dense="true" NoIcon="true" Class="chat-output">@s.Output</MudAlert>
 }
 
-<div class="card mt-3 pane-fill cmd-list-card">
-    <div class="card-header"><h5>コマンド一覧（@(App.DataSet?.Name ?? "")） <Help Title="接頭辞">!pokech = ポケモンチャンピオンズ、!pokesv = スカーレット・バイオレット、!pokess = ソード・シールド。!poke はチャンピオンズ扱いです。登録・削除・使用チームの変更は配信者本人とモデレーターだけが使えます。</Help></h5></div>
-    <div class="card-body pane-fill">
+<MudCard Elevation="0" Class="card mt-3 pane-fill cmd-list-card">
+    <MudCardHeader Class="card-header"><CardHeaderContent><h5>コマンド一覧（@(App.DataSet?.Name ?? "")） <Help Title="接頭辞">!pokech = ポケモンチャンピオンズ、!pokesv = スカーレット・バイオレット、!pokess = ソード・シールド。!poke はチャンピオンズ扱いです。登録・削除・使用チームの変更は配信者本人とモデレーターだけが使えます。</Help></h5></CardHeaderContent></MudCardHeader>
+    <MudCardContent Class="card-body pane-fill">
         <p class="small mb-0 cmd-legend">
             <code class="cmd-syntax"><span class="cmd-ph">名前</span></code> のように色の付いた部分は、実際の値（ポケモン名・番号など）に置き換えて打ちます。
             <code class="cmd-syntax">[ ]</code> で囲んだ部分は省略できます（括弧は打ちません）。それ以外（<code>!@(App.CommandPrefix) detail -m</code> など）はそのまま打ちます。<br />対象は短い形の <code>-m</code>（育成ポケモン）/ <code>-t</code>（自分チーム）/ <code>-r</code>（相手チーム）/ <code>-h</code>（履歴）で指定します。長い形の <code>--my</code> / <code>--team</code> / <code>--rival</code> / <code>--history</code> も同じ意味で使えます（例では、短い形の直後に同じ意味の長い形を並べています）。全角の空白・英数字は半角として読みます。
@@ -381,8 +381,8 @@ else if (data is not null)
             <li>埋めた内容は結果にそのまま表示します。相手の特性で結果が変わる場合は「特性別:」が付きます。</li>
         </ul>
         </div>
-    </div>
-</div>
+    </MudCardContent>
+</MudCard>
 }
 
 @code {

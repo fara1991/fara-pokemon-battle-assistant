@@ -34,34 +34,31 @@ else if (data is not null && dataSet is not null)
         <div class="calc-col">@RenderSide(1)</div>
 
         <div class="calc-col calc-side">
-            <div class="card">
-                <div class="card-header"><h5>場の状態</h5></div>
-                <div class="card-body">
+            <MudCard Elevation="0" Class="card">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>場の状態</h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body">
                     <div class="row g-2">
                         <div class="col-sm-6">
                             <label class="form-label">天候 <Help Title="天候">すいすい（雨）・ようりょくそ（晴れ）・すなかき（砂嵐）・ゆきかき（雪）の特性を持つポケモンは、その天候で S が 2 倍になります。こだいかっせい（晴れ）で S が一番高いポケモンは 1.5 倍です。</Help></label>
-                            <select class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
-                                @foreach (var w in Enum.GetValues<Weather>()) { <option value="@w">@FieldNames.Japanese(w, dataSet.Generation)</option> }
-                            </select>
+                            <MudSelect T="string" Value="@(Convert.ToString(s.Weather))" ValueChanged="@(v => s.Weather = ParseEnum(v, Weather.None))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select">
+                                @foreach (var w in Enum.GetValues<Weather>()) { <MudSelectItem T="string" Value="@(Convert.ToString(w))">@FieldNames.Japanese(w, dataSet.Generation)</MudSelectItem> }
+                            </MudSelect>
                         </div>
                         @if (dataSet.HasTerrain)
                         {
                         <div class="col-sm-6">
                             <label class="form-label">フィールド <Help Title="フィールド">サーフテール（エレキフィールドで 2 倍）、クォークチャージ（エレキフィールドで S が一番高いとき 1.5 倍）に使います。</Help></label>
-                            <select class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
-                                @foreach (var t in Enum.GetValues<Terrain>().Where(t => dataSet.HasTerrain && (t != Terrain.Psychic || dataSet.HasPsychicTerrain) || t == Terrain.None)) { <option value="@t">@FieldNames.Japanese(t)</option> }
-                            </select>
+                            <MudSelect T="string" Value="@(Convert.ToString(s.Terrain))" ValueChanged="@(v => s.Terrain = ParseEnum(v, Terrain.None))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select">
+                                @foreach (var t in Enum.GetValues<Terrain>().Where(t => dataSet.HasTerrain && (t != Terrain.Psychic || dataSet.HasPsychicTerrain) || t == Terrain.None)) { <MudSelectItem T="string" Value="@(Convert.ToString(t))">@FieldNames.Japanese(t)</MudSelectItem> }
+                            </MudSelect>
                         </div>
                         }
                         <div class="col-12">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="speed-trick-room" checked="@s.TrickRoom" @onchange="@(e => s.TrickRoom = e.Value is true)" />
-                                <label class="form-check-label" for="speed-trick-room">トリックルーム <Help Title="トリックルーム">オンにすると、S が遅い方が先に動きます（同速のときの扱いは変わりません）。S の数値そのものは変わりません。</Help></label>
-                            </div>
+                            <div class="app-check-row"><MudSwitch T="bool" Value="@(s.TrickRoom)" ValueChanged="@(v => s.TrickRoom = v)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">トリックルーム <Help Title="トリックルーム">オンにすると、S が遅い方が先に動きます（同速のときの扱いは変わりません）。S の数値そのものは変わりません。</Help></MudSwitch></div>
                         </div>
                     </div>
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
 
             @{
                 var speeds = new int?[2];
@@ -79,9 +76,9 @@ else if (data is not null && dataSet is not null)
             }
             @if (s.Builds.Any(x => x is not null))
             {
-                <div class="card result-card result-sticky">
-                    <div class="card-header"><h5>結果</h5></div>
-                    <div class="card-body">
+                <MudCard Elevation="0" Class="card result-card result-sticky">
+                    <MudCardHeader Class="card-header"><CardHeaderContent><h5>結果</h5></CardHeaderContent></MudCardHeader>
+                    <MudCardContent Class="card-body">
                         @if (s.Builds[0] is { } a && s.Builds[1] is { } b)
                         {
                             var speedA = speeds[0]!.Value;
@@ -119,8 +116,8 @@ else if (data is not null && dataSet is not null)
                             }
                         </div>
                         @RenderReference(s.Builds[refSide]!, s.Tailwind[refSide], speeds[1 - refSide], s.Builds[1 - refSide]?.Pokemon.Name)
-                    </div>
-                </div>
+                    </MudCardContent>
+                </MudCard>
                 @if (s.Builds[0] is { } ba && s.Builds[1] is { } bb)
                 {
                     @* 狭い画面では、結果の要点を画面の下に出したままにする *@
@@ -368,9 +365,9 @@ else if (data is not null && dataSet is not null)
     {
         var build = s.Builds[side];
         var max = EvRules.MaxPerStat(dataSet!.EvSystem);
-        <div class="card">
-            <div class="card-header"><h5>ポケモン@(side + 1)</h5></div>
-            <div class="card-body">
+        <MudCard Elevation="0" Class="card">
+            <MudCardHeader Class="card-header"><CardHeaderContent><h5>ポケモン@(side + 1)</h5></CardHeaderContent></MudCardHeader>
+            <MudCardContent Class="card-body">
                 <RosterSwitch Groups="rosterGroups" Enabled="s.UseRoster[side]" EnabledChanged="@(v => s.UseRoster[side] = v)" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
                 <div class="form-group mb-2">
                     <label>ポケモン</label>
@@ -446,24 +443,18 @@ else if (data is not null && dataSet is not null)
                     <div class="row g-2">
                         <div class="col-6">
                             <label class="form-label">すばやさランク <Help Title="すばやさランク">こうそくいどう等で上がった S のランクです。+1 で 1.5 倍、+2 で 2 倍、-1 で 2/3 倍になります。</Help></label>
-                            <select class="form-select" value="@build.Boosts.Speed" @onchange="@(e => build.Boosts[Stat.Speed] = Math.Clamp(ParseId(e.Value), -6, 6))">
-                                @for (var st = 6; st >= -6; st--) { <option value="@st">@(st > 0 ? "+" + st : st.ToString())</option> }
-                            </select>
+                            <MudSelect T="string" Value="@(Convert.ToString(build.Boosts.Speed))" ValueChanged="@(v => build.Boosts[Stat.Speed] = Math.Clamp(ParseId(v), -6, 6))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select">
+                                @for (var st = 6; st >= -6; st--) { <MudSelectItem T="string" Value="@(Convert.ToString(st))">@(st > 0 ? "+" + st : st.ToString())</MudSelectItem> }
+                            </MudSelect>
                         </div>
                         <div class="col-6 d-flex flex-column justify-content-end">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="para-@side" checked="@(build.Status == StatusCondition.Paralysis)" @onchange="@(e => build.Status = e.Value is true ? StatusCondition.Paralysis : StatusCondition.None)" />
-                                <label class="form-check-label" for="para-@side">まひ（@(dataSet.Generation <= 6 ? "1/4" : "0.5 倍")）</label>
-                            </div>
-                            <div class="form-check form-switch mb-2">
-                                <input class="form-check-input" type="checkbox" role="switch" id="tailwind-@side" checked="@s.Tailwind[side]" @onchange="@(e => s.Tailwind[side] = e.Value is true)" />
-                                <label class="form-check-label" for="tailwind-@side">おいかぜ（2 倍）</label>
-                            </div>
+                            <div class="app-check-row"><MudSwitch T="bool" Value="@(build.Status == StatusCondition.Paralysis)" ValueChanged="@(v => build.Status = v ? StatusCondition.Paralysis : StatusCondition.None)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">まひ（@(dataSet.Generation <= 6 ? "1/4" : "0.5 倍")）</MudSwitch></div>
+                            <div class="app-check-row mb-2"><MudSwitch T="bool" Value="@(s.Tailwind[side])" ValueChanged="@(v => s.Tailwind[side] = v)" Color="Color.Primary" Size="Size.Small" Label="おいかぜ（2 倍）" LabelPlacement="Placement.End" /></div>
                         </div>
                     </div>
                 }
-            </div>
-        </div>
+            </MudCardContent>
+        </MudCard>
     };
 
     /// <summary>素早さ x の側が y の側より先に動くか（トリックルーム中は遅い方が先）。同速は false。</summary>
