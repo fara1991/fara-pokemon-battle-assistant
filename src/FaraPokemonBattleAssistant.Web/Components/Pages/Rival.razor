@@ -19,9 +19,9 @@ else if (data is not null && roster is not null && dataSet is not null)
 {
     <div class="reg-layout pane-fill">
         <div class="reg-col">
-            <div class="card mb-3">
-                <div class="card-header"><h5>対戦中の相手（@roster.Rivals.Count / @PokeCommand.MaxRivals）</h5></div>
-                <div class="card-body">
+            <MudCard Elevation="0" Class="card mb-3">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>対戦中の相手（@roster.Rivals.Count / @PokeCommand.MaxRivals）</h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body">
                     <div class="form-group mb-2">
                         <label>ポケモンを追加（名前だけ）</label>
                         <SearchableSelect TItem="Pokemon"
@@ -146,18 +146,18 @@ else if (data is not null && roster is not null && dataSet is not null)
                     <div class="border-top pt-3">
                         <label class="form-label">試合を終える <Help Title="試合を終える">対戦中の相手を全員（名前だけの相手も）履歴に移して、対戦中の相手を空にします。選出した相手・見えた技・ポイント・性格・特性・推定も一緒に残ります。メモ（相手の名前など）を付けておくと、あとで探しやすくなります。</Help></label>
                         <div class="input-group">
-                            <input class="form-control" placeholder="メモ（任意。例: ○○さん戦）" maxlength="60" @bind="memo" @bind:event="oninput" />
+                            <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" Immediate="true" Placeholder="メモ（任意。例: ○○さん戦）" MaxLength="60" @bind-Value="memo" / />
                             <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="EndMatchAsync" Disabled="@(roster.Rivals.Count == 0)">試合を終える（履歴へ）</MudButton>
                         </div>
                     </div>
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
         </div>
 
         <div class="reg-col">
-            <div class="card mb-3">
-                <div class="card-header"><h5>試合の履歴（@historyTotal 件）</h5></div>
-                <div class="card-body">
+            <MudCard Elevation="0" Class="card mb-3">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>試合の履歴（@historyTotal 件）</h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body">
                     @if (historyTotal == 0)
                     {
                         <Notice Empty="true" Class="mb-0">履歴はまだありません。「試合を終える」を押すと、対戦中の相手が全員（選出・技・ポイントなどの分かっていることと一緒に）履歴に残ります。</Notice>
@@ -195,8 +195,8 @@ else if (data is not null && roster is not null && dataSet is not null)
                             <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="@(historyLoading || keepLatest >= historyTotal)" OnClick="TrimHistoryAsync">削除</MudButton>
                         </div>
                     }
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
         </div>
     </div>
 }

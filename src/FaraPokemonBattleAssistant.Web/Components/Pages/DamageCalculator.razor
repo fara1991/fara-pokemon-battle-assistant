@@ -40,9 +40,9 @@ else if (data is not null && dataSet is not null)
     </div>
     <div class="calc-grid pane-fill @(s.Result is not null && !s.EstimateMode ? "has-result-bar" : "")">
         <div class="calc-col">
-            <div class="card">
-                <div class="card-header"><h5>攻撃側</h5></div>
-                <div class="card-body">
+            <MudCard Elevation="0" Class="card">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>攻撃側</h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body">
                     <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterAttacker" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
                     <div class="form-group mb-2">
                         <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。図鑑順に並んでいます。「登録から選ぶ」をオンにすると、登録したポケモンだけから選べます。</Help></label>
@@ -86,25 +86,22 @@ else if (data is not null && dataSet is not null)
                         }
                         @if (dataSet.HasZMove && s.Move is { IsDamaging: true })
                         {
-                            <div class="form-check form-switch mt-1">
-                                <input class="form-check-input" type="checkbox" role="switch" id="zmove" checked="@s.IsZMove" @onchange="@(e => s.IsZMove = e.Value is true)" />
-                                <label class="form-check-label" for="zmove">Z技にする（威力 @(s.Attacker is null ? ZMove.Power(s.Move) : ZMove.Power(s.Move, s.Attacker.Pokemon))） <Help Title="Z技">第7世代の Z 技として計算します。威力は元の技の威力から決まる Z 技の威力になり、持ち物は Z クリスタル扱い（ほかの持ち物の効果なし）です。接触・パンチなどの技の性質や追加効果は無くなるので、かたいツメ・てつのこぶし・ちからずくなどは効きません。スキン系の特性でタイプは変わりません。</Help></label>
-                            </div>
+                            <div class="app-check-row mt-1"><MudSwitch T="bool" Value="@(s.IsZMove)" ValueChanged="@(v => s.IsZMove = v)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">Z技にする（威力 @(s.Attacker is null ? ZMove.Power(s.Move) : ZMove.Power(s.Move, s.Attacker.Pokemon))） <Help Title="Z技">第7世代の Z 技として計算します。威力は元の技の威力から決まる Z 技の威力になり、持ち物は Z クリスタル扱い（ほかの持ち物の効果なし）です。接触・パンチなどの技の性質や追加効果は無くなるので、かたいツメ・てつのこぶし・ちからずくなどは効きません。スキン系の特性でタイプは変わりません。</Help></MudSwitch></div>
                         }
                     </div>
                     @if (s.Attacker is not null)
                     {
                         @RenderBuildEditor(s.Attacker, true)
                     }
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
         </div>
 
         <div class="calc-right">
         <div class="calc-col">
-            <div class="card">
-                <div class="card-header"><h5>防御側</h5></div>
-                <div class="card-body">
+            <MudCard Elevation="0" Class="card">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>防御側</h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body">
                     <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterDefender" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
                     <div class="form-group mb-2">
                         <label>ポケモン</label>
@@ -150,55 +147,49 @@ else if (data is not null && dataSet is not null)
                         }
                         @RenderBuildEditor(s.Defender, false)
                     }
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
         </div>
 
         <div class="calc-col calc-side">
-            <div class="card field-card">
-                <div class="card-header"><h5>場の状態 <Help Title="場の状態">天候・フィールドは、攻撃側・防御側の特性（ひでり・サイコメイカーなど）から自動で入ります。変えたいときは選び直してください。技の並び順にもここの条件が反映されます。</Help></h5></div>
-                <div class="card-body">
+            <MudCard Elevation="0" Class="card field-card">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>場の状態 <Help Title="場の状態">天候・フィールドは、攻撃側・防御側の特性（ひでり・サイコメイカーなど）から自動で入ります。変えたいときは選び直してください。技の並び順にもここの条件が反映されます。</Help></h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body">
                     <div class="row g-2">
                         <div class="col-sm-6">
                             <label class="form-label mb-1" for="weather">天候 <Help Title="天候">晴れはほのお 1.5 倍・みず 0.5 倍、雨はその逆。砂嵐はいわタイプの D が 1.5 倍、雪はこおりタイプの B が 1.5 倍（第7世代までは「あられ」で、B は上がりません）。天候で発動する特性（サンパワー等）にも使います。</Help></label>
-                            <select id="weather" class="form-select" value="@s.Weather" @onchange="@(e => s.Weather = ParseEnum(e.Value, Weather.None))">
+                            <MudSelect T="string" Value="@(Convert.ToString(s.Weather))" ValueChanged="@(v => s.Weather = ParseEnum(v, Weather.None))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="weather">
                                 @foreach (var w in Enum.GetValues<Weather>())
                                 {
-                                    <option value="@w">@FieldNames.Japanese(w, dataSet.Generation)</option>
+                                    <MudSelectItem T="string" Value="@(Convert.ToString(w))">@FieldNames.Japanese(w, dataSet.Generation)</MudSelectItem>
                                 }
-                            </select>
+                            </MudSelect>
                         </div>
                         @if (dataSet.HasTerrain)
                         {
                         <div class="col-sm-6">
                             <label class="form-label mb-1" for="terrain">フィールド <Help Title="フィールド">エレキ・グラス・サイコは対応タイプの技が 1.3 倍（第7世代までは 1.5 倍）、ミストはドラゴン技が 0.5 倍。グラスではじしん系が半減、サイコではワイドフォースが強化されます。地面にいるポケモンにだけ効きます。フィールドは第6世代から（サイコフィールドは第7世代から）です。</Help></label>
-                            <select id="terrain" class="form-select" value="@s.Terrain" @onchange="@(e => s.Terrain = ParseEnum(e.Value, Terrain.None))">
+                            <MudSelect T="string" Value="@(Convert.ToString(s.Terrain))" ValueChanged="@(v => s.Terrain = ParseEnum(v, Terrain.None))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="terrain">
                                 @foreach (var t in Enum.GetValues<Terrain>().Where(t => t != Terrain.Psychic || dataSet.HasPsychicTerrain))
                                 {
-                                    <option value="@t">@FieldNames.Japanese(t)</option>
+                                    <MudSelectItem T="string" Value="@(Convert.ToString(t))">@FieldNames.Japanese(t)</MudSelectItem>
                                 }
-                            </select>
+                            </MudSelect>
                         </div>
                         }
                     </div>
                     <div class="field-checks mt-2">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="reflect" checked="@s.Reflect" @onchange="@(e => s.Reflect = e.Value is true)" />
-                            <label class="form-check-label" for="reflect">リフレクター <Help Title="リフレクター">防御側の場のリフレクター。物理技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。オーロラベールは両方にチェックしてください。急所と特性すりぬけは壁を無視します。</Help></label>
-                        </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="light-screen" checked="@s.LightScreen" @onchange="@(e => s.LightScreen = e.Value is true)" />
-                            <label class="form-check-label" for="light-screen">ひかりのかべ <Help Title="ひかりのかべ">防御側の場のひかりのかべ。特殊技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。</Help></label>
-                        </div>
+                        <div class="app-check-row"><MudSwitch T="bool" Value="@(s.Reflect)" ValueChanged="@(v => s.Reflect = v)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">リフレクター <Help Title="リフレクター">防御側の場のリフレクター。物理技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。オーロラベールは両方にチェックしてください。急所と特性すりぬけは壁を無視します。</Help></MudSwitch></div>
+                        <div class="app-check-row"><MudSwitch T="bool" Value="@(s.LightScreen)" ValueChanged="@(v => s.LightScreen = v)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">ひかりのかべ <Help Title="ひかりのかべ">防御側の場のひかりのかべ。特殊技のダメージが 0.5 倍（ダブルは約 0.67 倍）になります。</Help></MudSwitch></div>
                     </div>
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
 
             @if (s.EstimateMode)
             {
-                <div class="card result-card estimate-card result-sticky">
-                    <div class="card-header"><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定 <Help Title="相手の振り方を推定">攻撃側に自分の構成、防御側に相手のポケモン（特性・持ち物が分かれば、それも）を選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></div>
-                    <div class="card-body">
+                <MudCard Elevation="0" Class="card result-card estimate-card result-sticky">
+                    <MudCardHeader Class="card-header"><CardHeaderContent><h5>相手の@(EvRules.Label(dataSet.EvSystem))を推定 <Help Title="相手の振り方を推定">攻撃側に自分の構成、防御側に相手のポケモン（特性・持ち物が分かれば、それも）を選び、実際に受けた（与えた）ダメージを入力すると、そのダメージになりうる相手の@(EvRules.Label(dataSet.EvSystem))と性格補正の候補を出します。相手は持ち物なしとして計算します。</Help></h5></CardHeaderContent></MudCardHeader>
+                    <MudCardContent Class="card-body">
                         <ol class="estimate-steps small">
                             <li>攻撃側に、自分の構成（@(EvRules.Label(dataSet.EvSystem))・性格・持ち物・特性）と技を入れる</li>
                             <li>防御側は、相手のポケモンと特性を選ぶ（@(EvRules.Label(dataSet.EvSystem))・性格は不明のまま）</li>
@@ -206,17 +197,14 @@ else if (data is not null && dataSet is not null)
                         </ol>
                         @* ラベルを「量」「割合」で切り替える。入力欄は数値だけ *@
                         <div class="input-group">
-                            <select class="form-select estimate-kind" aria-label="受けたダメージの種類" @onchange="@(e => s.ObservedIsPercent = e.Value?.ToString() == "percent")">
-                                <option value="amount" selected="@(!s.ObservedIsPercent)">ダメージ量</option>
-                                <option value="percent" selected="@(s.ObservedIsPercent)">ダメージ割合</option>
-                            </select>
-                            <input class="form-control" inputmode="decimal" placeholder="@(s.ObservedIsPercent ? "数値（例: 45）" : "数値（例: 93）")" value="@s.ObservedDamageText" @oninput="@(e => s.ObservedDamageText = e.Value?.ToString() ?? "")" />
+                            <MudSelect T="string" Value="@(s.ObservedIsPercent ? "percent" : "amount")" ValueChanged="@(v => s.ObservedIsPercent = v?.ToString() == "percent")" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select estimate-kind" aria-label="受けたダメージの種類">
+                                <MudSelectItem T="string" Value="@("amount")">ダメージ量</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("percent")">ダメージ割合</MudSelectItem>
+                            </MudSelect>
+                            <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" Immediate="true" Placeholder="@((s.ObservedIsPercent ? "数値（例: 45）" : "数値（例: 93）"))" Value="@(s.ObservedDamageText)" ValueChanged="@(v => s.ObservedDamageText = v?.ToString() ?? "")" / />
                             @if (s.ObservedIsPercent) { <span class="input-group-text">%</span> }
                         </div>
-                        <div class="form-check form-switch mt-2">
-                            <input class="form-check-input" type="checkbox" role="switch" id="estimate-crit" checked="@s.EstimateCritical" @onchange="@(e => s.EstimateCritical = e.Value is true)" />
-                            <label class="form-check-label" for="estimate-crit">受けたダメージは急所に当たったとき <Help Title="急所">オンにすると、急所（ダメージ 1.5 倍。スナイパーは 2.25 倍。攻撃側のマイナスランクと防御側のプラスランクを無視）のときのダメージとして推定します。</Help></label>
-                        </div>
+                        <div class="app-check-row mt-2"><MudSwitch T="bool" Value="@(s.EstimateCritical)" ValueChanged="@(v => s.EstimateCritical = v)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">受けたダメージは急所に当たったとき <Help Title="急所">オンにすると、急所（ダメージ 1.5 倍。スナイパーは 2.25 倍。攻撃側のマイナスランクと防御側のプラスランクを無視）のときのダメージとして推定します。</Help></MudSwitch></div>
                         @if (s.Estimate is { } estimate)
                         {
                             <div class="mt-3">@RenderEstimateResult(estimate)</div>
@@ -229,15 +217,15 @@ else if (data is not null && dataSet is not null)
                         {
                             <Notice Empty="true" Class="mt-2 mb-0">攻撃側・防御側のポケモンと技を選び、受けたダメージを入れると、ここに結果が自動で出ます。</Notice>
                         }
-                    </div>
-                </div>
+                    </MudCardContent>
+                </MudCard>
             }
             else if (s.Result is not null && s.LastRequest is not null)
             {
-                <div class="card result-card result-sticky">
-                    <div class="card-header"><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。入力を変えると自動で計算し直します。</Help></h5></div>
-                    <div class="card-body">@RenderResultBody(s.Result, s.LastRequest, s.ResultCrit, s.LastRequestCrit)</div>
-                </div>
+                <MudCard Elevation="0" Class="card result-card result-sticky">
+                    <MudCardHeader Class="card-header"><CardHeaderContent><h5>計算結果 <Help Title="計算結果の見方">「確定 2 発」は 16 通りの乱数すべてで 2 回当てれば倒せること、「乱数 2 発(75%)」は 2 回で倒せる確率です。どく・やけどの定数ダメージ、オボンのみ等の回復きのみ、たべのこし・くろいヘドロ、グラスフィールドの回復、半減きのみ（1 発目のみ）、マルチスケイル（満タン時の 1 発目のみ）も確定数に含めています。入力を変えると自動で計算し直します。</Help></h5></CardHeaderContent></MudCardHeader>
+                    <MudCardContent Class="card-body">@RenderResultBody(s.Result, s.LastRequest, s.ResultCrit, s.LastRequestCrit)</MudCardContent>
+                </MudCard>
                 @* 狭い画面では、結果の要点を画面の下に出したままにする（押すと詳細を開く） *@
                 <div class="result-bar @(resultBarOpen ? "open" : "")">
                     @if (resultBarOpen)
@@ -258,9 +246,9 @@ else if (data is not null && dataSet is not null)
             }
             else
             {
-                <div class="card result-card">
-                    <div class="card-header"><h5>計算結果</h5></div>
-                    <div class="card-body">
+                <MudCard Elevation="0" Class="card result-card">
+                    <MudCardHeader Class="card-header"><CardHeaderContent><h5>計算結果</h5></CardHeaderContent></MudCardHeader>
+                    <MudCardContent Class="card-body">
                         @if (!string.IsNullOrEmpty(errorMessage))
                         {
                             <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" NoIcon="true" Class="mb-0">@errorMessage</MudAlert>
@@ -269,8 +257,8 @@ else if (data is not null && dataSet is not null)
                         {
                             <Notice Empty="true">攻撃側・防御側のポケモンと技を選ぶと、ここに結果が自動で出ます。</Notice>
                         }
-                    </div>
-                </div>
+                    </MudCardContent>
+                </MudCard>
             }
 
         </div>
@@ -1138,13 +1126,13 @@ else if (data is not null && dataSet is not null)
             {
                 <div class="form-group mb-3">
                     <label>テラスタル <Help Title="テラスタル">テラスタル後のタイプ。攻撃側はテラスタイプと同じ技が 1.5 倍（元のタイプとも一致なら 2 倍）、防御側は受けるタイプがテラスタイプだけになります。</Help></label>
-                    <select class="form-select" value="@TeraValue(build)" @onchange="@(e => build.TeraType = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
-                        <option value="">なし</option>
+                    <MudSelect T="string" Value="@(Convert.ToString(TeraValue(build)))" ValueChanged="@(v => build.TeraType = string.IsNullOrEmpty(v?.ToString()) ? null : v!.ToString())" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select">
+                        <MudSelectItem T="string" Value="@("")">なし</MudSelectItem>
                         @foreach (var t in TeraTypesFor(build))
                         {
-                            <option value="@t">@TypeNames.ToJapanese(t)</option>
+                            <MudSelectItem T="string" Value="@(Convert.ToString(t))">@TypeNames.ToJapanese(t)</MudSelectItem>
                         }
-                    </select>
+                    </MudSelect>
                     @{ MoveEffects.AdjustOgerponTerastal(build, out var teraNote); }
                     @if (teraNote is not null)
                     {
@@ -1161,10 +1149,7 @@ else if (data is not null && dataSet is not null)
         var side = isAttacker ? "atk" : "def";
             @if (dataSet!.HasDynamax)
             {
-                <div class="form-check form-switch build-check">
-                    <input class="form-check-input" type="checkbox" role="switch" id="dmax-@side" checked="@build.IsDynamax" @onchange="@(e => build.IsDynamax = e.Value is true)" />
-                    <label class="form-check-label" for="dmax-@side">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></label>
-                </div>
+                <div class="app-check-row build-check"><MudSwitch T="bool" Value="@(build.IsDynamax)" ValueChanged="@(v => build.IsDynamax = v)" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">ダイマックス <Help Title="ダイマックス">HP が 2 倍になり、技はダイマックス技の威力（威力 90〜150、かくとう・どくは 70〜100）になります。</Help></MudSwitch></div>
             }
     };
 
@@ -1209,12 +1194,12 @@ else if (data is not null && dataSet is not null)
                         {
                             <div class="ev-cell">
                                 <span class="ev-label">@StatNames.Letter(stat)（@StatNames.Japanese(stat)）</span>
-                                <select class="form-select form-select-sm" value="@build.Boosts[stat]" @onchange="@(e => build.Boosts[stat] = ParseBoost(e.Value))">
+                                <MudSelect T="string" Value="@(Convert.ToString(build.Boosts[stat]))" ValueChanged="@(v => build.Boosts[stat] = ParseBoost(v))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select">
                                     @for (var b = 6; b >= -6; b--)
                                     {
-                                        <option value="@b">@(b > 0 ? "+" + b : b.ToString())</option>
+                                        <MudSelectItem T="string" Value="@(Convert.ToString(b))">@(b > 0 ? "+" + b : b.ToString())</MudSelectItem>
                                     }
-                                </select>
+                                </MudSelect>
                             </div>
                         }
                     </div>
@@ -1227,12 +1212,12 @@ else if (data is not null && dataSet is not null)
     {
             <div class="form-group mb-2">
                 <label>状態異常 <Help Title="状態異常">やけどは物理技のダメージ 0.5 倍（こんじょう・からげんきは除く）。どく・もうどくは毎ターンの定数ダメージを確定数に含めます。まひはすばやさ 0.5 倍です。</Help></label>
-                <select class="form-select form-select-sm" value="@build.Status" @onchange="@(e => build.Status = ParseEnum(e.Value, StatusCondition.None))">
+                <MudSelect T="string" Value="@(Convert.ToString(build.Status))" ValueChanged="@(v => build.Status = ParseEnum(v, StatusCondition.None))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select">
                     @foreach (var st in Enum.GetValues<StatusCondition>())
                     {
-                        <option value="@st">@StatusNames.Japanese(st)</option>
+                        <MudSelectItem T="string" Value="@(Convert.ToString(st))">@StatusNames.Japanese(st)</MudSelectItem>
                     }
-                </select>
+                </MudSelect>
             </div>
     };
 

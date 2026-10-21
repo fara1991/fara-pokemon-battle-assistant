@@ -112,7 +112,7 @@ function sectionsOf(html, page, url) {
         if (current.type === "term" || text || current.type !== "intro") out.push({ type: current.type, title: (usedTitleFixes.add(current.title), TITLE_FIXES[current.title] ?? current.title), page, url, text: text.slice(0, 1500) });
     };
     // 見出し・用語は節の区切り、それ以外の文章は今の節に足す
-    const re = /<(h[3-6]|dt|dd|p|label|li|td|th|small|summary|legend)\b[^>]*>([\s\S]*?)<\/\1>/g;
+    const re = /<(h[3-6]|dt|dd|p|label|li|td|th|small|summary|legend|MudSwitch|MudCheckBox)\b[^>]*>([\s\S]*?)<\/\1>/g;
     let m;
     while ((m = re.exec(html)) !== null) {
         const tag = m[1], text = plain(m[2]);

@@ -4011,3 +4011,25 @@ html.vt-nav .app-header {
     }
 }
 
+
+/* ---- MudBlazor のスイッチ・チェック（ラベル付き）を、これまでの form-check と同じく横に並べる ---- */
+.app-check-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    margin-right: 1rem;
+}
+
+.app-check-row .mud-switch,
+.app-check-row .mud-checkbox {
+    margin: 0;
+}
+
+/* 入力欄＋ボタン（.input-group）の中の MudBlazor の入力欄・セレクトは、残りの幅いっぱいに広げる（Bootstrap の .form-control / .form-select と同じ） */
+.input-group > .mud-input-control {
+    position: relative;
+    flex: 1 1 auto;
+    width: 1%;
+    min-width: 0;
+    margin: 0;
+}

@@ -8,21 +8,21 @@
 {
     <div class="side-settings px-3 pt-3">
         <label class="side-label" for="side-dataset">ゲーム <Help Title="ゲーム（データ）">計算に使うポケモン・技・持ち物のデータを切り替えます。チャットコマンドの接頭辞（!pokech など）もこれに合わせて変わります。全ページ共通です。</Help></label>
-        <select id="side-dataset" class="form-select form-select-sm" value="@App.DataSetKey" @onchange="@(e => App.SetDataSetAsync(e.Value?.ToString() ?? ""))">
+        <MudSelect T="string" Value="@(Convert.ToString(App.DataSetKey))" ValueChanged="@(v => App.SetDataSetAsync(v?.ToString() ?? ""))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="side-dataset">
             @foreach (var ds in App.DataSets)
             {
-                <option value="@ds.Key">@ds.Name</option>
+                <MudSelectItem T="string" Value="@(Convert.ToString(ds.Key))">@ds.Name</MudSelectItem>
             }
-        </select>
+        </MudSelect>
         @if (UsageFallbackName is { } fallbackName)
         {
             <div class="side-note">使用率は公開されていないため、@(fallbackName) の使用率で並べています</div>
         }
         <label class="side-label mt-2" for="side-format">バトル形式 <Help Title="バトル形式">ダブルバトルでは全体技の威力が 0.75 倍になります。使用率の既定値（技・持ち物・性格）もシングル / ダブルで切り替わります。</Help></label>
-        <select id="side-format" class="form-select form-select-sm" value="@App.Format" @onchange="@(e => App.SetFormatAsync(Enum.TryParse<BattleFormat>(e.Value?.ToString(), out var f) ? f : BattleFormat.Singles))">
-            <option value="@BattleFormat.Singles">シングル</option>
-            <option value="@BattleFormat.Doubles">ダブル</option>
-        </select>
+        <MudSelect T="string" Value="@(Convert.ToString(App.Format))" ValueChanged="@(v => App.SetFormatAsync(Enum.TryParse<BattleFormat>(v?.ToString(), out var f) ? f : BattleFormat.Singles))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="side-format">
+            <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Singles))">シングル</MudSelectItem>
+            <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Doubles))">ダブル</MudSelectItem>
+        </MudSelect>
         <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Size="Size.Small" FullWidth="true" Class="mt-2" OnClick="App.ToggleThemeAsync">
             @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
         </MudButton>

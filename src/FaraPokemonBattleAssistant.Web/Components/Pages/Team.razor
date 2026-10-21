@@ -23,9 +23,9 @@ else if (data is not null && roster is not null && dataSet is not null)
             {
                 <Notice Empty="true" Class="mb-3">登録したポケモンがまだありません。先に<a href="my-pokemon">育成ポケモン</a>で登録してください。</Notice>
             }
-            <div class="card mb-3">
-                <div class="card-header"><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで。同じ登録 ID をもう一度追加すると持ち物だけ更新します。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></div>
-                <div class="card-body">
+            <MudCard Elevation="0" Class="card mb-3">
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで。同じ登録 ID をもう一度追加すると持ち物だけ更新します。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></CardHeaderContent></MudCardHeader>
+                <MudCardContent Class="card-body">
                     <div class="row g-2">
                         <div class="col-4">
                             <label class="form-label">チーム番号</label>
@@ -67,8 +67,8 @@ else if (data is not null && roster is not null && dataSet is not null)
                         </div>
                     </div>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="AddToTeamAsync" Disabled="@(s.TeamEntryId == 0 || s.TeamNumber < 1)">チームに追加</MudButton>
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
         </div>
         <div class="reg-col">
             @if (roster.Teams.Count == 0)
