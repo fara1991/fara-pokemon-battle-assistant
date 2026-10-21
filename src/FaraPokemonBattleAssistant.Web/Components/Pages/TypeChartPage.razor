@@ -311,13 +311,22 @@
     {
         s = PageStates.Get<State>("types");
         await LoadAsync();
-        // ポケモン一覧から開いたとき（?pokemon=ID）は、そのポケモンを選んでから URL を戻す
-        if (!IsDisposed && data is not null && PokemonQuery is not null)
-        {
-            // 数字でない・存在しない ID は無視する
-            if (int.TryParse(PokemonQuery, out var id) && id > 0 && data.FindPokemon(id) is not null) OnSelectedChanged(id.ToString());
-            Nav.NavigateTo("type-chart", replace: true);
-        }
+        ApplyQuery();
+    }
+
+    // 同じページにいるまま、検索の結果から ?pokemon= だけが変わって開かれたときも、反映する（読み込み直さないので、選んだ内容は残る）
+    protected override void OnParametersSet()
+    {
+        if (!IsDisposed && data is not null) ApplyQuery();
+    }
+
+    /// <summary>ポケモン一覧・検索から開いたとき（?pokemon=ID）は、そのポケモンを選んでから URL を戻す。</summary>
+    private void ApplyQuery()
+    {
+        if (PokemonQuery is null || IsDisposed || data is null) return;
+        // 数字でない・存在しない ID は無視する
+        if (int.TryParse(PokemonQuery, out var id) && id > 0 && data.FindPokemon(id) is not null) OnSelectedChanged(id.ToString());
+        Nav.NavigateTo("type-chart", replace: true);
     }
 
     // 数字でない値（?pokemon=abc）を int? で受けると、Blazor が例外を出してアプリ全体がエラー画面になるので、文字列で受ける

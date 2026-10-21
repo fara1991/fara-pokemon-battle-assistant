@@ -29,5 +29,6 @@ builder.Services.AddSingleton(sp => new AppState(sp.GetRequiredService<DataCatal
 builder.Services.AddSingleton<PageStateStore>();
 builder.Services.AddSingleton<BattleStage>();
 builder.Services.AddSingleton<ToastService>();
+builder.Services.AddSingleton(sp => new SearchService(sp.GetRequiredService<HttpClient>(), sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<AppState>()));
 
 await builder.Build().RunAsync();

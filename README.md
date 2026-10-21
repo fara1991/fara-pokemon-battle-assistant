@@ -158,6 +158,13 @@ npm run check                                            # dotnet publish + wran
 npm run test:worker                                      # データ共有 API（worker/index.js）を wrangler dev で確認
 ```
 
+### サイト内検索（ヘッダーの検索欄）
+
+ヘッダー（PC）の検索欄で、ページ・項目・用語・チャットコマンドと、いま選んでいるゲームのポケモン・わざ・特性を探せます（Ctrl+K か `/` で欄に移ります）。結果には、一致した場所（ページ › 項目）と、その前後の文章を出します。
+
+- ポケモン・わざ・特性は、実行時に、選んでいるゲームのデータから探します（`Services/SearchService.cs`）
+- ページ・項目・用語・コマンドは、`src/FaraPokemonBattleAssistant.Web/wwwroot/search-index.json` から探します。これは各ページの Razor から `tools/gen-search-index.mjs` が作ります。**ページの文言・見出しを変えたら、`npm run gen:search` で作り直して、一緒にコミットしてください**（CI の `node tools/gen-search-index.mjs --check` が、合っているかを確かめます）
+
 ### 計算で考慮しているもの
 
 - 実数値（種族値・個体値・努力値・性格 1.1/0.9 倍）、ランク補正、急所（スナイパー対応）、タイプ一致、タイプ相性、ダブルの複数対象 0.75 倍、五捨五超入

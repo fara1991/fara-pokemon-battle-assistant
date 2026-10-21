@@ -25,6 +25,10 @@ jobs:
       - name: Build
         run: dotnet build FaraPokemonBattleAssistant.sln --configuration Release --no-restore
 
+      - name: "検索の索引が、ページの内容と合っているか"
+        # ページの文言・見出しを変えたら `npm run gen:search` で作り直して、一緒にコミットする
+        run: node tools/gen-search-index.mjs --check
+
       - name: Test
         run: dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
 

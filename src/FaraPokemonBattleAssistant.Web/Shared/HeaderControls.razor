@@ -1,0 +1,55 @@
+@* PC の上のヘッダーに出す、全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク）。スマホは、サイドバーの上のほうに同じものがある（NavMenu.razor）。
+   値は AppState / BattleStage が持つので、ヘッダーとサイドバーのどちらで変えても同じになる *@
+@inject AppState App
+@implements IDisposable
+
+<div class="hdr-controls">
+    <div class="hdr-field">
+        <label for="hdr-dataset">ゲーム</label>
+        <select id="hdr-dataset" class="form-select form-select-sm" value="@App.DataSetKey" @onchange="@(e => App.SetDataSetAsync(e.Value?.ToString() ?? ""))"
+                title="計算に使うポケモン・技・持ち物のデータを切り替えます。チャットコマンドの接頭辞（!pokech など）もこれに合わせて変わります。全ページ共通です。">
+            @foreach (var ds in App.DataSets)
+            {
+                <option value="@ds.Key">@ds.Name</option>
+            }
+        </select>
+        @if (UsageFallbackName is { } fallbackName)
+        {
+            <span class="hdr-note" tabindex="0" role="note" title="使用率は公開されていないため、@(fallbackName) の使用率で並べています" aria-label="使用率は公開されていないため、@(fallbackName) の使用率で並べています">!</span>
+        }
+    </div>
+    <div class="hdr-field">
+        <label for="hdr-format">バトル形式</label>
+        <select id="hdr-format" class="form-select form-select-sm" value="@App.Format" @onchange="@(e => App.SetFormatAsync(Enum.TryParse<BattleFormat>(e.Value?.ToString(), out var f) ? f : BattleFormat.Singles))"
+                title="ダブルバトルでは全体技の威力が 0.75 倍になります。使用率の既定値（技・持ち物・性格）もシングル / ダブルで切り替わります。">
+            <option value="@BattleFormat.Singles">シングル</option>
+            <option value="@BattleFormat.Doubles">ダブル</option>
+        </select>
+    </div>
+    @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使える *@
+    <BattleViewSwitch InputId="hdr-battle-view" Class="hdr-battle" Compact="true" />
+    <button type="button" class="theme-switch" role="switch" aria-checked="@(App.Theme == "dark" ? "true" : "false")" aria-label="ダークモード" title="ダークモードの ON / OFF" @onclick="App.ToggleThemeAsync">
+        <span class="theme-knob" aria-hidden="true">
+            <svg class="theme-sun" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+            <svg class="theme-moon" viewBox="0 0 24 24" focusable="false"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+        </span>
+    </button>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await App.InitializeAsync();
+        App.Changed += OnChanged;
+    }
+
+    private Task OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => App.Changed -= OnChanged;
+
+    // 使用率データの無いゲームでは、代わりに使っているゲームの名前（並び順の根拠を示す）
+    private string? UsageFallbackName =>
+        App.DataSet is { UsageFallback.Length: > 0 } ds
+            ? App.DataSets.FirstOrDefault(d => d.Key == ds.UsageFallback)?.Name ?? ds.UsageFallback
+            : null;
+}

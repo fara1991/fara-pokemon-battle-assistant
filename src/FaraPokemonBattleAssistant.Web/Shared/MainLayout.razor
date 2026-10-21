@@ -15,6 +15,9 @@
     <header class="app-header">
         <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-controls="site-sidebar" aria-expanded="true" aria-label="サイドバーの表示・非表示" title="サイドバーの表示・非表示"></button>
         <a class="app-brand" href="/" title="ホームへ">Pokémon Battle Assistant</a>
+        @* 検索欄と、全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク）。スマホは、サイドバーの上のほうに同じものがある（NavMenu.razor） *@
+        <SiteSearch />
+        <HeaderControls />
     </header>
 
     @* サイドバーを隠しているとき、画面の左端にマウスを近づけると、サイドバーが一時的に出る（CSS の :hover）。ハンバーガーを押すと、出したままにする *@

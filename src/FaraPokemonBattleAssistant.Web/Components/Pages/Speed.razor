@@ -204,13 +204,22 @@ else if (data is not null && dataSet is not null)
         await LoadAsync();
         if (IsDisposed) return;   // 読み込み中に別のページへ移っていたら、URL を書き換えたり、共有の Stage に書いたりしない
         stageReady = true;
-        // ポケモン一覧から開いたとき（?p1=ID）は、ポケモン1 に入れてから URL を戻す
-        if (P1Query is not null)
-        {
-            // 数字でない・存在しない ID は無視する
-            if (QueryPokemonId(P1Query) is { } id) OnPokemonChanged(0, id.ToString());
-            Nav.NavigateTo("speed-comparison", replace: true);
-        }
+        ApplyQuery();
+    }
+
+    // 同じページにいるまま、検索の結果から ?p1= だけが変わって開かれたときも、反映する（読み込み直さないので、入力した内容は残る）
+    protected override void OnParametersSet()
+    {
+        if (stageReady && !IsDisposed) ApplyQuery();
+    }
+
+    /// <summary>ポケモン一覧・検索から開いたとき（?p1=ID）は、ポケモン1 に入れてから URL を戻す。</summary>
+    private void ApplyQuery()
+    {
+        if (P1Query is null) return;
+        // 数字でない・存在しない ID は無視する
+        if (QueryPokemonId(P1Query) is { } id) OnPokemonChanged(0, id.ToString());
+        Nav.NavigateTo("speed-comparison", replace: true);
     }
 
     // 数字でない値（?p1=abc）を int? で受けると、Blazor が例外を出してアプリ全体がエラー画面になるので、文字列で受ける

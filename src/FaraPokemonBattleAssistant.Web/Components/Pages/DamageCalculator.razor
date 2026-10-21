@@ -344,14 +344,23 @@ else if (data is not null && dataSet is not null)
         await LoadDataSet();
         if (IsDisposed) return;   // 読み込み中に別のページへ移っていたら、URL を書き換えたり、共有の Stage に書いたりしない
         stageReady = true;
-        // ポケモン一覧から開いたとき（?attacker=ID / ?defender=ID）は、そのポケモンを入れてから URL を戻す
-        if (AttackerQuery is not null || DefenderQuery is not null)
-        {
-            // 数字でない・存在しない ID は無視する（保存してあった攻撃側・防御側を消さない）
-            if (QueryPokemonId(AttackerQuery) is { } a) OnAttackerChanged(a.ToString());
-            if (QueryPokemonId(DefenderQuery) is { } d) OnDefenderChanged(d.ToString());
-            Nav.NavigateTo("damage-calculator", replace: true);
-        }
+        ApplyQuery();
+    }
+
+    // 同じページにいるまま、検索の結果から ?attacker= などだけが変わって開かれたときも、反映する（読み込み直さないので、入力した内容は残る）
+    protected override void OnParametersSet()
+    {
+        if (stageReady && !IsDisposed) ApplyQuery();
+    }
+
+    /// <summary>ポケモン一覧・検索から開いたとき（?attacker=ID / ?defender=ID）は、そのポケモンを入れてから URL を戻す。</summary>
+    private void ApplyQuery()
+    {
+        if (AttackerQuery is null && DefenderQuery is null) return;
+        // 数字でない・存在しない ID は無視する（保存してあった攻撃側・防御側を消さない）
+        if (QueryPokemonId(AttackerQuery) is { } a) OnAttackerChanged(a.ToString());
+        if (QueryPokemonId(DefenderQuery) is { } d) OnDefenderChanged(d.ToString());
+        Nav.NavigateTo("damage-calculator", replace: true);
     }
 
     // 選んでいる攻撃側（手前）・防御側（奥）を、背景のバトルフィールドに立たせる
