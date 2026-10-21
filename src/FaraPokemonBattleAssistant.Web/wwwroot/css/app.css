@@ -3733,11 +3733,14 @@ html.vt-nav .app-header {
 
     /* 選択中の印（motion.js が大きさを決める）は、項目の幅（230px - 左右の余白）にそろえる。細い列のときは、列の幅（2.5rem）の中で左右対称にする */
     .sidebar-panel .nav-indicator {
-        width: calc(230px - 1rem) !important;
+        width: calc(100% - 1rem) !important;
     }
 
     html.sidebar-hidden .sidebar:not(:hover):not(:has(:focus-visible)) .sidebar-panel .nav-link {
         width: 2.5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        clip-path: inset(0 3px 0 0);   /* 項目名の頭が、列の端に 1px ほど見えるのを隠す */
     }
 
     html.sidebar-hidden .sidebar:not(:hover):not(:has(:focus-visible)) .sidebar-panel .nav-indicator {
