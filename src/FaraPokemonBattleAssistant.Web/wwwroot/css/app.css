@@ -3628,8 +3628,7 @@ html.vt-nav .app-header {
 }
 
 /* ---- ヘッダー（ハンバーガーとサイト名）とサイドバーの表示・非表示（PC。スマホはサイドバー上部のメニューのボタン）。切り替えは js/page.js ---- */
-.app-header,
-.sidebar-edge {
+.app-header {
     display: none;
 }
 
@@ -3677,13 +3676,40 @@ html.vt-nav .app-header {
         border-bottom: 2px solid #c084fc;
     }
 
-    /* サイドバーは、ヘッダーの下。サイドバー上部のサイト名は、ヘッダーがあるので出さない */
-    .sidebar {
-        padding-top: 3.5rem;
+    /* サイドバーは、ヘッダーの下。サイドバー上部のサイト名は、ヘッダーがあるので出さない。
+       中身（.sidebar-panel）は枠（.sidebar）の中に重ねて置く。隠している間は、枠を細くして（アイコンの列）、中身も同じ幅にする */
+    /* NavMenu の scoped CSS（.sidebar の overflow-y: auto）に負けないよう、強くする。枠より広がる中身が切れないように */
+    html .page > .sidebar {
+        overflow: visible;
+        /* 広げた中身が、画面下の結果バーなどの上に出るよう、前に置く。枠そのものは、ヘッダー（ハンバーガー）を覆わないよう、
+           何も描かず、クリックも受けない（中身 .sidebar-panel だけが受ける） */
+        z-index: 1045;
+        pointer-events: none;
+        background: none;
+        border-right: 0;
     }
 
     .sidebar .top-row {
         display: none;
+    }
+
+    .sidebar-panel {
+        position: absolute;
+        top: 3.5rem;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        pointer-events: auto;
+        border-right: 1px solid rgba(200, 170, 255, 0.14);
+        overflow: hidden;
+        background-color: #1a0d33;
+        background-image: linear-gradient(180deg, rgba(20, 10, 38, 0.92) 0%, rgba(36, 18, 67, 0.92) 60%, rgba(45, 27, 78, 0.92) 100%);
+        transition: width 0.15s ease;
+    }
+
+    /* 項目は、いつも本来の幅（230px）で並べておき、細い列のときは、枠で切る（広げたときに並べ直さない・選択中の印（motion.js）の大きさが変わらない） */
+    .sidebar-panel .nav-scrollable {
+        width: 230px;
     }
 
     /* ページの中身も、ヘッダーの下から始める */
@@ -3691,22 +3717,38 @@ html.vt-nav .app-header {
         padding-top: 3.5rem;
     }
 
-    /* 隠しているとき: サイドバーは画面の外に置き、左端にマウスを近づけている間（または、キーボードで入ったとき）だけ、上にかぶせて出す。
-       ハンバーガーを押すと、クラスが外れて、ふつうに並んで出たままになる */
+    /* 隠しているとき: サイドバーは、アイコンだけの細い列（56px）にする。項目の名前は、枠の外にはみ出して切れる。
+       この列にマウスを乗せている間（または、キーボードで入ったとき）は、本来の幅まで広げて、ページの上にかぶせて出す。
+       ハンバーガーを押すと、クラスが外れて、ふつうに広がったまま並ぶ */
     html.sidebar-hidden .sidebar {
-        position: fixed;
-        top: 3.5rem;
-        left: 0;
-        height: calc(100vh - 3.5rem);
-        padding-top: 0;
-        z-index: 1045;
-        background-color: #1a0d33;
-        transform: translateX(-100%);
-        transition: transform 0.15s ease;
+        width: 56px;
+    }
+
+    html.sidebar-hidden .sidebar-panel {
+        width: 56px;
+    }
+
+    html.sidebar-hidden .sidebar-panel .nav-section {
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    html.sidebar-hidden .sidebar-panel .nav-scrollable {
+        scrollbar-width: none;
+    }
+
+    html.sidebar-hidden .sidebar:has(:focus-visible) .sidebar-panel {
+        width: 230px;
+        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+    }
+
+    html.sidebar-hidden .sidebar:has(:focus-visible) .sidebar-panel .nav-section {
+        opacity: 1;
     }
 
     @media (prefers-reduced-motion: reduce) {
-        html.sidebar-hidden .sidebar {
+        .sidebar-panel,
+        html.sidebar-hidden .sidebar-panel .nav-section {
             transition: none;
         }
     }
@@ -3715,49 +3757,35 @@ html.vt-nav .app-header {
         outline-color: #e9d5ff;
     }
 
-    /* サイドバー（230px）を前提にした配置は、隠している間は 0 にする（対戦画面・結果バー・背景のコート） */
+    /* サイドバー（230px）を前提にした配置は、隠している間は、細い列（56px）の分にする（対戦画面・結果バー・背景のコート） */
     html.sidebar-hidden .battle-ui {
-        inset: 3.5rem 0 0 0;
+        inset: 3.5rem 0 0 56px;
     }
 
     html.sidebar-hidden .result-bar {
-        left: 0;
+        left: 56px;
     }
 
     html.sidebar-hidden .bg-scene {
-        --stage-shift: 0px;
-    }
-
-    /* 左端へのマウスオーバーで出す仕組みは、マウスのある環境だけ（タッチでは、タップで出たまま戻らなくなるのを避ける）。
-       キーボードで中に入ったときも出す（マウスのクリックでは、フォーカスが残っても出たままにしない） */
-    html.sidebar-hidden .sidebar-edge {
-        position: fixed;
-        top: 3.5rem;
-        bottom: 0;
-        left: 0;
-        width: 14px;
-        z-index: 1046;
-    }
-
-    html.sidebar-hidden .sidebar:has(:focus-visible) {
-        transform: none;
-        transition-delay: 0s;
-        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+        --stage-shift: 28px;
     }
 }
 
 @media (min-width: 768px) and (hover: hover) {
-    html.sidebar-hidden .sidebar-edge {
-        display: block;
+    /* 隠しているときの、細い列にマウスを乗せたら広げる。広げるときだけ、少し待つ（ほかのモニターへ向かってマウスを大きく動かしたときに、ちらつかないように） */
+    html.sidebar-hidden .sidebar:hover .sidebar-panel {
+        width: 230px;
+        transition-delay: 0.12s;
+        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
     }
 
-    /* 出すときだけ、少し待つ（ほかのモニターへ向かってマウスを大きく動かしたときに、ちらつかないように） */
-    html.sidebar-hidden .sidebar-edge:hover + .sidebar,
-    html.sidebar-hidden .sidebar:hover {
-        transform: none;
+    html.sidebar-hidden .sidebar:hover .sidebar-panel .nav-section {
+        opacity: 1;
         transition-delay: 0.12s;
-        /* 影は、出ている間だけ（隠れている間に、画面の左端へ染み出さないように） */
-        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+    }
+
+    html.sidebar-hidden .sidebar:hover .sidebar-panel .nav-scrollable {
+        scrollbar-width: thin;
     }
 }
 

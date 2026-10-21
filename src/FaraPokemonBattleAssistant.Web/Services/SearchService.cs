@@ -102,7 +102,7 @@ public sealed class SearchService
         foreach (var p in data.Pokemon)
         {
             var abilities = string.Join("・", data.AbilitiesOf(p).Select(a => a.Name));
-            var types = string.Join("・", p.Types);
+            var types = string.Join("・", p.Types.Select(TypeNames.ToJapanese));
             var s = p.BaseStats;
             var text = $"{types} / 種族値 H{s.HP} A{s.Attack} B{s.Defense} C{s.SpAttack} D{s.SpDefense} S{s.Speed}" + (abilities.Length > 0 ? $" / 特性: {abilities}" : "");
             var actions = new List<SearchAction>();
@@ -119,7 +119,7 @@ public sealed class SearchService
         {
             var cat = m.Category switch { MoveCategory.Physical => "物理", MoveCategory.Special => "特殊", _ => "変化" };
             var power = m.Power > 0 ? $" / 威力 {m.Power}" : "";
-            var text = $"{m.Type} / {cat}{power} / 命中 {(m.Accuracy > 0 ? m.Accuracy.ToString() : "-")} / PP {m.PP}" + (m.Description.Length > 0 ? $" / {m.Description}" : "");
+            var text = $"{TypeNames.ToJapanese(m.Type)} / {cat}{power} / 命中 {(m.Accuracy > 0 ? m.Accuracy.ToString() : "-")} / PP {m.PP}" + (m.Description.Length > 0 ? $" / {m.Description}" : "");
             entries.Add(MakeEntry("move", m.Name, $"わざ一覧（{game}）", "move-list", text, 0.2));
         }
         foreach (var a in data.Abilities.Where(a => a.Name.Length > 0))
