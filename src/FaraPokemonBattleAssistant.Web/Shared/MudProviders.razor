@@ -42,7 +42,13 @@
             // 字間は、いまのサイトのまま（MudBlazor の既定は、少し広げる）
             Default = new DefaultTypography { FontFamily = FontFamily, LetterSpacing = "normal" },
         },
-        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "6px" },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "6px",
+            AppbarHeight = "56px",         // 上のヘッダー（3.5rem）
+            DrawerWidthLeft = "230px",     // サイドバーを開いたときの幅
+            DrawerMiniWidthLeft = "56px",  // 隠したとき（アイコンだけの細い列）の幅
+        },
     };
 
     protected override void OnInitialized() => App.Changed += OnChanged;

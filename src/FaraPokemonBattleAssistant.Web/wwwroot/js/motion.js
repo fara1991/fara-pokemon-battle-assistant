@@ -217,29 +217,6 @@
         });
     }
 
-    // ---------- サイドバーの選択中の印 ----------
-    var navState = { placed: false, x: 0, y: 0, w: 0, h: 0 };
-    function scanNav(instant) {
-        var nav = document.querySelector(".side-nav");
-        var ind = nav && nav.querySelector(".nav-indicator");
-        if (!ind) return;
-        if (nav.getClientRects().length === 0) { navState.placed = false; return; }   // 閉じたスマホのメニューは測れない
-        var a = nav.querySelector("a.active");
-        if (!a) { ind.classList.remove("on"); return; }
-        var nr = nav.getBoundingClientRect(), ar = a.getBoundingClientRect();
-        var x = ar.left - nr.left, y = ar.top - nr.top, w = ar.width, h = ar.height;
-        if (navState.placed && x === navState.x && y === navState.y && w === navState.w && h === navState.h && ind.classList.contains("on")) return;
-        var still = instant || !navState.placed || reduce();
-        if (still) ind.classList.add("no-anim");
-        ind.style.transform = "translate(" + x + "px, " + y + "px)";
-        ind.style.width = w + "px";
-        ind.style.height = h + "px";
-        if (still) { void ind.offsetWidth; ind.classList.remove("no-anim"); }
-        ind.classList.add("on");
-        html.classList.add("motion-nav");
-        navState = { placed: true, x: x, y: y, w: w, h: h };
-    }
-
     // ---------- まとめて見る ----------
     function scan() {
         document.querySelectorAll("[data-flip-group]").forEach(scanFlip);
@@ -249,7 +226,6 @@
         document.querySelectorAll("[data-bar]").forEach(scanBar);
         document.querySelectorAll("[data-hp-calc]").forEach(scanHp);
         document.querySelectorAll("[data-rolls]").forEach(scanRolls);
-        scanNav(false);
     }
 
     // 件数の多い一覧などで DOM が何度も変わっても、見直しは 1 フレームに 1 回だけにする
@@ -269,7 +245,7 @@
             // 背景のコートは毎フレーム style が変わるので、それも見直さない（見直すと、毎フレーム画面全体を測って、電池と CPU を使い続ける）
             var own = records.every(function (r) {
                 var t = r.target;
-                return t.classList && (t.classList.contains("nav-indicator") || (t.closest && t.closest(".bg-scene")));
+                return t.closest && t.closest(".bg-scene");
             });
             if (!own) scheduleScan();
         }).observe(root, {
@@ -278,7 +254,6 @@
         });
         window.addEventListener("resize", function () {
             document.querySelectorAll("[data-flip-group]").forEach(function (g) { flips.set(g, measure(g)); });
-            scanNav(true);
         });
         scan();
     }

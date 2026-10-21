@@ -1,18 +1,11 @@
+@* サイドバーの中身（MudBlazor の MudNavMenu / MudNavLink）。PC は Shared/MainLayout.razor の Mini ドロワーに入り、隠すとアイコンだけの細い列になる。
+   スマホは、ハンバーガーで開く一時的なメニューで、上のほうに、全ページ共通の設定（ゲーム・バトル形式・ライト／ダーク・対戦画面で表示）を置く *@
+@using MudBlazor
 @inject AppState App
 @implements IDisposable
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/" title="ホームへ" @onclick="CollapseNavMenu">Pokémon Battle Assistant</a>
-        @* スマホでは、メニューを開かずに切り替えられるよう、タイトルの横（ハンバーガーの左）に置く。PC では、下のサイドバーのスイッチを使う *@
-        <BattleViewSwitch InputId="top-battle-view" Class="top-battle" Compact="true" />
-        <button title="メニュー" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </div>
-</div>
-
-<div class="@NavMenuCssClass nav-scrollable">
+@if (Mobile)
+{
     <div class="side-settings px-3 pt-3">
         <label class="side-label" for="side-dataset">ゲーム <Help Title="ゲーム（データ）">計算に使うポケモン・技・持ち物のデータを切り替えます。チャットコマンドの接頭辞（!pokech など）もこれに合わせて変わります。全ページ共通です。</Help></label>
         <select id="side-dataset" class="form-select form-select-sm" value="@App.DataSetKey" @onchange="@(e => App.SetDataSetAsync(e.Value?.ToString() ?? ""))">
@@ -34,38 +27,38 @@
             @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
         </button>
         @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使え、全ページ共通のスイッチ *@
-        <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="CollapseNavMenu" />
+        <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="OnNavigate" />
     </div>
-    <nav class="flex-column side-nav" @onclick="CollapseNavMenu">
-        @* 選択中の印。項目の間を滑って動く（位置は wwwroot/js/motion.js が決める） *@
-        <span class="nav-indicator" aria-hidden="true"></span>
-        @foreach (var group in Groups)
+}
+
+<MudNavMenu Class="side-nav">
+    @foreach (var group in Groups)
+    {
+        @if (group.Title is not null)
         {
-            @if (group.Title is not null)
+            <div class="nav-section">@group.Title</div>
+        }
+        @foreach (var (href, label, icon, needsCalc) in group.Items)
+        {
+            @if (needsCalc && CalcDisabled)
             {
-                <div class="nav-section px-3">@group.Title</div>
+                @* 未対応の世代: 選べず、押しても何も起きない（メニューも閉じない） *@
+                <MudNavLink Disabled="true" Icon="@icon" title="@DisabledHint">@label</MudNavLink>
             }
-            @foreach (var (href, label, icon, needsCalc) in group.Items)
+            else
             {
-                <div class="nav-item px-3">
-                    @if (needsCalc && CalcDisabled)
-                    {
-                        @* 未対応の世代: href を持たず、フォーカスもしない。押してもメニューを閉じない（何も起きない） *@
-                        <span class="nav-link nav-disabled" role="link" aria-disabled="true" tabindex="-1" title="@DisabledHint"
-                              @onclick:preventDefault @onclick:stopPropagation><i class="bi @icon" aria-hidden="true"></i>@label</span>
-                    }
-                    else
-                    {
-                        <NavLink class="nav-link" href="@href" Match="@(href.Length == 0 ? NavLinkMatch.All : NavLinkMatch.Prefix)"><i class="bi @icon" aria-hidden="true"></i>@label</NavLink>
-                    }
-                </div>
+                <MudNavLink Href="@href" Match="@(href.Length == 0 ? NavLinkMatch.All : NavLinkMatch.Prefix)" Icon="@icon" OnClick="OnNavigate">@label</MudNavLink>
             }
         }
-    </nav>
-</div>
+    }
+</MudNavMenu>
 
 @code {
-    private bool collapseNavMenu = true;
+    /// <summary>スマホのメニュー（上のほうに共通の設定を出す）かどうか。</summary>
+    [Parameter] public bool Mobile { get; set; }
+
+    /// <summary>項目を選んだとき・スイッチを切り替えたときに呼ぶ（スマホでメニューを閉じる）。</summary>
+    [Parameter] public EventCallback OnNavigate { get; set; }
 
     private sealed record NavGroup(string? Title, (string Href, string Label, string Icon, bool NeedsCalc)[] Items);
 
@@ -74,35 +67,35 @@
     {
         new(null, new[]
         {
-            ("", "ホーム", "bi-house-door", false),
+            ("", "ホーム", Icons.Material.Filled.Home, false),
         }),
         new("計算", new[]
         {
-            ("damage-calculator", "ダメージ計算機", "bi-calculator", true),
-            ("speed-comparison", "素早さ比較", "bi-speedometer2", true),
+            ("damage-calculator", "ダメージ計算機", Icons.Material.Filled.Calculate, true),
+            ("speed-comparison", "素早さ比較", Icons.Material.Filled.Speed, true),
         }),
         new("登録", new[]
         {
-            ("data-share", "データ共有", "bi-cloud-arrow-up", false),
-            ("my-pokemon", "育成ポケモン", "bi-person-plus", true),
-            ("my-team", "自分チーム", "bi-people", true),
-            ("my-rival", "相手チーム", "bi-person-bounding-box", true),
+            ("data-share", "データ共有", Icons.Material.Filled.CloudUpload, false),
+            ("my-pokemon", "育成ポケモン", Icons.Material.Filled.PersonAdd, true),
+            ("my-team", "自分チーム", Icons.Material.Filled.Groups, true),
+            ("my-rival", "相手チーム", Icons.Material.Filled.Face, true),
         }),
         new("情報", new[]
         {
-            ("type-chart", "タイプ相性表", "bi-grid-3x3-gap", false),
-            ("pokemon-list", "ポケモン一覧", "bi-list-ul", false),
-            ("move-list", "わざ一覧", "bi-lightning-charge", false),
-            ("battle-terms", "用語・略語", "bi-journal-text", false),
-            ("api-docs", "API", "bi-code-slash", false),
+            ("type-chart", "タイプ相性表", Icons.Material.Filled.GridView, false),
+            ("pokemon-list", "ポケモン一覧", Icons.Material.Filled.FormatListBulleted, false),
+            ("move-list", "わざ一覧", Icons.Material.Filled.Bolt, false),
+            ("battle-terms", "用語・略語", Icons.Material.Filled.MenuBook, false),
+            ("api-docs", "API", Icons.Material.Filled.Code, false),
         }),
         new("配信", new[]
         {
-            ("chat-commands", "チャットコマンド", "bi-chat-dots", true),
+            ("chat-commands", "チャットコマンド", Icons.Material.Filled.Chat, true),
         }),
         new("サポート", new[]
         {
-            ("about-author", "作者・問い合わせ", "bi-person", false),
+            ("about-author", "作者・問い合わせ", Icons.Material.Filled.Person, false),
         }),
     };
 
@@ -114,8 +107,6 @@
         ? "読み込み中です"
         : $"{App.DataSet.Name}は未対応です（ポケモン一覧とタイプ相性表のみ）";
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
     protected override async Task OnInitializedAsync()
     {
         await App.InitializeAsync();
@@ -123,10 +114,6 @@
     }
 
     private Task OnChanged() => InvokeAsync(StateHasChanged);
-
-    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
-
-    private void CollapseNavMenu() => collapseNavMenu = true;
 
     public void Dispose() => App.Changed -= OnChanged;
 
