@@ -3720,6 +3720,30 @@ html.vt-nav .app-header {
         padding-top: 3.5rem;
     }
 
+    /* アイコンを、細い列の真ん中に置く。項目の左右の余白を 0.5rem にし、アイコン（18px）が、列（3.5rem）から左右 0.5rem を除いた幅（2.5rem）の中で中央になるよう、左の余白を 11px にする。
+       この位置は、開いているときも、広げたときも同じ（アイコンが動かない） */
+    .sidebar-panel .nav-item.px-3 {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    html .sidebar-panel .nav-item .nav-link {
+        padding-left: 11px;
+    }
+
+    /* 選択中の印（motion.js が大きさを決める）は、項目の幅（230px - 左右の余白）にそろえる。細い列のときは、列の幅（2.5rem）の中で左右対称にする */
+    .sidebar-panel .nav-indicator {
+        width: calc(230px - 1rem) !important;
+    }
+
+    html.sidebar-hidden .sidebar:not(:hover):not(:has(:focus-visible)) .sidebar-panel .nav-link {
+        width: 2.5rem;
+    }
+
+    html.sidebar-hidden .sidebar:not(:hover):not(:has(:focus-visible)) .sidebar-panel .nav-indicator {
+        width: 2.5rem !important;
+    }
+
     /* 隠しているとき: サイドバーは、アイコンだけの細い列（56px）にする。項目の名前は、枠の外にはみ出して切れる。
        この列にマウスを乗せている間（または、キーボードで入ったとき）は、本来の幅まで広げて、ページの上にかぶせて出す。
        ハンバーガーを押すと、クラスが外れて、ふつうに広がったまま並ぶ */
