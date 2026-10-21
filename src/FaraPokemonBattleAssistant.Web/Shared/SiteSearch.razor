@@ -1,28 +1,28 @@
 @* ヘッダーの検索欄（PC）。入力するとすぐに、一致した場所（ページ・項目・用語・コマンド・ポケモン・わざ・特性）と、その前後の文章を出す。
-   ↑↓ で選んで Enter、Esc で閉じる。Ctrl+K（Mac は ⌘K）か「/」で欄に移る（wwwroot/js/page.js）。探す処理は Services/SearchService.cs *@
+   ↑↓ で結果を選び、ポケモンなど別の開き方がある結果は ←→ で選んで、Enter で開く。Esc で閉じる。Ctrl+K（Mac は ⌘K）か「/」で欄に移る（wwwroot/js/page.js）。
+   探す処理は Services/SearchService.cs。日本語入力の変換中の Enter は、page.js が止める（ここには届かない） *@
 @inject SearchService Search
 @inject NavigationManager Nav
 
-<div class="site-search" role="search">
+<div class="site-search" role="search" @onfocusout="OnFocusOut" @onfocusin="OnFocusIn">
     <svg class="site-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
     <input id="site-search-input" type="search" class="site-search-input" placeholder="検索（例: ガブリアス、dmg、努力値）" autocomplete="off" spellcheck="false"
            aria-label="サイト内を検索" role="combobox" aria-expanded="@(open ? "true" : "false")" aria-controls="site-search-list" aria-autocomplete="list"
-           aria-activedescendant="@(open && active >= 0 ? $"site-search-opt-{active}" : null)"
-           value="@query" @oninput="OnInput" @onkeydown="OnKeyDown" @onfocus="OnFocus" @onblur="Close" />
+           aria-activedescendant="@ActiveId"
+           value="@query" @oninput="OnInput" @onkeydown="OnKeyDown" />
     <span class="site-search-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
     @if (open)
     {
-        <div id="site-search-list" class="site-search-list" role="listbox" aria-label="検索の候補" @onmousedown:preventDefault="true">
+        <div id="site-search-list" class="site-search-list" role="listbox" aria-label="検索の候補">
             @if (hits.Count == 0)
             {
-                <div class="site-search-empty">@(loading ? "探しています…" : $"「{query}」に一致するものはありません")</div>
+                <div class="site-search-empty" role="status">@(loading ? "探しています…" : $"「{query}」に一致するものはありません")</div>
             }
             @for (var i = 0; i < hits.Count; i++)
             {
-                var index = i;
                 var hit = hits[i];
-                <div class="site-search-row @(i == active ? "is-active" : null)">
-                    <a class="site-search-item" role="option" id="@($"site-search-opt-{i}")" href="@hit.Url" aria-selected="@(i == active ? "true" : "false")" @onclick="Close">
+                <div class="site-search-row @(i == active ? "is-active" : null)" role="presentation">
+                    <a class="site-search-item" role="option" id="@OptionId(i, -1)" href="@hit.Url" aria-selected="@(i == active && activeAction < 0 ? "true" : "false")" @onclick="@(e => Go(e, hit.Url))" @onclick:preventDefault="true">
                         <span class="site-search-title"><span class="site-search-kind sk-@hit.Kind">@KindLabel(hit.Kind)</span>@Marked(hit.Title)</span>
                         <span class="site-search-where">@hit.Where</span>
                         @if (hit.Snippet.Length > 0)
@@ -32,10 +32,11 @@
                     </a>
                     @if (hit.Actions.Count > 0)
                     {
-                        <span class="site-search-actions">
-                            @foreach (var action in hit.Actions)
+                        <span class="site-search-actions" role="presentation">
+                            @for (var j = 0; j < hit.Actions.Count; j++)
                             {
-                                <a class="site-search-chip" href="@action.Url" @onclick="Close">@action.Label</a>
+                                var action = hit.Actions[j];
+                                <a class="site-search-chip @(i == active && j == activeAction ? "is-active" : null)" role="option" id="@OptionId(i, j)" href="@action.Url" aria-selected="@(i == active && j == activeAction ? "true" : "false")" aria-label="@($"{hit.Title}を{action.Label}で開く")" @onclick="@(e => Go(e, action.Url))" @onclick:preventDefault="true">@action.Label</a>
                             }
                         </span>
                     }
@@ -51,8 +52,15 @@
     private IReadOnlyList<SearchHit> hits = Array.Empty<SearchHit>();
     private bool open;
     private bool loading;
+    /// <summary>選んでいる結果（-1 は、どれも選んでいない）。</summary>
     private int active = -1;
+    /// <summary>選んでいる結果の、別の開き方（-1 は、結果そのもの）。</summary>
+    private int activeAction = -1;
     private int generation;
+
+    private static string OptionId(int hit, int action) => action < 0 ? $"site-search-opt-{hit}" : $"site-search-opt-{hit}-{action}";
+
+    private string? ActiveId => open && active >= 0 ? OptionId(active, activeAction) : null;
 
     private static string KindLabel(string kind) => kind switch
     {
@@ -82,11 +90,6 @@
         await RunAsync();
     }
 
-    private async Task OnFocus()
-    {
-        if (query.Trim().Length > 0 && hits.Count > 0) open = true;
-    }
-
     private async Task RunAsync()
     {
         var mine = ++generation;
@@ -99,22 +102,55 @@
         hits = result;
         loading = false;
         active = -1;
+        activeAction = -1;
+    }
+
+    // 欄・結果の中にフォーカスがあるあいだは開いたままにする（結果の別の開き方へ、Tab で移れるように）。外へ出たら閉じる。
+    // フォーカスが移るときは focusout のあとに focusin が来るので、いったん閉じる印だけを付けて、直後の focusin で取り消す
+    private bool leaving;
+
+    private void OnFocusOut() => leaving = true;
+
+    private void OnFocusIn()
+    {
+        leaving = false;
+        if (!open && query.Trim().Length > 0 && hits.Count > 0) open = true;
+    }
+
+    // focusout だけで閉じると、結果へフォーカスが移ったときに閉じてしまうので、描画のあとに、まだ外にいたら閉じる
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (leaving && open)
+        {
+            leaving = false;
+            Close();
+            StateHasChanged();
+        }
     }
 
     private void OnKeyDown(KeyboardEventArgs e)
     {
         switch (e.Key)
         {
-            case "ArrowDown" when open && hits.Count > 0:
+            case "ArrowDown" when hits.Count > 0:
+                if (!open) { open = true; break; }
                 active = active + 1 >= hits.Count ? -1 : active + 1;
+                activeAction = -1;
                 break;
             case "ArrowUp" when open && hits.Count > 0:
                 active = active - 1 < -1 ? hits.Count - 1 : active - 1;
+                activeAction = -1;
+                break;
+            case "ArrowRight" when open && active >= 0 && hits[active].Actions.Count > 0:
+                activeAction = Math.Min(activeAction + 1, hits[active].Actions.Count - 1);
+                break;
+            case "ArrowLeft" when open && active >= 0 && activeAction >= 0:
+                activeAction--;
                 break;
             case "Enter" when open && hits.Count > 0:
-                var target = hits[active >= 0 ? active : 0];
-                Close();
-                Nav.NavigateTo(target.Url);
+                var hit = hits[active >= 0 ? active : 0];
+                var url = active >= 0 && activeAction >= 0 ? hit.Actions[activeAction].Url : hit.Url;
+                Go(null, url);
                 break;
             case "Escape":
                 Close();
@@ -122,9 +158,19 @@
         }
     }
 
+    /// <summary>結果を開く。同じページで、検索条件（?attacker= など）だけが変わるときは、ページが読み直さないので、読み込み直して反映する。</summary>
+    private void Go(MouseEventArgs? _, string url)
+    {
+        Close();
+        var path = url.Split('?', '#')[0].Trim('/');
+        var here = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/');
+        Nav.NavigateTo(url, forceLoad: url.Contains('?') && string.Equals(path, here, StringComparison.OrdinalIgnoreCase));
+    }
+
     private void Close()
     {
         open = false;
         active = -1;
+        activeAction = -1;
     }
 }

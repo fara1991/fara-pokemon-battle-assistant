@@ -356,3 +356,15 @@ document.addEventListener("keydown", function (e) {
     input.focus();
     input.select();
 });
+
+// 日本語入力の変換中の Enter（確定の Enter）を、検索欄の Blazor の処理に渡さない（渡すと、変換の確定で最初の結果へ移ってしまう）。
+// Safari は、確定の Enter で isComposing が false になるので、keyCode 229 でも判定する。Blazor より先に受ける（capture）
+document.addEventListener("keydown", function (e) {
+    if (e.target && e.target.id === "site-search-input" && (e.isComposing || e.keyCode === 229)) e.stopPropagation();
+}, true);
+
+// 検索の結果をクリックしても、検索欄からフォーカスを外さない（外れると、クリックが届く前に結果の一覧が閉じてしまう）。
+// Blazor の @onmousedown:preventDefault は、ブラウザの既定の動き（フォーカスの移動）に間に合わないので、ここで止める
+document.addEventListener("mousedown", function (e) {
+    if (e.target && e.target.closest && e.target.closest(".site-search-list")) e.preventDefault();
+}, true);

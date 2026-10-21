@@ -67,6 +67,7 @@ public sealed class SearchService
             if (c >= '！' && c <= '～') c = (char)(c - 0xFEE0);                       // 全角の英数字・記号 → 半角
             else if (c == '　') c = ' ';                                              // 全角スペース
             else if (c >= 'ァ' && c <= 'ヶ') c = (char)(c - 0x60);                    // カタカナ → ひらがな
+            if (c == '~') c = '〜';                                                   // 半角のチルダ（全角の ～ を半角にしたもの）→ データの 〜 にそろえる
             chars[i] = char.ToLowerInvariant(c);
         }
         return new string(chars);

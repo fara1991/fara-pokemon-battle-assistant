@@ -11,6 +11,7 @@ public class SearchServiceTests
     [InlineData("ＡＢＣ　ｄｅｆ", "abc def")]            // 全角の英数字・スペースを半角に、大文字を小文字に
     [InlineData("ガブリアス", "がぶりあす")]              // カタカナをひらがなに（どちらで打っても探せる）
     [InlineData("ダメージ計算", "だめーじ計算")]
+    [InlineData("0～31", "0〜31")]                          // Windows の IME の ～（全角）も、データの 〜 と同じに探せる
     public void Fold_makes_width_kana_and_case_insensitive(string input, string expected) =>
         Assert.Equal(expected, SearchService.Fold(input));
 
@@ -77,6 +78,15 @@ public class SearchServiceTests
         Assert.Contains("/damage-calculator", pages);
         Assert.Contains("/chat-commands", pages);
         Assert.Contains("/battle-terms", pages);
+        // チャットコマンドの一覧が、取りこぼさず入っている（説明が条件式の add -m や、埋め込みのある faster も）
+        var commands = rows.Where(r => r.GetProperty("type").GetString() == "command").Select(r => r.GetProperty("title").GetString()!).ToList();
+        Assert.True(commands.Count >= 25, $"コマンドが {commands.Count} 件しかありません");
+        Assert.Contains(commands, c => c.Contains(" add -m "));
+        Assert.Contains(commands, c => c.Contains(" faster "));
+        // 検索結果に出る文字に、C# の断片や、中身のない括弧が混ざっていない
+        var leak = new System.Text.RegularExpressions.Regex(@"(var|if|new|foreach)\s|=>|=""|[（(]\s*[)）]");
+        foreach (var row in rows)
+            Assert.False(leak.IsMatch(row.GetProperty("title").GetString()! + " " + row.GetProperty("text").GetString()), row.GetProperty("title").GetString());
     }
 
     private static string RepoRoot()

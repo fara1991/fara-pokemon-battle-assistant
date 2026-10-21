@@ -1,9 +1,10 @@
-// サイト内検索の索引（src/FaraPokemonBattleAssistant.Web/wwwroot/search-index.json）を、各ページの Razor から作る。
+// サイト内検索の索引（src/FaraPokemonBattleAssistant.Web/wwwroot/search-index.json）を、各ページの Blazor のソース（.razor）から作る。
 //   node tools/gen-search-index.mjs          索引を書き出す
 //   node tools/gen-search-index.mjs --check  書き出した索引が今のページと合っているか確かめる（合っていなければ失敗。CI で使う）
 // ページの見出し（h3〜h6・カードの見出し）ごとに「節」を作り、その中の文章（段落・ラベル・表・リスト）を本文として持つ。
 // 用語・略語ページの <dt>/<dd> は「用語」、チャットコマンド画面のコマンド一覧は「コマンド」として持つ。
 // 入力欄の値や計算結果など、実行時に決まる文字（@(…) など）は含めない。ポケモン・わざの名前などのデータは、実行時にアプリが足す。
+// 抜き出した文字に C# のコードの断片が混ざっていたら、索引を作らずに失敗する（検索結果にコードが出ないようにするため）。
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +15,10 @@ const outFile = join(root, "src/FaraPokemonBattleAssistant.Web/wwwroot/search-in
 const SITE = " | Pokémon Battle Assistant";
 // タグ（属性の値の中の > や => で途切れないようにする）
 const TAG = /<\/?[A-Za-z][^<>"']*(?:(?:"[^"]*"|'[^']*')[^<>"']*)*>/g;
+// 実行時に決まる文字が抜けて、見出しが中身のない括弧になったときの直し（ページに書いてある元の文字）
+const TITLE_FIXES = { "相手の を推定": "相手の努力値（ポイント）を推定" };
+// C# の断片が残っていないかの確認
+const CODE_LEAK = /\b(?:var|if|new|foreach)\b\s|=>|="|\?\?|[\w.]\([^)]*\)/;
 
 /** 対応する閉じ括弧まで（文字列リテラルの中の括弧は数えない）。start は開き括弧の位置。見つからなければ -1 */
 function matching(text, start, open, close) {
@@ -32,14 +37,15 @@ function matching(text, start, open, close) {
     return -1;
 }
 
-/** Razor の C# の部分（@code ブロック・コメント・@(...) など）を取り除く */
-function stripRazor(src) {
+/** Blazor のソースの C# の部分（@code ブロック・コメント・@(...) など）を取り除く。括弧の対応が取れないときは失敗する */
+function stripRazor(src, file) {
     let text = src.replace(/@\*[\s\S]*?\*@/g, "");
     for (;;) {
         const m = /@code\s*\{/.exec(text);
         if (!m) break;
         const end = matching(text, m.index + m[0].length - 1, "{", "}");
-        text = text.slice(0, m.index) + (end < 0 ? "" : text.slice(end + 1));
+        if (end < 0) throw new Error(`${file}: @code の閉じ括弧が見つかりません`);
+        text = text.slice(0, m.index) + text.slice(end + 1);
     }
     // @{ ... } のコードブロックと、@(...) ・ @if (...) @foreach (...) ・ @Foo(...) などの式・条件（括弧の対応を数えて取り除く）
     for (;;) {
@@ -48,7 +54,8 @@ function stripRazor(src) {
         const from = m.index + m[0].length - 1;
         const isBrace = m[0].endsWith("{");
         const endPos = matching(text, from, isBrace ? "{" : "(", isBrace ? "}" : ")");
-        text = text.slice(0, m.index) + " " + (endPos < 0 ? "" : text.slice(endPos + 1));
+        if (endPos < 0) throw new Error(`${file}: ${m[0]} の閉じ括弧が見つかりません（${text.slice(m.index, m.index + 40)}…）`);
+        text = text.slice(0, m.index) + " " + text.slice(endPos + 1);
     }
     return text.replace(/@[A-Za-z_][\w.:]*/g, " ");
 }
@@ -60,12 +67,17 @@ function plain(html) {
         .replace(TAG, " ")
         .replace(/&[#\w]+;/g, (e) => ENTITIES[e] ?? " ")
         // 表示の繰り返し（@foreach）の中の C# の断片（宣言・条件・メソッド呼び出し・代入）が混ざったら取り除く
-        .replace(/(?:var|int|string|bool)\s[^;<>]{0,150};/g, " ")
-        .replace(/if\s*\([^)]*\)(?:\s*is\s+\w+\))?/g, " ")
+        .replace(/\b(?:var|int|string|bool)\s[^;<>]{0,150};/g, " ")
+        .replace(/\bvar\b\s*\d*\s*\??/g, " ")
+        .replace(/\bif\s*\((?:[^()]|\([^()]*\))*\)(?:\s*is\s+\w+\))?/g, " ")
         .replace(/[\w.]+\([^()]*\)"?/g, " ")
         .replace(/[\w.]+\s*=\s*[\w.]+;/g, " ")
         .replace(/"\s*=\s*"|"\s*>/g, " ")
+        .replace(/\S*(?:="|=>)\S*/g, " ")               // 属性・ラムダの残り
+        .replace(/(?:^|\s)#(?=\s|$)/g, " ")               // 番号（#@id）の # だけが残ったもの
         .replace(/[{}]/g, " ")
+        // 実行時に決まる文字が抜けて、中身のなくなった括弧
+        .replace(/[（(]\s*[/／・、]?\s*[体匹件]?\s*[）)]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
 }
@@ -88,7 +100,7 @@ function sectionsOf(html, page, url) {
     let current = { type: "intro", title: page, text: [] };
     const push = () => {
         const text = current.text.join(" ").replace(/\s+/g, " ").trim();
-        if (current.type === "term" || text || current.type !== "intro") out.push({ type: current.type, title: current.title, page, url, text: text.slice(0, 1500) });
+        if (current.type === "term" || text || current.type !== "intro") out.push({ type: current.type, title: TITLE_FIXES[current.title] ?? current.title, page, url, text: text.slice(0, 1500) });
     };
     // 見出し・用語は節の区切り、それ以外の文章は今の節に足す
     const re = /<(h[3-6]|dt|dd|p|label|li|td|th|small|summary|legend)\b[^>]*>([\s\S]*?)<\/\1>/g;
@@ -112,7 +124,7 @@ function build() {
         const url = pageUrl(raw);
         if (!url || file === "LegacyUrlRedirect.razor") continue;
         const title = pageTitle(raw) ?? file.replace(".razor", "");
-        const body = stripRazor(raw);
+        const body = stripRazor(raw, file);
         const lead = /<div class="page-header">[\s\S]*?<\/div>/.exec(body);
         const description = lead ? plain((/<p\b[^>]*>([\s\S]*?)<\/p>/.exec(lead[0]) ?? [, ""])[1]) : "";
         entries.push({ type: "page", title, page: title, url, text: description });
@@ -122,25 +134,53 @@ function build() {
             else entries.push(e);
         }
         if (file === "Command.razor") {
-            // チャットコマンドの一覧（C# の yield return new(構文, 種類, 説明, …)）
-            const re = /yield return new\(\$?"([^"]*)",\s*"([^"]*)",\s*"([^"]*)"/g;
+            // チャットコマンドの一覧（C# の yield return new(構文, 種類, 説明, …)。文字列は $"…" のことがある）
+            // 説明が条件式のもの（add -m）は、式の中の文字列をつなげる
+            const re = /yield return new\(\$?"([^"]*)",\s*\$?"([^"]*)",\s*([\s\S]*?),\s*new\[\]/g;
             let m;
+            let count = 0;
             while ((m = re.exec(raw)) !== null) {
-                const syntax = m[1].replace(/\{p\}/g, "!poke");
-                entries.push({ type: "command", title: syntax, page: title, url, text: `${m[2]}。${m[3]}` });
+                // 説明の中の {…}（C# の式の埋め込み）は、括弧の対応を数えて取り除く
+                const dropBraces = (t) => {
+                    for (;;) {
+                        const i = t.indexOf("{");
+                        if (i < 0) return t;
+                        const j = matching(t, i, "{", "}");
+                        t = t.slice(0, i) + (j < 0 ? "" : t.slice(j + 1));
+                    }
+                };
+                const fill = (t) => dropBraces(t.replace(/\{evLabel\}/g, "努力値（ポイント）").replace(/\{p\}/g, "!poke"));
+                const syntax = fill(m[1]);
+                // 式の埋め込み（{…}）を先に取り除いてから、式の中の文字列を取り出す（埋め込みの中の文字列を拾わないように）
+                const description = [...fill(m[3]).matchAll(/\$?"([^"]*)"/g)].map((x) => x[1]).join(" / ");
+                entries.push({ type: "command", title: syntax, page: title, url, text: `${m[2]}。${description}` });
+                count++;
             }
+            const expected = (raw.match(/yield return new\(/g) ?? []).length;
+            if (count !== expected) throw new Error(`Command.razor: コマンドが ${expected} 件あるのに、${count} 件しか取り出せません`);
         }
     }
     // 同じ内容の重複（同じ見出し・同じ本文）は 1 件にする
     const seen = new Set();
-    return entries.filter((e) => { const k = `${e.type}|${e.url}|${e.title}|${e.text}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    const result = entries.filter((e) => { const k = `${e.type}|${e.url}|${e.title}|${e.text}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    const leaks = result.filter((e) => CODE_LEAK.test(e.title) || CODE_LEAK.test(e.text));
+    if (leaks.length > 0) {
+        throw new Error("C# の断片が混ざっています:\n" + leaks.slice(0, 8).map((e) => `  ${e.page} / ${e.title}: ${e.text.slice(0, 80)}`).join("\n"));
+    }
+    return result;
 }
 
-const json = JSON.stringify(build(), null, 1) + "\n";
+let json;
+try {
+    json = JSON.stringify(build(), null, 1) + "\n";
+} catch (e) {
+    console.error(String(e.message ?? e));
+    process.exit(1);
+}
 if (process.argv.includes("--check")) {
     const current = existsSync(outFile) ? readFileSync(outFile, "utf8") : "";
     if (current.replace(/\r\n/g, "\n") !== json) {
-        console.error("search-index.json が、ページの内容と合っていません。`node tools/gen-search-index.mjs` で作り直してください。");
+        console.error("search-index.json が、ページの内容と合っていません。`npm run gen:search` で作り直してください。");
         process.exit(1);
     }
     console.log("search-index.json は最新です");

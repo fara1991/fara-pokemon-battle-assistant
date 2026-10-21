@@ -4016,9 +4016,15 @@ html.vt-nav .app-header {
     text-decoration: none;
 }
 
-.site-search-chip:hover {
+.site-search-chip:hover,
+.site-search-chip.is-active {
     background: var(--bs-secondary-bg);
     color: inherit;
+}
+
+.site-search-chip.is-active {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.35);
 }
 
 .site-search-empty {
