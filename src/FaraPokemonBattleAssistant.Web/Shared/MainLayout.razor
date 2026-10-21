@@ -20,11 +20,11 @@
         <HeaderControls />
     </header>
 
-    @* サイドバーを隠しているとき、画面の左端にマウスを近づけると、サイドバーが一時的に出る（CSS の :hover）。ハンバーガーを押すと、出したままにする *@
-    <div class="sidebar-edge" aria-hidden="true"></div>
-
+    @* 隠しているとき（PC）は、アイコンだけの細い列になる。マウスを乗せている間は、広げて出す（CSS の :hover）。ハンバーガーを押すと、広げたままにする *@
     <div class="sidebar" id="site-sidebar">
-        <NavMenu />
+        <div class="sidebar-panel">
+            <NavMenu />
+        </div>
     </div>
 
     <main>
