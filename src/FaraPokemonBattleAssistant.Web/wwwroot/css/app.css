@@ -3681,12 +3681,15 @@ html.vt-nav .app-header {
     /* NavMenu の scoped CSS（.sidebar の overflow-y: auto）に負けないよう、強くする。枠より広がる中身が切れないように */
     html .page > .sidebar {
         overflow: visible;
-        /* 広げた中身が、画面下の結果バーなどの上に出るよう、前に置く。枠そのものは、ヘッダー（ハンバーガー）を覆わないよう、
-           何も描かず、クリックも受けない（中身 .sidebar-panel だけが受ける） */
-        z-index: 1045;
+        /* 枠そのものは、ヘッダー（ハンバーガー）を覆わないよう、何も描かず、クリックも受けない（中身 .sidebar-panel だけが受ける） */
         pointer-events: none;
         background: none;
         border-right: 0;
+    }
+
+    /* 広げた中身が、画面下の結果バーなどの上に出るよう、隠しているときだけ前に置く（開いているときは、ヘッダーの検索結果などの下にならないよう、前に置かない） */
+    html.sidebar-hidden .page > .sidebar {
+        z-index: 1045;
     }
 
     .sidebar .top-row {
@@ -3704,7 +3707,7 @@ html.vt-nav .app-header {
         overflow: hidden;
         background-color: #1a0d33;
         background-image: linear-gradient(180deg, rgba(20, 10, 38, 0.92) 0%, rgba(36, 18, 67, 0.92) 60%, rgba(45, 27, 78, 0.92) 100%);
-        transition: width 0.15s ease;
+        transition: width 0.15s ease, box-shadow 0.15s ease;
     }
 
     /* 項目は、いつも本来の幅（230px）で並べておき、細い列のときは、枠で切る（広げたときに並べ直さない・選択中の印（motion.js）の大きさが変わらない） */
@@ -3721,11 +3724,11 @@ html.vt-nav .app-header {
        この列にマウスを乗せている間（または、キーボードで入ったとき）は、本来の幅まで広げて、ページの上にかぶせて出す。
        ハンバーガーを押すと、クラスが外れて、ふつうに広がったまま並ぶ */
     html.sidebar-hidden .sidebar {
-        width: 56px;
+        width: 3.5rem;
     }
 
     html.sidebar-hidden .sidebar-panel {
-        width: 56px;
+        width: 3.5rem;
     }
 
     html.sidebar-hidden .sidebar-panel .nav-section {
@@ -3733,9 +3736,6 @@ html.vt-nav .app-header {
         transition: opacity 0.15s ease;
     }
 
-    html.sidebar-hidden .sidebar-panel .nav-scrollable {
-        scrollbar-width: none;
-    }
 
     html.sidebar-hidden .sidebar:has(:focus-visible) .sidebar-panel {
         width: 230px;
@@ -3749,7 +3749,7 @@ html.vt-nav .app-header {
     @media (prefers-reduced-motion: reduce) {
         .sidebar-panel,
         html.sidebar-hidden .sidebar-panel .nav-section {
-            transition: none;
+            transition-duration: 0s;
         }
     }
 
@@ -3759,15 +3759,15 @@ html.vt-nav .app-header {
 
     /* サイドバー（230px）を前提にした配置は、隠している間は、細い列（56px）の分にする（対戦画面・結果バー・背景のコート） */
     html.sidebar-hidden .battle-ui {
-        inset: 3.5rem 0 0 56px;
+        inset: 3.5rem 0 0 3.5rem;
     }
 
     html.sidebar-hidden .result-bar {
-        left: 56px;
+        left: 3.5rem;
     }
 
     html.sidebar-hidden .bg-scene {
-        --stage-shift: 28px;
+        --stage-shift: 1.75rem;
     }
 }
 
@@ -3784,9 +3784,6 @@ html.vt-nav .app-header {
         transition-delay: 0.12s;
     }
 
-    html.sidebar-hidden .sidebar:hover .sidebar-panel .nav-scrollable {
-        scrollbar-width: thin;
-    }
 }
 
 /* ---- ヘッダーの検索欄・全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク） ---- */
