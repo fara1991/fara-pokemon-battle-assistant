@@ -89,6 +89,26 @@ public class MaintenanceInfoTests
     }
 
     [Fact]
+    public async Task Load_treats_an_unexpected_exception_as_normal()
+    {
+        var handler = new FakeHandler((_, _) => throw new InvalidOperationException("unexpected"));
+        Assert.Equal(MaintenanceInfo.Off, await MaintenanceInfo.LoadAsync(Client(handler)));
+    }
+
+    [Fact]
+    public async Task Load_gives_up_quickly_by_default()
+    {
+        var handler = new FakeHandler(async (_, ct) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30), ct);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"state\":\"on\"}") };
+        });
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        Assert.Equal(MaintenanceInfo.Off, await MaintenanceInfo.LoadAsync(Client(handler)));
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), "既定の待ち時間は 1 秒（起動を長く止めない）");
+    }
+
+    [Fact]
     public async Task Load_does_not_make_the_app_wait_for_a_slow_endpoint()
     {
         var handler = new FakeHandler(async (_, ct) =>
@@ -105,10 +125,13 @@ public class MaintenanceInfoTests
     [Fact]
     public void The_shipped_wrangler_config_keeps_dashboard_variables()
     {
-        // 公開（wrangler deploy）のたびに、ダッシュボードの MAINTENANCE が消えないように（本番・確認用の両方）
+        // 公開（wrangler deploy）のたびに、ダッシュボードの MAINTENANCE が消えないように。keep_vars はトップレベルだけが有効
+        // （env の中に書くと、wrangler が「知らない項目」と警告する。本番・確認用の両方に、トップレベルの値が効く）
         var path = FindUp("wrangler.jsonc");
         var text = File.ReadAllText(path);
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(text, "\"keep_vars\"\\s*:\\s*true").Count);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, "\"keep_vars\"\\s*:\\s*true"));
+        var envStart = text.IndexOf("\"env\"", StringComparison.Ordinal);
+        Assert.True(envStart > 0 && text.IndexOf("keep_vars", StringComparison.Ordinal) < envStart, "トップレベルにある（env の中ではない）");
     }
 
     private static string FindUp(string relative)

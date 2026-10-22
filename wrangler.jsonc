@@ -35,7 +35,6 @@
     "develop": {
       // Worker 名（ダッシュボードで変更した名前に合わせる）
       "name": "fara-pokemon-dev",
-      "keep_vars": true,
       "assets": {
         "directory": "./publish/wwwroot",
         "binding": "ASSETS",

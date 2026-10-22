@@ -57,12 +57,13 @@ public sealed record MaintenanceInfo(MaintenanceState State, string Message)
     {
         try
         {
-            using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(3));
+            using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(1));
             using var response = await http.GetAsync("api/maintenance", cts.Token);
             return response.IsSuccessStatusCode ? Parse(await response.Content.ReadAsStringAsync(cts.Token)) : Off;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        catch (Exception)
         {
+            // 通信の失敗・時間切れ・想定外の例外のどれでも、起動を止めずに通常として扱う
             return Off;
         }
     }
