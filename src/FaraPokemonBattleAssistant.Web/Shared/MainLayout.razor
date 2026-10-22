@@ -16,7 +16,8 @@
 
 <MudLayout Class="@("page " + (Stage.BattleActive ? "battle-active" : ""))">
     @* 上に固定するヘッダー。ハンバーガーを押すたびに、サイドバーの表示・非表示を切り替える（PC は、隠すとアイコンだけの細い列、マウスを乗せると広がる）。
-       検索欄と、全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク）は PC だけ。スマホは、メニューの上のほうに同じものがある（NavMenu.razor） *@
+       検索欄と、全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク）は PC だけ。スマホは、検索ボタン（ヘッダー）で下に開く検索欄を使い、
+       設定は、メニューの上のほうに同じものがある（NavMenu.razor） *@
     <MudAppBar Fixed="true" Elevation="0" Gutters="false" Class="app-header">
         @* ページを読んだ量の線（ヘッダーの下端。js/scroll-progress.js が動かす） *@
         <div class="scroll-progress" aria-hidden="true"></div>
@@ -25,8 +26,10 @@
         <a class="app-brand" href="/" title="ホームへ">Pokémon Battle Assistant</a>
         @if (Mobile)
         {
-            @* スマホでは、メニューを開かずに切り替えられるよう、ヘッダーに置く *@
+            @* スマホでは、メニューを開かずに切り替えられるよう、ヘッダーに置く。検索は、ボタンで下に開く欄（SiteSearch・Sheet）を使う *@
             <BattleViewSwitch InputId="top-battle-view" Class="top-battle" Compact="true" />
+            <MudIconButton Icon="@Icons.Material.Filled.Search" Color="Color.Inherit" Class="header-search-toggle" OnClick="OpenSearch"
+                           aria-label="検索" aria-controls="site-search-sheet" aria-expanded="@(searchOpen ? "true" : "false")" title="検索" />
         }
         else
         {
@@ -36,10 +39,18 @@
     </MudAppBar>
 
     @* PC: 隠すと、アイコンだけの細い列になる。マウスを乗せている間は、広げて出す（MudBlazor の Mini ドロワー）。ハンバーガーを押すと、広げたままにする。スマホ: ハンバーガーで開く一時的なメニュー *@
-    <MudDrawer Open="DrawerOpen" OpenChanged="OnDrawerOpenChanged" Variant="@(Mobile ? DrawerVariant.Temporary : DrawerVariant.Mini)" OpenMiniOnHover="true"
+    @* Breakpoint は、既定の Md（960px）だと、768〜959px で Mini が Temporary に落ちて画面の外に消えるので、Sm にしている。
+       768px 未満は、Mobile が Variant を Temporary に明示するので、Breakpoint は結果に影響しない *@
+    <MudDrawer Open="DrawerOpen" OpenChanged="OnDrawerOpenChanged" Variant="@(Mobile ? DrawerVariant.Temporary : DrawerVariant.Mini)" OpenMiniOnHover="true" Breakpoint="Breakpoint.Sm"
                ClipMode="@(Mobile ? DrawerClipMode.Never : DrawerClipMode.Always)" Elevation="0" Class="sidebar" id="site-sidebar">
         <NavMenu Mobile="Mobile" OnNavigate="CloseOnMobile" />
     </MudDrawer>
+
+    @if (Mobile)
+    {
+        @* スマホの検索欄。ヘッダーの検索ボタンで、ヘッダーの下に開く（閉じているあいだは表示しない・CSS）。PC の検索欄（ヘッダーの中）と同じ部品 *@
+        <SiteSearch Sheet="true" OnDone="CloseSearch" />
+    }
 
     <MudMainContent>
         <main>
@@ -61,6 +72,8 @@
     private bool desktopOpen = true;
     private bool mobileOpen;
     private bool mobile;
+    /// <summary>スマホの検索欄を開いているか（ヘッダーの検索ボタンで開く。開閉の見た目は js/page.js の faraSearchSheet）</summary>
+    private bool searchOpen;
 
     private DotNetObjectReference<MainLayout>? self;
 
@@ -73,12 +86,20 @@
         if (mobile == matches) return;
         mobile = matches;
         mobileOpen = false;
+        // 表示が切り替わるので、検索欄は、C# の状態に関係なく閉じる（JS の状態とずれていても残さない）
+        searchOpen = false;
+        _ = SetSearchSheetAsync(false, true);
         StateHasChanged();
     }
 
     private bool DrawerOpen => Mobile ? mobileOpen : desktopOpen;
 
-    private void ToggleDrawer() => SetDrawerOpen(!DrawerOpen);
+    private void ToggleDrawer()
+    {
+        // ハンバーガーを押したら、開いている検索欄は閉じる（欄とサイドバーを同時に開かない）。フォーカスは、押したハンバーガーに残す
+        if (searchOpen) HideSearch(focusButton: false);
+        SetDrawerOpen(!DrawerOpen);
+    }
 
     /// <summary>
     /// MudBlazor が知らせる開閉。PC の細い列に、マウスを乗せて広げたり、離して戻ったりしたときも来るが、それは「見た目だけの一時的な広がり」なので、
@@ -97,6 +118,34 @@
     }
 
     private void CloseOnMobile() { if (Mobile) mobileOpen = false; }
+
+    /// <summary>
+    /// スマホの検索ボタン。欄を出して、フォーカスするのは、押した瞬間の JS（js/page.js の click）が行う（iOS は、タップの流れの中でフォーカスしないと、キーボードが出ない）。
+    /// ここでは、ボタンの「開いている」の状態（aria-expanded）だけを合わせる
+    /// </summary>
+    private void OpenSearch()
+    {
+        searchOpen = true;
+        if (Mobile) mobileOpen = false;
+    }
+
+    /// <summary>スマホの検索欄を閉じる（× ・Esc・結果を開いたとき・ページを移ったとき）。閉じたあとは、検索ボタンにフォーカスを戻す</summary>
+    private void CloseSearch() => HideSearch(focusButton: true);
+
+    /// <summary>検索欄を閉じる。フォーカスが欄の中にあれば、欄が隠れる前に検索ボタン（無ければ body）へ移す（js/page.js の faraSearchSheet）</summary>
+    private void HideSearch(bool focusButton)
+    {
+        if (!searchOpen) return;
+        searchOpen = false;
+        _ = SetSearchSheetAsync(false, focusButton);
+    }
+
+    /// <summary>検索欄の開閉を、js/page.js に知らせる。JS が使えないときは、反映しない（ApplyDesktopStateAsync と同じ）</summary>
+    private async Task SetSearchSheetAsync(bool open, bool focus)
+    {
+        try { await JS.InvokeVoidAsync("faraSearchSheet", open, focus); }
+        catch { /* JS が使えないときは、反映しない */ }
+    }
 
     /// <summary>PC の開閉を、html のクラスとブラウザの保存に反映する（対戦画面の余白などは、このクラスで決まる。js/page.js の faraSidebarChanged）。</summary>
     private async Task ApplyDesktopStateAsync()
@@ -135,6 +184,7 @@
     /// <summary>サイドバーの見出し（計算・登録・情報など）が変わるページの切り替えでは、対戦画面をオフにする。</summary>
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
+        if (searchOpen) HideSearch(focusButton: true);
         var next = GroupOf(Nav.ToBaseRelativePath(e.Location));
         if (next != currentGroup && Stage.BattleView) Stage.SetBattleView(false);
         currentGroup = next;

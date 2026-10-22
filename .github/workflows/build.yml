@@ -106,3 +106,6 @@ jobs:
 
       - name: Home page (Worker) test
         run: npm run test:home
+
+      - name: Mobile search sheet test
+        run: npm run test:search-sheet

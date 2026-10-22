@@ -323,6 +323,26 @@ window.faraWatchMobile = function (ref) {
     return mq.matches;
 };
 
+// スマホの検索ボタン（ヘッダー。Shared/MainLayout.razor）: 押した瞬間に、下に開く欄を出して、フォーカスする。
+// iOS Safari は、タップの流れの中で focus() しないとキーボードを出さないので、Blazor を待たずに、ここで行う（C# 側の状態は MainLayout が合わせる）
+document.addEventListener("click", function (e) {
+    if (e.target && e.target.closest && e.target.closest(".header-search-toggle")) window.faraSearchSheet(true, true);
+}, false);
+// スマホの検索欄の開閉（html の search-open クラス。見た目は app.css）。
+// 閉じるときは、フォーカスが欄の中にあれば（隠れると body に落ちるので）、欄が隠れる前に検索ボタンへ移す（ボタンが無ければ、欄からフォーカスを外す）。
+// focus が true なら、欄の中に無くても検索ボタンへ戻す（× ・Esc・結果を開いたあと）
+window.faraSearchSheet = function (open, focus) {
+    var sheet = document.getElementById("site-search-sheet");
+    var active = document.activeElement;
+    var inside = !!(sheet && active && sheet.contains(active));
+    var btn = document.querySelector(".header-search-toggle");
+    if (!open && (focus || inside) && btn) btn.focus();
+    else if (!open && inside && active.blur) active.blur();
+    document.documentElement.classList.toggle("search-open", !!open);
+    var input = document.getElementById("site-search-input");
+    if (open && focus && input) input.focus();
+};
+
 // ヘッダーの検索欄へ移る: Ctrl+K（Mac は ⌘K）か「/」（文字を入力中は、「/」を奪わない）。欄は Blazor が描画する（Shared/SiteSearch.razor）
 document.addEventListener("keydown", function (e) {
     var k = e.key && e.key.toLowerCase();
