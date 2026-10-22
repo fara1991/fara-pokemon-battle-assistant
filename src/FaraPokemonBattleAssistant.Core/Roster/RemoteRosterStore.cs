@@ -324,10 +324,16 @@ public sealed partial class RemoteRosterStore : IRosterStore
         foreach (var team in roster.Teams.GroupBy(t => t.Number).Select(g => g.First()))
         {
             var slots = team.Slots.Where(s => ids.Contains(s.EntryId)).GroupBy(s => s.EntryId).Select(g => g.First()).Take(6).ToList();
-            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots, Format = team.Format, Extra = team.Extra });
+            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots, Format = NormalizedFormat(team.Format), Extra = team.Extra });
         }
         return teams;
     }
+
+    /// <summary>
+    /// チームのバトル形式を、サーバーが受け付ける表記（null か "Singles" / "Doubles"）にそろえる。
+    /// 大文字小文字の違い（"doubles"）は直し、知らない値は（ローカルの読み方と同じく）シングルとして、1 つの値でチーム全体の保存が断られないようにする。
+    /// </summary>
+    public static string? NormalizedFormat(string? stored) => stored is null ? null : TeamFormats.Name(TeamFormats.Parse(stored));
 
     /// <summary>GET の応答 <c>{"revision": n, "dataSets": {...}}</c> を読む。</summary>
     private static (long Revision, JsonElement DataSets) ReadDataSets(JsonDocument doc)

@@ -33,7 +33,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                         </div>
                         <div class="col-8">
                             <label class="form-label">バトル形式 <Help Title="チームのバトル形式">そのチームで戦う形式（シングル・ダブル）です。あとから、チーム一覧で変えられます。チャットコマンドでは <code>add -t 番号 ID ダブル</code> や <code>set -t 番号 ダブル</code> で指定できます。</Help></label>
-                            <MudSelect T="string" Value="@(Convert.ToString(s.TeamFormat))" ValueChanged="@(v => s.TeamFormat = ParseFormat(v))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" aria-label="チームのバトル形式">
+                            <MudSelect T="string" Value="@(Convert.ToString(FormatToShow))" ValueChanged="@(v => { s.TeamFormat = ParseFormat(v); s.TeamFormatChosen = true; })" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" aria-label="チームのバトル形式">
                                 <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Singles))">シングル</MudSelectItem>
                                 <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Doubles))">ダブル</MudSelectItem>
                             </MudSelect>
@@ -134,8 +134,9 @@ else if (data is not null && roster is not null && dataSet is not null)
     {
         public string DataSetKey { get; set; } = "";
         public int TeamNumber { get; set; } = 1;
-        /// <summary>これから追加するチームのバトル形式（既にあるチーム番号を選ぶと、そのチームの形式になる）。</summary>
+        /// <summary>追加フォームで選んだチームのバトル形式。<see cref="TeamFormatChosen"/> が false の間は、選んでいない（既にあるチームはそのチームの形式、新しいチームはシングルを見せ、追加しても形式は変えない）。</summary>
         public BattleFormat TeamFormat { get; set; }
+        public bool TeamFormatChosen { get; set; }
         public int TeamEntryId { get; set; }
         public Item? TeamItem { get; set; }
     }
@@ -166,8 +167,12 @@ else if (data is not null && roster is not null && dataSet is not null)
     private void OnTeamNumberChanged(int number)
     {
         s.TeamNumber = Math.Max(1, number);
-        if (roster?.Teams.FirstOrDefault(t => t.Number == s.TeamNumber) is { } existing) s.TeamFormat = existing.BattleFormat;
+        s.TeamFormatChosen = false;   // チームを変えたら、選び直すまで、そのチームの形式（新しいチームはシングル）を見せる
     }
+
+    /// <summary>追加フォームの形式の欄に見せる値（選んでいなければ、既にあるチームの形式。新しいチームはシングル）。</summary>
+    private BattleFormat FormatToShow =>
+        s.TeamFormatChosen ? s.TeamFormat : roster?.Teams.FirstOrDefault(t => t.Number == s.TeamNumber)?.BattleFormat ?? BattleFormat.Singles;
 
     private async Task SetFormatAsync(int teamNo, BattleFormat format)
     {
@@ -200,7 +205,7 @@ else if (data is not null && roster is not null && dataSet is not null)
     {
         await MutateAsync(async () =>
         {
-            var (team, _, replaced) = await Repo.AddToTeamAsync(App.DataSetKey, s.TeamNumber, s.TeamEntryId, s.TeamItem, s.TeamFormat);
+            var (team, _, replaced) = await Repo.AddToTeamAsync(App.DataSetKey, s.TeamNumber, s.TeamEntryId, s.TeamItem, s.TeamFormatChosen ? s.TeamFormat : null);
             Show($"チーム{team.Number} に{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）", false);
         });
     }

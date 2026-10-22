@@ -42,6 +42,58 @@ public class TeamFormatTests
         Assert.Equal(expected, format);
     }
 
+    [Fact]
+    public void Dbl_is_accepted_like_the_damage_command()
+    {
+        Assert.True(TeamFormats.TryParseWord("dbl", out var format));
+        Assert.Equal(BattleFormat.Doubles, format);
+    }
+
+    [Theory]
+    [InlineData("1 1 ダブル", 2, "1 1", true, BattleFormat.Doubles)]
+    [InlineData("1 1 シングル", 2, "1 1", true, BattleFormat.Singles)]
+    [InlineData("1 1 こだわりスカーフ ダブル", 2, "1 1 こだわりスカーフ", true, BattleFormat.Doubles)]
+    [InlineData("1 1 こだわりスカーフ", 2, "1 1 こだわりスカーフ", false, BattleFormat.Singles)]
+    [InlineData("1 ダブル", 2, "1 ダブル", false, BattleFormat.Singles)]   // 残りが足りないときは切り離さない（書式エラーにする）
+    [InlineData("", 2, "", false, BattleFormat.Singles)]
+    public void Trailing_format_word_is_split_off_only_when_enough_remains(string text, int min, string rest, bool found, BattleFormat expected)
+    {
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var result = TeamFormats.SplitTrailingFormat(words, min, out var format);
+        Assert.Equal(rest, string.Join(" ", result));
+        Assert.Equal(found, format is not null);
+        if (found) Assert.Equal(expected, format);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("Singles", "Singles")]
+    [InlineData("Doubles", "Doubles")]
+    [InlineData("doubles", "Doubles")]     // 大文字小文字の違いは直して送る
+    [InlineData("Triples", "Singles")]     // 知らない値は、ローカルの読み方と同じシングル（1 つの値でチーム全体の保存が断られないように）
+    [InlineData("", "Singles")]
+    public void Format_is_normalized_before_it_is_sent_to_the_cloud(string? stored, string? expected) =>
+        Assert.Equal(expected, RemoteRosterStore.NormalizedFormat(stored));
+
+    [Fact]
+    public async Task Team_with_an_unknown_format_is_still_saved_to_the_cloud()
+    {
+        var server = new FakeRosterServer { ExpectedKey = Key };
+        var data = await TestData.Catalog().GetDataSetAsync(Ds);
+        server.WriteFromElsewhere(state =>
+        {
+            var r = state.For(Ds);
+            r.Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonName = "ガブリアス" });
+            r.NextId = 2;
+            r.Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 } }, Format = "doubles" });
+            r.Teams.Add(new Team { Number = 2, Slots = { new TeamSlot { EntryId = 1 } }, Format = "Triples" });
+        });
+        var repo = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
+        await repo.AddToTeamAsync(Ds, 3, 1, null);   // 別のチームの操作で、チーム全体を保存し直す
+        var saved = server.State.For(Ds).Teams.OrderBy(t => t.Number).ToList();
+        Assert.Equal(new[] { "Doubles", "Singles", null }, saved.Select(t => t.Format).ToArray());
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData(null)]

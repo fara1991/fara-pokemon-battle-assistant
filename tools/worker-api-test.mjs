@@ -132,7 +132,7 @@ try {
   await badTeam("知らないバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Triples" }], activeTeam: null } });
   await badTeam("小文字のバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "doubles" }], activeTeam: null } });
   await badTeam("文字列でないバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: 2 }], activeTeam: null } });
-  await badTeam("空のチーム",{ Champions: { teams: [{ Number: 1, Slots: [] }], activeTeam: null } });
+  await badTeam("空のチーム", { Champions: { teams: [{ Number: 1, Slots: [] }], activeTeam: null } });
   await badTeam("登録の無いゲームのチーム", { Gen9: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeam: null } });
   const r400 = await req("PUT", T, key, { baseRevision: 2, dataSets: { Champions: { teams: [{ Number: 1, Slots: [slot(99)] }], activeTeam: null } } });
   check("400 のメッセージに理由（登録に無いポケモン）", (r400.json?.message ?? "").includes("登録に無い"), r400.text);

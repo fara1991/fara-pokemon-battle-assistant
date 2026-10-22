@@ -262,12 +262,7 @@ public sealed partial class PokeCommand
     {
         if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
         // 最後の言葉が「シングル」「ダブル」なら、チームのバトル形式の指定（持ち物の名前としては読まない）
-        BattleFormat? format = null;
-        if (args.Count > 2 && TeamFormats.TryParseWord(args[^1], out var parsedFormat))
-        {
-            format = parsedFormat;
-            args = args.Take(args.Count - 1).ToList();
-        }
+        args = TeamFormats.SplitTrailingFormat(args, 2, out var format);
         if (args.Count < 2 || !int.TryParse(args[0], out var teamNo) || !int.TryParse(args[1], out var entryId))
             return Fail($"書式: !{ds.CommandPrefix} add -t チーム番号 登録ID [持ち物] [シングル|ダブル]");
         Item? item = null;

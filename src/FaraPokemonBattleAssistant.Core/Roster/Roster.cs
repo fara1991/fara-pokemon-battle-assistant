@@ -281,13 +281,28 @@ public static class TeamFormats
     public static BattleFormat Parse(string? stored) =>
         string.Equals(stored?.Trim(), "Doubles", StringComparison.OrdinalIgnoreCase) ? BattleFormat.Doubles : BattleFormat.Singles;
 
+    /// <summary>
+    /// 言葉の並びの最後が「シングル」「ダブル」なら、それを形式として切り離す（持ち物の名前などとは読まない）。
+    /// 切り離すのは、残りが <paramref name="minRemaining"/> 語より多いときだけ（例: <c>1 1 ダブル</c> は切り離し、<c>1 ダブル</c> はそのまま）。
+    /// </summary>
+    public static List<string> SplitTrailingFormat(IReadOnlyList<string> words, int minRemaining, out BattleFormat? format)
+    {
+        format = null;
+        if (words.Count > minRemaining && TryParseWord(words[^1], out var parsed))
+        {
+            format = parsed;
+            return words.Take(words.Count - 1).ToList();
+        }
+        return words.ToList();
+    }
+
     /// <summary>保存してある名前として正しいか（null か、"Singles" / "Doubles"）。クラウドへ送る前の確認に使う。</summary>
     public static bool IsValidStored(string? stored) =>
         stored is null || stored is "Singles" or "Doubles";
 
     /// <summary>
-    /// コマンドの言葉（シングル / ダブル / single / singles / double / doubles。大文字小文字・全角半角・ひらがなは区別しない）を読む。
-    /// バトル形式を表す言葉でなければ false。
+    /// コマンドの言葉（シングル / ダブル / しんぐる / だぶる / single(s) / double(s) / dbl）を読む。前後の空白と大文字小文字は区別しない。
+    /// （全角の英数字は、コマンド全体を読む前の正規化で半角になっている。）バトル形式を表す言葉でなければ false。
     /// </summary>
     public static bool TryParseWord(string? word, out BattleFormat format)
     {
@@ -298,7 +313,7 @@ public static class TeamFormats
             case "シングル" or "しんぐる" or "single" or "singles":
                 format = BattleFormat.Singles;
                 return true;
-            case "ダブル" or "だぶる" or "double" or "doubles":
+            case "ダブル" or "だぶる" or "double" or "doubles" or "dbl":
                 format = BattleFormat.Doubles;
                 return true;
             default:

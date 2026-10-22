@@ -908,10 +908,10 @@ else if (data is not null)
             {
                 s.TeamNo = NumberOrEmpty(tokens, 0);
                 s.EntryId = NumberOrEmpty(tokens, 1);
-                // 最後の言葉が「シングル」「ダブル」なら、バトル形式の指定（持ち物の名前としては読まない）
-                s.TeamFormat = tokens.Count > 2 && TeamFormats.TryParseWord(tokens[^1], out var fmt) ? TeamFormats.Label(fmt) : "";
-                var itemToken = s.TeamFormat.Length > 0 ? 3 : 2;
-                s.ItemName = tokens.Count > itemToken && new NameResolver<Item>(data!.Items, i => i.Name).Resolve(tokens[itemToken]).Value is { } item ? item.Name : "";
+                // 最後の言葉が「シングル」「ダブル」なら、バトル形式の指定（持ち物の名前としては読まない。コマンドと同じ読み方）
+                var rest = TeamFormats.SplitTrailingFormat(tokens, 2, out var fmt);
+                s.TeamFormat = fmt is { } f ? TeamFormats.Label(f) : "";
+                s.ItemName = rest.Count > 2 && new NameResolver<Item>(data!.Items, i => i.Name).Resolve(string.Join(" ", rest.Skip(2))).Value is { } item ? item.Name : "";
                 return true;
             }
             case "set -t":
