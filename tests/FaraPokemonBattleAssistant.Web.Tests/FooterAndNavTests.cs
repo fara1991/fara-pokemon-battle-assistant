@@ -68,6 +68,7 @@ public class FooterAndNavTests
             ("github", "GitHub", "https://github.com/fara1991", "#6e40c9"),
             ("twitter", "Twitter", "https://twitter.com/game_fara", "#1d9bf0"),
             ("twitch", "Twitch", "https://twitch.tv/game_fara", "#9146ff"),
+            ("discord", "Discord", "https://discord.com/invite/B38eCSYyk5", "#5865f2"),
         };
         Assert.Equal(expected, SocialLinks.All.Select(s => (s.Service, s.Label, s.Url, s.Color)));
     }
@@ -80,6 +81,8 @@ public class FooterAndNavTests
         Assert.Contains("M12 .3a12 12 0 0 0-3.8 23.38", icon);                 // GitHub
         Assert.Contains("M23.95 4.57a10 10 0 0 1-2.82.77", icon);             // Twitter
         Assert.Contains("M11.57 4.71h1.72v5.15h-1.72z", icon);                // Twitch
+        Assert.Contains("M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152", icon);   // Discord（simple-icons）
+        Assert.Contains("viewBox=\"0 0 24 24\"", icon);
         Assert.Contains("aria-hidden=\"true\"", icon);
     }
 
