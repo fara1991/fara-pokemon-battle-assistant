@@ -28,6 +28,9 @@ public sealed class AppState
     /// <summary>"light" / "dark"。</summary>
     public string Theme { get; private set; } = "light";
 
+    /// <summary>読み込んだゲームのキーが、いま選んでいるゲームか（まだ読んでいなければ「同じ」とみなす）。ゲームを切り替えた直後は、読み込みが終わるまで違う。</summary>
+    public static bool IsSameGame(string? loadedKey, string currentKey) => loadedKey is null || loadedKey == currentKey;
+
     /// <summary>データセット・バトル形式が変わったときに発火する。</summary>
     public event Func<Task>? Changed;
 
@@ -62,46 +65,46 @@ public sealed class AppState
             // localStorage が使えない環境（プライベートモード等）では既定値のまま
         }
         await ApplyThemeAsync();
-        _ = PreloadAsync();
+        // 起動直後は、選んでいるゲームのデータだけを読む（他のゲームは、選んだとき・使うページを開いたときに読む）
+        _ = PreloadOtherFormatAsync();
     }
 
     /// <summary>
-    /// 選ばれていないゲームのデータも裏で読み込んでおき、切り替えたときにすぐ表示できるようにする。
+    /// 起動の少し後に、選んでいるゲームの「もう一方の形式」の使用率だけを低い優先度で読んでおく（形式を切り替えたときにすぐ並び替えられるように）。
+    /// 起動直後の通信を増やさないよう、待ってから読む。失敗は無視する（切り替えたときに読み直す）。
     /// </summary>
-    private async Task PreloadAsync()
+    private async Task PreloadOtherFormatAsync()
     {
         try
         {
-            await Task.Delay(1000);
-            // 昔の世代（参照のみ）は選んだときに読み込む（先読みするデータを増やしすぎない）
-            foreach (var key in new[] { DataSetKey }.Concat(DataSets.Where(d => d.CalcSupported).Select(d => d.Key)).Distinct())
-            {
-                var data = await _catalog.GetDataSetAsync(key);
-                await data.GetUsageAsync(BattleFormat.Singles);
-                await data.GetUsageAsync(BattleFormat.Doubles);
-                await Task.Yield();
-            }
+            await Task.Delay(OtherFormatPreloadDelayMs);
+            var other = Format == BattleFormat.Singles ? BattleFormat.Doubles : BattleFormat.Singles;
+            var data = await _catalog.GetDataSetAsync(DataSetKey);
+            await data.GetUsageAsync(other);
         }
         catch
         {
-            // 先読みの失敗は無視する（実際に切り替えたときに読み直す）
         }
     }
+
+    /// <summary>形式の先読みまでの待ち時間（起動直後の通信と競合しないように）。</summary>
+    private const int OtherFormatPreloadDelayMs = 3000;
 
     public async Task SetDataSetAsync(string key)
     {
         if (key == DataSetKey || DataSets.All(d => d.Key != key)) return;
         DataSetKey = key;
-        await RaiseChangedAsync();
+        // 保存を先にする（読み込みの待ち時間のあいだにページを閉じても、選んだゲームを覚えている）
         await SaveAsync();
+        await RaiseChangedAsync();
     }
 
     public async Task SetFormatAsync(BattleFormat format)
     {
         if (format == Format) return;
         Format = format;
-        await RaiseChangedAsync();
         await SaveAsync();
+        await RaiseChangedAsync();
     }
 
     public async Task SetThemeAsync(string theme)
@@ -140,9 +143,10 @@ public sealed class AppState
     private async Task RaiseChangedAsync()
     {
         if (Changed is null) return;
-        foreach (var handler in Changed.GetInvocationList().Cast<Func<Task>>())
+        // 購読先は全部いっぺんに呼ぶ。読み込みに時間がかかる画面（データの読み込みを待つ）が前にいても、メニューの表示が後ろに回らないように。
+        // 1 つの画面の読み込みが失敗しても、残りの購読先（ほかの画面・メニュー）を呼ぶ。失敗した画面は、自分でメッセージを出す
+        var running = Changed.GetInvocationList().Cast<Func<Task>>().Select(async handler =>
         {
-            // 1 つの画面の読み込みが失敗しても、残りの購読先（ほかの画面・メニュー）を呼ぶ。失敗した画面は、自分でメッセージを出す
             try
             {
                 await handler();
@@ -151,7 +155,8 @@ public sealed class AppState
             {
                 Console.Error.WriteLine($"画面の更新に失敗しました: {ex.Message}");
             }
-        }
+        });
+        await Task.WhenAll(running);
     }
 
     private sealed class Saved

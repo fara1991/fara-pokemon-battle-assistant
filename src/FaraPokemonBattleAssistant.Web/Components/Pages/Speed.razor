@@ -155,6 +155,10 @@ else if (data is not null && dataSet is not null)
         </div>
     </div>
 }
+else if (string.IsNullOrEmpty(loadError))
+{
+    <div class="text-muted">読み込み中…</div>
+}
 
 @code {
     public sealed class State
@@ -255,9 +259,28 @@ else if (data is not null && dataSet is not null)
     private void ApplyQuery()
     {
         if (P1Query is null) return;
+        // ゲームの読み込み中（データが無い）は、ID を捨てず URL も消さずに保留する。保留したゲームの読み込みが成功したら、LoadCoreAsync から反映する
+        if (data is null)
+        {
+            // 読み込みに失敗していたら、保留せず、ID も URL も捨てる（エラーの表示のとおり、もう一度開き直す）
+            if (loadError.Length > 0) { Nav.NavigateTo("speed-comparison", replace: true); return; }
+            held.Hold(App.DataSetKey);
+            return;
+        }
         // 数字でない・存在しない ID は無視する
         if (QueryPokemonId(P1Query) is { } id) OnPokemonChanged(0, id.ToString());
         Nav.NavigateTo("speed-comparison", replace: true);
+    }
+
+    /// <summary>
+    /// 保留した ID の結果を反映する。読み込みが成功し、保留したゲームのものなら適用する。
+    /// そうでなければ（別のゲームが読めた・失敗した）ID を捨て、URL の ID も消す（開き直せば、もう一度反映される）。
+    /// </summary>
+    private void ResolveHeld(string key, bool succeeded)
+    {
+        if (!stageReady || IsDisposed) return;   // 起動中は、OnAppReady の ApplyQuery に任せる
+        if (held.Complete(key, succeeded)) { ApplyQuery(); return; }
+        if (P1Query is not null) Nav.NavigateTo("speed-comparison", replace: true);
     }
 
     // 数字でない値（?p1=abc）を int? で受けると、Blazor が例外を出してアプリ全体がエラー画面になるので、文字列で受ける
@@ -279,6 +302,7 @@ else if (data is not null && dataSet is not null)
 
     private string loadError = "";
     private int loadVersion;
+    private readonly HeldQuery held = new();
 
     /// <summary>データの読み込みに失敗したら、画面全体をエラー画面にせず、メッセージを出す。</summary>
     private async Task LoadAsync()
@@ -292,6 +316,7 @@ else if (data is not null && dataSet is not null)
         catch (Exception ex)
         {
             if (version != loadVersion) return;   // 古い読み込みの失敗は、最新の読み込みに任せる
+            ResolveHeld(App.DataSetKey, succeeded: false);   // 保留は捨てる（失敗したゲームの ID を、次に成功した別のゲームへ入れない）
             data = null;   // 前のゲームのデータのまま描画しない
             dataSet = null;
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
@@ -300,6 +325,8 @@ else if (data is not null && dataSet is not null)
 
     private async Task LoadCoreAsync(int version)
     {
+        // ゲームが変わった直後は、読み込みが終わるまで前のゲームのデータを出さない（操作・計算にも使わせない）
+        if (!IsCurrentGame(data)) { data = null; dataSet = null; }
         // ゲームを素早く切り替えたとき、古い読み込みが後から終わって別のゲームのデータで上書きしないよう、
         // 読み込み中の値は変数に持ち、最新の読み込みのときだけ、まとめて画面の値にする
         var key = App.DataSetKey;
@@ -325,6 +352,8 @@ else if (data is not null && dataSet is not null)
         if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
         // もう一方のページ（ダメージ計算機）で選んだポケモン・性格・「登録から選ぶ」を入れる
         ImportFromStage(key);
+        // 保留した ?p1= を、保留したゲームの読み込みが成功したときだけ反映する（別のゲームなら捨てる）
+        ResolveHeld(key, succeeded: true);
     }
 
     // 選んでいるポケモン1（手前）・ポケモン2（奥）を、背景のバトルフィールドに立たせる

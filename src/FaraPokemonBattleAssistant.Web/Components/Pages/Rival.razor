@@ -202,7 +202,7 @@ else if (data is not null && roster is not null && dataSet is not null)
 }
 else
 {
-    <p class="text-muted">読み込み中...</p>
+    <div class="text-muted">@(LoadFailed ? "データを読み込めませんでした。ページを開き直してください。" : "読み込み中…")</div>
 }
 
 @code {
@@ -378,10 +378,10 @@ else
     /// 相手チームの 1 件を変更する。保存に失敗したとき（メッセージは MutateAsync が出す）と、他の場所で先に消されていたときは false を返し、
     /// 呼び出し側は「〜しました」と出さずに戻る。
     /// </summary>
-    private async Task<bool> ChangeRivalsAsync(Func<DataSetRoster, (bool Result, bool Changed)> apply, string targetName)
+    private async Task<bool> ChangeRivalsAsync(string key, Func<DataSetRoster, (bool Result, bool Changed)> apply, string targetName)
     {
         var found = false;
-        var ran = await MutateAsync(async () => found = await Repo.ChangeRivalsAsync(App.DataSetKey, apply));
+        var ran = await MutateAsync(async () => found = await Repo.ChangeRivalsAsync(key, apply));
         if (!ran) return false;
         if (!found) Show($"{targetName}は、他の場所で先に変更されたようです。最新の内容を表示しました", true);
         return found;
@@ -391,7 +391,8 @@ else
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         var picked = !rival.Picked;
-        if (!await ChangeRivalsAsync(r =>
+        var key = App.DataSetKey;
+        if (!await ChangeRivalsAsync(key, r =>
         {
             var target = r.Rivals.FirstOrDefault(x => x.Id == rival.Id);
             if (target is null) return (false, false);
@@ -412,15 +413,18 @@ else
 
     private async Task AddRivalAsync()
     {
+        var key = App.DataSetKey;
+        // 呼んだ時点のゲームのデータで照合する（待っているあいだにゲームが変わっても、別のゲームのデータを使わない）
+        var loaded = data;
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
-        if (newPokemon is null) return;
+        if (newPokemon is null || loaded is null || loaded.Info.Key != key) return;
         var pokemon = newPokemon;
         var added = false;
         var ran = await MutateAsync(async () =>
         {
-            added = await Repo.ChangeRivalsAsync(App.DataSetKey, r =>
+            added = await Repo.ChangeRivalsAsync(key, r =>
             {
-                if (PokeCommand.FindRival(r.Rivals, pokemon, data!) is not null || r.Rivals.Count >= PokeCommand.MaxRivals) return (false, false);
+                if (PokeCommand.FindRival(r.Rivals, pokemon, loaded) is not null || r.Rivals.Count >= PokeCommand.MaxRivals) return (false, false);
                 r.Rivals.Add(new RivalPokemon { Id = r.NextRivalId++, PokemonId = pokemon.Id, PokemonName = pokemon.Name, Updated = DateTimeOffset.Now.ToString("o") });
                 return (true, true);
             });
@@ -433,7 +437,8 @@ else
     private async Task RemoveRivalAsync(RivalPokemon rival)
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
-        if (!await ChangeRivalsAsync(r => { var n = r.Rivals.RemoveAll(x => x.Id == rival.Id); return (n > 0, n > 0); }, rival.PokemonName)) return;
+        var key = App.DataSetKey;
+        if (!await ChangeRivalsAsync(key, r => { var n = r.Rivals.RemoveAll(x => x.Id == rival.Id); return (n > 0, n > 0); }, rival.PokemonName)) return;
         if (editingId == rival.Id) editingId = null;
         Show($"{rival.PokemonName}を対戦中の相手から外しました（履歴には残しません）", false);
     }
@@ -460,6 +465,10 @@ else
     {
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         if (dataSet is null) return;
+        // 呼んだ時点のキーとゲームのデータで行う（待っているあいだにゲームが変わっても、別のゲームのデータを使わない）
+        var key = App.DataSetKey;
+        var loaded = data;
+        if (loaded is null || loaded.Info.Key != key) return;
         var values = new Dictionary<Stat, int?>();
         foreach (var stat in EditStats)
         {
@@ -480,15 +489,15 @@ else
         int? abilityId = int.TryParse(editAbility, out var aid) ? aid : null;
         int? itemId = int.TryParse(editItem, out var iid) ? iid : null;
         var nature = editNature.Length > 0 ? editNature : null;
-        var form = data?.FindPokemon(editFormId);
+        var form = loaded.FindPokemon(editFormId);
         // 姿を変えたときは、その姿が持てない特性を消す
-        if (form is not null && abilityId is { } id && data!.AbilitiesOf(form).All(a => a.Id != id)) abilityId = null;
+        if (form is not null && abilityId is { } id && loaded.AbilitiesOf(form).All(a => a.Id != id)) abilityId = null;
         var moveIds = editMoves.Select(m => int.TryParse(m, out var mid) ? mid : 0).Where(mid => mid > 0).Distinct().Take(RegisteredPokemon.MaxMoves).ToList();
-        if (!await ChangeRivalsAsync(r =>
+        if (!await ChangeRivalsAsync(key, r =>
         {
             var target = r.Rivals.FirstOrDefault(x => x.Id == rival.Id);
             if (target is null) return (false, false);
-            if (form is not null) PokeCommand.ChangeRivalForm(target, form, data!);
+            if (form is not null) PokeCommand.ChangeRivalForm(target, form, loaded);
             target.MoveIds = moveIds;
             target.HP = values[Stat.HP]; target.Attack = values[Stat.Attack]; target.Defense = values[Stat.Defense];
             target.SpAttack = values[Stat.SpAttack]; target.SpDefense = values[Stat.SpDefense]; target.Speed = values[Stat.Speed];
@@ -497,7 +506,7 @@ else
                 target.Nature = nature;
                 target.NatureUp = target.NatureDown = null;
             }
-            else PokeCommand.SetRivalNature(target, editUp, editDown, data!.Natures);
+            else PokeCommand.SetRivalNature(target, editUp, editDown, loaded.Natures);
             target.AbilityId = abilityId;
             target.ItemId = form?.FixedItemId is not null ? null : itemId;
             target.Updated = DateTimeOffset.Now.ToString("o");
@@ -509,12 +518,13 @@ else
 
     private async Task EndMatchAsync()
     {
+        var key = App.DataSetKey;
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         // 対戦中の相手がいないときは、移すものが無いので、確認なしで「いません」と返す
         if (roster?.Rivals.Count > 0
             && !await ConfirmAsync($"試合を終えます。対戦中の相手 {roster.Rivals.Count} 体が履歴に移り、対戦中の相手は空になります（元に戻せません）。よろしいですか？")) return;
         EndMatchResult? ended = null;
-        if (!await MutateAsync(async () => ended = await Repo.EndMatchAsync(App.DataSetKey, memo, DateTimeOffset.Now))) return;
+        if (!await MutateAsync(async () => ended = await Repo.EndMatchAsync(key, memo, DateTimeOffset.Now))) return;
         editingId = null;
         if (ended is null) return;
         memo = "";
@@ -523,7 +533,8 @@ else
 
     private async Task RemoveMatchAsync(RivalMatch match)
     {
-        if (Mutating || historyDataSetKey is not { } key || key != App.DataSetKey) return;   // 実行中の操作があるあいだ・表示中の履歴が今のゲームのものでないときは、何もしない
+        var key = App.DataSetKey;
+        if (Mutating || historyDataSetKey is not { } shownKey || shownKey != key) return;   // 実行中の操作があるあいだ・表示中の履歴が今のゲームのものでないときは、何もしない
         if (!await ConfirmAsync($"履歴 #{match.Id} を削除します（元に戻せません）。よろしいですか？")) return;
         var removed = false;
         if (!await MutateAsync(async () => removed = await Repo.RemoveMatchAsync(key, match.Id))) return;

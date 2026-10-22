@@ -22,6 +22,8 @@ public abstract class RosterPageBase : AppPageBase
     protected DataSetInfo? dataSet;
     protected PokemonDataSet? data;
     protected DataSetRoster? roster;
+    /// <summary>ゲームのデータの読み込みに失敗したか（画面に、読み込み中ではなく失敗だと出すため）。</summary>
+    protected bool LoadFailed { get; private set; }
 
     /// <summary>ページの入力状態を置くキー（PageStateStore）。</summary>
     protected abstract string StateKey { get; }
@@ -53,16 +55,21 @@ public abstract class RosterPageBase : AppPageBase
         // ゲームを素早く切り替えたとき、古い読み込みが後から終わって別のゲームのデータで上書きしないよう、
         // 読み込み中の値は変数に持ち、最新の読み込みのときだけ、まとめて画面の値にする
         var version = ++loadVersion;
+        // 読み直しを始めたら、前の失敗の表示は消す（読み込みの間に「読めませんでした」が出続けないように）
+        LoadFailed = false;
         try
         {
             var key = App.DataSetKey;
             var info = App.DataSet;
+            // ゲームが変わった直後は、読み込みが終わるまで前のゲームのデータを出さない（そのまま操作すると、別のゲームのデータに書いてしまうため）
+            if (!IsCurrentGame(data)) { data = null; roster = null; dataSet = null; }
             var loaded = await Catalog.GetDataSetAsync(key);
             var loadedRoster = (await Repo.GetAsync()).For(key);
             if (version != loadVersion || IsDisposed) return;
             dataSet = info;
             data = loaded;
             roster = loadedRoster;
+            LoadFailed = false;
             OnDataLoaded();
             await OnRosterReadAsync();
         }
@@ -72,6 +79,7 @@ public abstract class RosterPageBase : AppPageBase
             // 前のゲームのデータで描画（と、削除などの操作）が続かないようにする
             data = null;
             roster = null;
+            LoadFailed = true;
             Show($"読み込みに失敗しました: {CloudSync.Describe(ex)}", true);
         }
     }
@@ -81,7 +89,11 @@ public abstract class RosterPageBase : AppPageBase
     {
         try
         {
-            roster = (await Repo.GetAsync()).For(App.DataSetKey);
+            var key = App.DataSetKey;
+            var read = (await Repo.GetAsync()).For(key);
+            // 待っているあいだにゲームが変わったら、古いゲームの登録を入れない（新しいゲームの読み込みが、あとで入れ直す）
+            if (key != App.DataSetKey) return;
+            roster = read;
             await OnRosterReadAsync();
         }
         catch (Exception ex)

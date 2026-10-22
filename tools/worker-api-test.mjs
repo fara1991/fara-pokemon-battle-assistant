@@ -325,10 +325,23 @@ try {
   check("/api/game/* は Worker を通して、静的アセットをそのまま返す（X-Worker-Fallback がある）", csv.headers.get("x-worker-fallback") === "assets");
   const missingCsv = await fetch(`${base}/api/game/NoSuchGame/pokemon.csv`);
   const missingText = await missingCsv.text();
-  check("無い /api/game/... は CSV として返らない（404 か SPA の index.html）",
-    missingCsv.status === 404 || (missingCsv.status === 200 && (missingCsv.headers.get("content-type") ?? "").includes("text/html") && /<!doctype html|<html/i.test(missingText)),
+  // 無いファイルは SPA のフォールバック（index.html）ではなく 404 にする（HTML をゲームデータとして読まないように。HttpDataSource は 404 を「無い」として扱う）
+  check("無い /api/game/... は 404 で、HTML（SPA の index.html）を返さない",
+    missingCsv.status === 404 && !(missingCsv.headers.get("content-type") ?? "").includes("text/html") && !/<!doctype html|<html/i.test(missingText) && missingCsv.headers.get("x-worker-fallback") === "assets",
     `${missingCsv.status} ${missingCsv.headers.get("content-type")}`);
   console.log(`     （参考）無い /api/game/... の応答: ${missingCsv.status} ${missingCsv.headers.get("content-type")}`);
+  check("無い /api/game/... の 404 に共通ヘッダー（X-Content-Type-Options: nosniff・no-store）がある",
+    missingCsv.headers.get("x-content-type-options") === "nosniff" && (missingCsv.headers.get("cache-control") ?? "").includes("no-store"),
+    `${missingCsv.headers.get("x-content-type-options")} ${missingCsv.headers.get("cache-control")}`);
+  // HEAD・Range・末尾のスラッシュでも、HTML を返さない（ゲームデータとして読まれないように）
+  const missingHead = await fetch(`${base}/api/game/NoSuchGame/pokemon.csv`, { method: "HEAD" });
+  check("無い /api/game/... への HEAD も 404（HTML にならない）", missingHead.status === 404 && !(missingHead.headers.get("content-type") ?? "").includes("text/html"), `${missingHead.status} ${missingHead.headers.get("content-type")}`);
+  const missingRange = await fetch(`${base}/api/game/NoSuchGame/pokemon.csv`, { headers: { Range: "bytes=0-9" } });
+  const missingRangeText = await missingRange.text();
+  check("無い /api/game/... への Range 付き要求も 404（HTML の一部を返さない）", missingRange.status === 404 && !/<!doctype html|<html/i.test(missingRangeText), `${missingRange.status} ${missingRange.headers.get("content-type")}`);
+  const folderSlash = await fetch(`${base}/api/game/Gen9/`);
+  const folderSlashText = await folderSlash.text();
+  check("/api/game/Gen9/（末尾のスラッシュ・フォルダ）は 404（HTML にならない）", folderSlash.status === 404 && !/<!doctype html|<html/i.test(folderSlashText), `${folderSlash.status} ${folderSlash.headers.get("content-type")}`);
   const oldData = await fetch(`${base}/data/datasets.csv`);
   check("以前の /data/datasets.csv は無い（404 か SPA の index.html）",
     oldData.status === 404 || (oldData.status === 200 && (oldData.headers.get("content-type") ?? "").includes("text/html")), `${oldData.status} ${oldData.headers.get("content-type")}`);

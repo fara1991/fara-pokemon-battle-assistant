@@ -266,6 +266,10 @@ else if (data is not null)
         </MudCardContent>
     </MudCard>
 }
+else if (string.IsNullOrEmpty(loadError))
+{
+    <div class="text-muted">読み込み中…</div>
+}
 
 @* 計算に対応していないゲームでは案内だけを出し、入力欄・コマンド一覧は出さない *@
 @if (App.DataSet is not { CalcSupported: false })
@@ -456,25 +460,32 @@ else if (data is not null)
     private string loadError = "";
 
     /// <summary>データの読み込みに失敗したら、画面全体をエラー画面にせず、メッセージを出す。</summary>
+    private int loadVersion;
+    private readonly DeferredFlag parseOnLoad = new();
+
     private async Task LoadAsync()
     {
+        var version = ++loadVersion;
         try
         {
             loadError = "";
-            await LoadCoreAsync();
+            await LoadCoreAsync(version);
         }
         catch (Exception ex)
         {
+            if (version != loadVersion) return;   // 古い読み込みの失敗は、最新の読み込みに任せる
             data = null;   // 前のゲームのデータのまま描画しない
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
     }
 
-    private async Task LoadCoreAsync()
+    private async Task LoadCoreAsync(int version)
     {
         var switched = s.DataSetKey != App.DataSetKey;
         if (switched)
         {
+            // 解析は、読み込みが成功したときにまとめて行う（途中で古くなった読み込みが、解析の印を消さないように）
+            parseOnLoad.Set();
             // 接頭辞はデータの読み込みを待たずにすぐ切り替える（入力の残りはそのまま）
             var previousPrefix = s.DataSetKey == "" ? null : App.DataSets.FirstOrDefault(d => d.Key == s.DataSetKey)?.CommandPrefix;
             if (previousPrefix is not null && s.Input.StartsWith("!" + previousPrefix + " ", StringComparison.OrdinalIgnoreCase))
@@ -486,11 +497,19 @@ else if (data is not null)
             attackerMoves = Array.Empty<Move>();
             StateHasChanged();
         }
-        data = await Catalog.GetDataSetAsync(App.DataSetKey);
-        usage = await data.GetUsageAsync(App.Format);
-        if (!await RefreshRegisteredAsync() && switched) registeredPokemon = Array.Empty<Pokemon>();   // 別のゲームの候補は残さない
+        // ゲームが変わった直後は、読み込みが終わるまで前のゲームのデータを出さない（操作・計算にも使わせない）
+        if (!IsCurrentGame(data)) { data = null; usage = null; }
+        var loaded = await Catalog.GetDataSetAsync(App.DataSetKey);
+        var loadedUsage = await loaded.GetUsageAsync(App.Format);
+        if (version != loadVersion) return;   // 読み込みの間にゲームが変わったら、古いゲームのデータを入れない
+        data = loaded;
+        usage = loadedUsage;
+        var refreshed = await RefreshRegisteredAsync();
+        if (version != loadVersion) return;
+        if (!refreshed && parseOnLoad.IsSet) registeredPokemon = Array.Empty<Pokemon>();   // 別のゲームの候補は残さない
         if (s.Attacker is not null && registeredPokemon.All(p => p.Id != s.Attacker.Id)) { s.Attacker = null; s.Move = null; }
-        if (switched) ParseText();
+        // 切り替えのあとの、最初に成功した読み込みで、入力欄の解析をやり直す（途中で古くなった読み込みの後でも、ずれないように）
+        if (parseOnLoad.Take()) ParseText();
         RefreshMoves();
     }
 
@@ -498,10 +517,15 @@ else if (data is not null)
     /// <returns>読み込めたか。読み込めなかったときは候補を今のまま残す（一時的な失敗で、選んでいた攻撃側を外さないため）。</returns>
     private async Task<bool> RefreshRegisteredAsync()
     {
+        // 待っているあいだにゲームが変わっても、古いゲームの登録で候補を作らないよう、呼んだ時点のゲームとデータで組み立てる
+        var key = App.DataSetKey;
+        var loaded = data;
+        if (loaded is null || loaded.Info.Key != key) return false;
         try
         {
-            var entries = (await Repo.GetAsync()).For(App.DataSetKey).Pokemon;
-            registeredPokemon = entries.Select(e => data!.FindPokemon(e.PokemonId)).OfType<Pokemon>().DistinctBy(p => p.Id).ToList();
+            var entries = (await Repo.GetAsync()).For(key).Pokemon;
+            if (data != loaded || App.DataSetKey != key) return false;
+            registeredPokemon = entries.Select(e => loaded.FindPokemon(e.PokemonId)).OfType<Pokemon>().DistinctBy(p => p.Id).ToList();
             return true;
         }
         catch (Exception ex)

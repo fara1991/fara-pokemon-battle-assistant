@@ -31,23 +31,36 @@ public abstract class AppPageBase : ComponentBase, IDisposable
         await OnAppReadyAsync();
     }
 
+    private int loadVersion;
+
     /// <summary>
     /// データを読み込む。失敗したら画面全体をエラー画面にせず、<see cref="LoadError"/> にメッセージを入れる。
+    /// <paramref name="load"/> には読み込みの番号を渡す。await の後で結果を画面に入れる前に <see cref="IsLatestLoad"/> で確かめる（ゲームを素早く切り替えると、古い読み込みが後で終わるため）。
     /// <paramref name="onFailure"/> では、前のゲームのデータで描画が続かないよう、読み込み済みのデータを消す。
     /// </summary>
-    protected async Task LoadSafelyAsync(Func<Task> load, Action onFailure)
+    protected async Task LoadSafelyAsync(Func<int, Task> load, Action onFailure)
     {
+        var version = ++loadVersion;
         try
         {
             LoadError = "";
-            await load();
+            await load(version);
         }
         catch (Exception ex)
         {
+            // 古い読み込みの失敗は、最新の読み込みに任せる（新しい成功の結果を、古い失敗のメッセージで壊さない）
+            if (!IsLatestLoad(version)) return;
             onFailure();
             LoadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
     }
+
+    /// <summary>この番号の読み込みが、いちばん新しいもの（後から別の読み込みが始まっていない）で、ページも閉じていないか。</summary>
+    protected bool IsLatestLoad(int version) => version == loadVersion && !disposed;
+
+    /// <summary>読み込んだデータが、いま選んでいるゲームのものか。ゲームを切り替えた直後は、読み込みが終わるまで違う（前のゲームのデータを操作・表示させないために使う）。</summary>
+    protected bool IsCurrentGame(FaraPokemonBattleAssistant.Core.Data.PokemonDataSet? loaded) =>
+        AppState.IsSameGame(loaded?.Info.Key, App.DataSetKey);
 
     /// <summary>AppState の初期化後に 1 回呼ばれる。</summary>
     protected virtual Task OnAppReadyAsync() => Task.CompletedTask;
@@ -57,9 +70,11 @@ public abstract class AppPageBase : ComponentBase, IDisposable
 
     private async Task HandleAppChangedAsync()
     {
-        // 接頭辞やゲーム名など、データの読み込みを待たずに出せるものは先に描き直す
+        // OnAppChangedAsync は、読み込みを待つ前に、前のゲームのデータを外す（同期の部分）。その後で描き直すので、外した状態が画面に出る。
+        // 読み込みを待たずに出せるもの（接頭辞やゲーム名など）は、待つ前に描き直す
+        var loading = OnAppChangedAsync();
         await InvokeAsync(StateHasChanged);
-        await OnAppChangedAsync();
+        await loading;
         await InvokeAsync(StateHasChanged);
     }
 

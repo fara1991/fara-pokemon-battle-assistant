@@ -362,6 +362,12 @@ export default {
       // /api/game/* はゲームデータの静的アセット。そのまま返す（run_worker_first の対象外のパスは、通常は来ない）。
       // ここを通ったことが分かるようにヘッダーを付ける（tools/worker-api-test.mjs が確かめる）
       const response = await env.ASSETS.fetch(request);
+      // 無いファイルは SPA のフォールバック（index.html・text/html の 200）が返る。ゲームデータとしては「無い」ので 404 にする
+      // （HttpDataSource は 404 を「無い」として扱う。HTML をデータとして読まないように）
+      if (url.pathname.startsWith("/api/game/") && isHtmlFallback(response)) {
+        await response.body?.cancel();
+        return gameDataNotFound();
+      }
       const passed = new Response(response.body, response);
       passed.headers.set("X-Worker-Fallback", "assets");
       return passed;
@@ -382,6 +388,20 @@ export default {
     }
   },
 };
+
+/** 静的アセットの応答が、存在しないパスに返す SPA のフォールバック（index.html）か。 */
+function isHtmlFallback(response) {
+  // Range 付きの要求では 206 になることもあるので、200 と 206 の両方を見る
+  return (response.status === 200 || response.status === 206) && (response.headers.get("content-type") ?? "").toLowerCase().startsWith("text/html");
+}
+
+/** 無いゲームデータ（/api/game/...）の応答。X-Worker-Fallback は、Worker を通ったことを示す（tools/worker-api-test.mjs が確かめる）。 */
+function gameDataNotFound() {
+  return new Response("Not Found", {
+    status: 404,
+    headers: { ...BASE_HEADERS, "Content-Type": "text/plain; charset=utf-8", "X-Worker-Fallback": "assets" },
+  });
+}
 
 async function handleApi(request, env, url) {
   const methods = ROUTES[url.pathname];
