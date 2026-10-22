@@ -325,8 +325,9 @@ try {
   check("/api/game/* は Worker を通して、静的アセットをそのまま返す（X-Worker-Fallback がある）", csv.headers.get("x-worker-fallback") === "assets");
   const missingCsv = await fetch(`${base}/api/game/NoSuchGame/pokemon.csv`);
   const missingText = await missingCsv.text();
-  check("無い /api/game/... は CSV として返らない（404 か SPA の index.html）",
-    missingCsv.status === 404 || (missingCsv.status === 200 && (missingCsv.headers.get("content-type") ?? "").includes("text/html") && /<!doctype html|<html/i.test(missingText)),
+  // 無いファイルは SPA のフォールバック（index.html）ではなく 404 にする（HTML をゲームデータとして読まないように。HttpDataSource は 404 を「無い」として扱う）
+  check("無い /api/game/... は 404 で、HTML（SPA の index.html）を返さない",
+    missingCsv.status === 404 && !(missingCsv.headers.get("content-type") ?? "").includes("text/html") && !/<!doctype html|<html/i.test(missingText) && missingCsv.headers.get("x-worker-fallback") === "assets",
     `${missingCsv.status} ${missingCsv.headers.get("content-type")}`);
   console.log(`     （参考）無い /api/game/... の応答: ${missingCsv.status} ${missingCsv.headers.get("content-type")}`);
   const oldData = await fetch(`${base}/data/datasets.csv`);
