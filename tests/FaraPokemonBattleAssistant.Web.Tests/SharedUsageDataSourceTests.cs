@@ -46,6 +46,25 @@ public class SharedUsageDataSourceTests
     }
 
     [Fact]
+    public async Task Cancelling_one_caller_does_not_cancel_the_shared_read()
+    {
+        var inner = new CountingSource { Gate = new TaskCompletionSource() };
+        var shared = new SharedUsageDataSource(inner);
+        using var cts = new CancellationTokenSource();
+
+        var cancelled = shared.ReadTextAsync("Gen9/usage_moves_singles.csv", cts.Token);
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+
+        // 呼んだ側がキャンセルしても、読み込み自体は続き、後から同じパスを読んだ側はそれを使う（取り直さない）
+        inner.Gate.SetResult();
+        var text = await shared.ReadTextAsync("Gen9/usage_moves_singles.csv");
+
+        Assert.Equal("Head\nGen9/usage_moves_singles.csv", text);
+        Assert.Equal(1, inner.Calls["Gen9/usage_moves_singles.csv"]);
+    }
+
+    [Fact]
     public async Task Completed_usage_read_is_reused_later()
     {
         var inner = new CountingSource();
