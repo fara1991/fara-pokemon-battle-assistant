@@ -18,6 +18,28 @@ const TAG = /<\/?[A-Za-z][^<>"']*(?:(?:"[^"]*"|'[^']*')[^<>"']*)*>/g;
 // 実行時に決まる文字が抜けて、見出しが中身のない括弧になったときの直し（ページに書いてある元の文字）
 const TITLE_FIXES = { "相手の を推定": "相手の努力値（ポイント）を推定" };
 const usedTitleFixes = new Set();
+// ページの読み（ひらがな。ローマ字で探すための、題名の読み）。キーは <PageTitle> の題名。ページを足したら、ここにも足す（無いと失敗する）
+// 長音は「ー」で書く。区切りの記号（・など）は入れない
+const PAGE_READINGS = {
+    "ホーム": "ほーむ",
+    "API": "えーぴーあい",
+    "更新履歴": "こうしんりれき",
+    "チャットコマンド": "ちゃっとこまんど",
+    "権利表記": "けんりひょうき",
+    "ダメージ計算機": "だめーじけいさんき",
+    "データ共有": "でーたきょうゆう",
+    "用語・略語": "ようごりゃくご",
+    "わざ一覧": "わざいちらん",
+    "ポケモン一覧": "ぽけもんいちらん",
+    "プライバシーポリシー": "ぷらいばしーぽりしー",
+    "問い合わせ": "といあわせ",
+    "相手チーム": "あいてちーむ",
+    "育成ポケモン": "いくせいぽけもん",
+    "素早さ比較": "すばやさひかく",
+    "自分チーム": "じぶんちーむ",
+    "タイプ相性表": "たいぷあいしょうひょう",
+};
+const usedReadings = new Set();
 // C# の断片が残っていないかの確認
 const CODE_LEAK = /\b(?:var|if|else|new|foreach|case)\b\s|\bbreak;|=>|="|\?\?|[\w.]\([^)\u3040-\u30ff\u4e00-\u9fff\uff00-\uffef]*\)/;
 
@@ -139,9 +161,13 @@ function build() {
         const url = pageUrl(raw);
         if (!url || file === "LegacyUrlRedirect.razor") continue;
         const title = pageTitle(raw) ?? file.replace(".razor", "");
+        const reading = PAGE_READINGS[title];
+        if (!reading) throw new Error(`${file}: ページ「${title}」の読みが PAGE_READINGS にありません（ひらがなで足してください）`);
+        if (!/^[ぁ-ゖー]+$/.test(reading)) throw new Error(`${file}: 「${title}」の読みは、ひらがなと「ー」だけにしてください`);
+        usedReadings.add(title);
         const body = stripRazor(raw, file);
         const description = pageDescription(body);
-        entries.push({ type: "page", title, page: title, url, text: description });
+        entries.push({ type: "page", title, page: title, url, text: description, reading });
         for (const e of sectionsOf(body, title, url)) {
             // 見出しの前の導入の文章は、ページの説明と同じなら重複するので入れない
             if (e.type === "intro") { if (e.text !== description) entries.push({ ...e, type: "section" }); }
@@ -180,6 +206,9 @@ function build() {
     const result = entries.filter((e) => { const k = `${e.type}|${e.url}|${e.title}|${e.text}`; if (seen.has(k)) return false; seen.add(k); return true; });
     for (const key of Object.keys(TITLE_FIXES)) {
         if (!usedTitleFixes.has(key)) throw new Error(`TITLE_FIXES の「${key}」に当たる見出しがありません（ページの見出しが変わった？ 直すか、消してください）`);
+    }
+    for (const key of Object.keys(PAGE_READINGS)) {
+        if (!usedReadings.has(key)) throw new Error(`PAGE_READINGS の「${key}」に当たるページがありません（ページの題名が変わった？ 直すか、消してください）`);
     }
     const leaks = result.filter((e) => CODE_LEAK.test(e.title) || CODE_LEAK.test(e.text));
     if (leaks.length > 0) {

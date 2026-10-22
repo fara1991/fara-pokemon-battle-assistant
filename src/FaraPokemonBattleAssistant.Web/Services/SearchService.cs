@@ -16,11 +16,20 @@ public sealed record SearchHit(string Kind, string Title, string Where, string S
 /// <summary>検索結果から開ける、別の行き先。</summary>
 public sealed record SearchAction(string Label, string Url);
 
+/// <summary>検索の索引（wwwroot/search-index.json）の 1 行。ページの行には、読み（ひらがな）が入る。</summary>
+public sealed record SearchIndexRow(string Type, string Title, string Page, string Url, string Text, string? Reading = null);
+
+/// <summary>
+/// 検索の索引の一致（<see cref="SearchService.RankIndex"/>）。
+/// </summary>
+public sealed record SearchIndexMatch(string Type, string Title, string Url);
+
 /// <summary>
 /// サイト内検索。ページ・項目・用語・コマンドの索引（wwwroot/search-index.json。tools/gen-search-index.mjs が各ページから作る）と、
 /// いま選んでいるゲームのポケモン・わざ・特性のデータを、1 つの検索欄で探す。
 /// 日本語は単語区切りがないので、スペースで区切った語が「すべて含まれる」ものを一致とする。全角・半角、ひらがな・カタカナ、大文字・小文字は区別しない。
 /// ローマ字（gaburiasu）も、ひらがなにした形で探す（3 文字以上で、ひらがなにできる語だけ。dmg のように、ローマ字として成り立たない語は、そのまま探す）。
+/// ページは、読み（索引の reading。権利表記なら「けんりひょうき」）とも比べる。ローマ字（kenri）でもかなでも探せ、長音の書き方の揺れ（ひょうき・ひょき）は同じに扱う。
 /// </summary>
 public sealed class SearchService
 {
@@ -53,9 +62,8 @@ public sealed class SearchService
         public string FoldedTitle = "";
         public string FoldedPage = "";
         public string FoldedText = "";
+        public string FoldedReading = "";
     }
-
-    private sealed record IndexRow(string Type, string Title, string Page, string Url, string Text);
 
     /// <summary>検索語を、探すための形にそろえる（全角→半角、カタカナ→ひらがな、小文字、空白の正規化。文字数は変えない）。</summary>
     public static string Fold(string? text)
@@ -88,16 +96,29 @@ public sealed class SearchService
     /// <summary>強調・抜き出し用に、すべての形を 1 列にする。</summary>
     private static string[] AllForms(string[] terms) => terms.SelectMany(Alternatives).Distinct().ToArray();
 
-    private static Entry MakeEntry(string kind, string title, string page, string url, string text, double bonus = 0, IReadOnlyList<SearchAction>? actions = null) => new()
+    private static Entry MakeEntry(string kind, string title, string page, string url, string text, double bonus = 0, IReadOnlyList<SearchAction>? actions = null, string? reading = null) => new()
     {
         Kind = kind, Title = title, Page = page, Url = url, Text = text, Bonus = bonus, Actions = actions ?? Array.Empty<SearchAction>(),
-        FoldedTitle = Fold(title), FoldedPage = Fold(page), FoldedText = Fold(text),
+        FoldedTitle = Fold(title), FoldedPage = Fold(page), FoldedText = Fold(text), FoldedReading = Fold(reading),
     };
 
     private async Task<List<Entry>> LoadStaticAsync()
     {
-        var rows = await _http.GetFromJsonAsync<List<IndexRow>>("search-index.json") ?? new();
-        return rows.Select(r => MakeEntry(r.Type, r.Title, r.Page, r.Url, r.Text, r.Type == "page" ? 0.5 : 0)).ToList();
+        var rows = await _http.GetFromJsonAsync<List<SearchIndexRow>>("search-index.json") ?? new();
+        return rows.Select(EntryOf).ToList();
+    }
+
+    private static Entry EntryOf(SearchIndexRow r) =>
+        MakeEntry(r.Type, r.Title, r.Page, r.Url, r.Text, r.Type == "page" ? 0.5 : 0, reading: r.Reading);
+
+    /// <summary>
+    /// 索引（ページ・項目・用語・コマンド）だけを、検索語で探して並べる。サイト内検索と同じ判定（<see cref="Rank"/>）を、データを読まずに使う。
+    /// </summary>
+    public static IReadOnlyList<SearchIndexMatch> RankIndex(IEnumerable<SearchIndexRow> rows, string? query)
+    {
+        var terms = Terms(query);
+        if (terms.Length == 0) return Array.Empty<SearchIndexMatch>();
+        return Rank(rows.Select(EntryOf), terms).Select(e => new SearchIndexMatch(e.Kind, e.Title, e.Url)).ToList();
     }
 
     /// <summary>いま選んでいるゲームのポケモン・わざ・特性（ゲームを切り替えたら作り直す）。</summary>
@@ -175,9 +196,51 @@ public sealed class SearchService
         if (e.FoldedTitle == t) return 30;
         if (e.FoldedTitle.StartsWith(t, StringComparison.Ordinal)) return 15;
         if (e.FoldedTitle.Contains(t, StringComparison.Ordinal)) return 10;
+        // 題名に漢字しかないページ（権利表記など）は、読みで探す。読みの一致は題名の一致と同じ点数
+        var reading = ReadingScore(e.FoldedReading, t);
+        if (reading > 0) return reading;
         if (e.FoldedPage.Contains(t, StringComparison.Ordinal)) return 4;
         if (e.FoldedText.Contains(t, StringComparison.Ordinal)) return 1;
         return 0;
+    }
+
+    /// <summary>
+    /// 読みの比べ方（ひらがなの語）。読みの一致は、完全一致・前方一致（2 文字以上）、3 文字以上のときだけ途中の一致も見る。
+    /// 途中の一致を 2 文字で見ると、読みの途中に偶然現れて不自然なヒットが増えるため（「あい」が API の「えーぴーあい」に当たる、など）。
+    /// 読みの前方一致は、3 文字以上なら見出しの前方一致と同じ点数、2 文字なら低い点数にする（見出しより弱く、本文よりは強く）。
+    /// </summary>
+    private static double ReadingScore(string reading, string t)
+    {
+        if (reading.Length == 0) return 0;
+        var key = LooseKana(t);
+        if (key.Length < 2) return 0;
+        var readingKey = LooseKana(reading);
+        if (readingKey == key) return 30;
+        if (readingKey.StartsWith(key, StringComparison.Ordinal)) return key.Length >= 3 ? 15 : 5;
+        return key.Length >= 3 && readingKey.Contains(key, StringComparison.Ordinal) ? 10 : 0;
+    }
+
+    /// <summary>長音として、直前の文字の後に「う」が続くと、その「う」を読まない段（お段・ょ・ぉ）。ほうき・ひょうき・とうきょう など。</summary>
+    private const string LongOSound = "おこそとのほもよろごぞどぼぽょぉ";
+
+    /// <summary>
+    /// 読みの比べ方: 長音の「ー」を除き、おう（ほうき → ほき、ひょうき → ひょき）・おお（おおきい → おきい）の、長音の書き方を 1 つにそろえる。
+    /// 「ひょうき」と「ひょき」は、どちらで打っても同じ読みになる。
+    /// え段＋い（ていき・けいさん）は、長音（せいじん）と二重母音（ていき）の区別がつかないので、そろえない。
+    /// </summary>
+    public static string LooseKana(string kana)
+    {
+        var s = kana.Replace("ー", "");
+        var sb = new System.Text.StringBuilder(s.Length);
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            var prev = i > 0 ? s[i - 1] : '\0';
+            if (c == 'う' && LongOSound.Contains(prev)) continue;
+            if (c == 'お' && prev == 'お') continue;
+            sb.Append(c);
+        }
+        return sb.ToString();
     }
 
     private static SearchHit ToHit(Entry e, string[] terms)

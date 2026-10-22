@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FaraPokemonBattleAssistant.Core.Data;
 using FaraPokemonBattleAssistant.Web.Services;
 using Xunit;
 
@@ -87,7 +88,77 @@ public class SearchServiceTests
         var leak = new System.Text.RegularExpressions.Regex(@"\b(var|if|else|new|foreach|case)\b\s|\bbreak;|=>|=""|[（(]\s*[)）]");
         foreach (var row in rows)
             Assert.False(leak.IsMatch(row.GetProperty("title").GetString()! + " " + row.GetProperty("text").GetString()), row.GetProperty("title").GetString());
+        // ページには読み（ひらがな）が付いている（権利表記 → けんりひょうき。ローマ字で探すため）
+        foreach (var row in rows.Where(r => r.GetProperty("type").GetString() == "page"))
+            Assert.Matches(@"^[ぁ-ゖー]+$", row.GetProperty("reading").GetString()!);
     }
+
+    /// <summary>実際の索引（search-index.json）を、読み込んだ行にする。</summary>
+    private static List<SearchIndexRow> RealIndex()
+    {
+        var path = Path.Combine(RepoRoot(), "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "search-index.json");
+        return JsonSerializer.Deserialize<List<SearchIndexRow>>(File.ReadAllText(path), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+    }
+
+    [Theory]
+    [InlineData("kenri", "権利表記")]                 // ローマ字（読み「けんりひょうき」の前半）
+    [InlineData("kenrihyouki", "権利表記")]           // 読みの全部（ヘボン式）
+    [InlineData("kenrihyoki", "権利表記")]            // 長音の「う」を書かない打ち方
+    [InlineData("kennri", "権利表記")]                // 「nn」（ん）を 2 つ打つ
+    [InlineData("けんり", "権利表記")]                 // かなで打っても探せる
+    [InlineData("ケンリ", "権利表記")]                 // カタカナでも
+    [InlineData("toiawase", "問い合わせ")]
+    [InlineData("puraibasi-", "プライバシーポリシー")]  // 長音の「ー」
+    [InlineData("homu", "ホーム")]                     // 読み「ほーむ」（長音の ー を無視）
+    [InlineData("yougo", "用語・略語")]
+    [InlineData("damejikeisanki", "ダメージ計算機")]
+    public void Romaji_and_kana_readings_find_the_page(string query, string expectedTitle)
+    {
+        var top = SearchService.RankIndex(RealIndex(), query).FirstOrDefault();
+        Assert.NotNull(top);
+        Assert.Equal(("page", expectedTitle), (top.Type, top.Title));
+    }
+
+    [Fact]
+    public void Romaji_that_is_not_a_reading_finds_no_page_by_reading()
+    {
+        // dmg はローマ字として成り立たないので、読みでは探さない（ページの文章にも無い）
+        Assert.DoesNotContain(SearchService.RankIndex(RealIndex(), "dmg"), m => m.Type == "page");
+        Assert.Empty(SearchService.RankIndex(RealIndex(), "   "));
+        Assert.Empty(SearchService.RankIndex(RealIndex(), null));
+    }
+
+    [Theory]
+    [InlineData("あい", "/api-docs")]                  // 2 文字は、読みの途中に現れても当てない（「えーぴーあい」の末尾）
+    [InlineData("さん", "/damage-calculator")]         // 「けいさん」の途中
+    [InlineData("しょう", "/type-chart")]              // 「たいぷあいしょうひょう」の途中
+    [InlineData("きょう", "/data-share")]             // 「でーたきょうゆう」の途中
+    public void Two_kana_do_not_match_inside_a_reading(string query, string url) =>
+        Assert.DoesNotContain(SearchService.RankIndex(RealIndex(), query), m => m.Type == "page" && m.Url == url);
+
+    [Fact]
+    public void Two_kana_match_the_start_of_a_reading()
+    {
+        // 2 文字でも、読みの先頭（前方一致）には当てる（「いく」→ 育成ポケモン）
+        Assert.Contains(SearchService.RankIndex(RealIndex(), "いく"), m => m.Type == "page" && m.Title == "育成ポケモン");
+    }
+
+    [Theory]
+    [InlineData("ひょうき", "ひょき")]                 // 長音の書き方の揺れ（う を書く・書かない）
+    [InlineData("ほーむ", "ほむ")]                     // 長音記号 ー は無視
+    [InlineData("ほうき", "ほき")]
+    [InlineData("おおきい", "おきい")]                 // 「おお」は長音として 1 つにする。きい の い は残す
+    [InlineData("とうきょう", "ときょ")]               // 「う」は、お段（と）・ょ の後ならどちらも読まない
+    public void LooseKana_treats_long_vowel_spellings_alike(string kana, string expected) =>
+        Assert.Equal(expected, SearchService.LooseKana(kana));
+
+    [Theory]
+    [InlineData("ていき")]                             // え段＋い は二重母音（定期）。長音（せいじん）と区別できないので、そろえない
+    [InlineData("けいさん")]                           // 計算 を「けさん」にしない
+    [InlineData("せいじん")]
+    [InlineData("うお")]                               // 魚。う の後の お は長音ではない
+    public void LooseKana_keeps_words_that_only_look_like_long_vowels(string kana) =>
+        Assert.Equal(kana, SearchService.LooseKana(kana));
 
     private static string RepoRoot()
     {
@@ -107,6 +178,14 @@ public class SearchServiceTests
     [InlineData("taima-", "たいまー")]
     [InlineData("chotto", "ちょっと")]
     [InlineData("ADOON", "あどおん")]
+    [InlineData("kennri", "けんり")]                   // 「nn」は「ん」1 つ（けんんり にしない）
+    [InlineData("konnichiha", "こんにちは")]
+    [InlineData("konnnichiha", "こんにちは")]          // 3 つの n は「ん」（nn）＋「に」（n）。konnichiha と同じ
+    [InlineData("kanni", "かんに")]                    // 「nn＋母音」は「ん」1 つで、2 つ目の n は次の音（に）になる（konna → こんな と同じ規則）
+    [InlineData("kan'ni", "かんに")]                   // ' で区切っても同じ結果（ん＋に を明示したいときの書き方）
+    [InlineData("n'", "ん")]
+    [InlineData("toiawase", "といあわせ")]
+    [InlineData("puraibasi-", "ぷらいばしー")]
     public void Romaji_converts_to_hiragana(string input, string expected) =>
         Assert.Equal(expected, Romaji.ToHiragana(input));
 
@@ -122,6 +201,7 @@ public class SearchServiceTests
     public void Alternatives_add_the_hiragana_form_only_for_romaji_like_terms()
     {
         Assert.Equal(new[] { "adoon", "あどおん" }, SearchService.Alternatives("adoon"));
+        Assert.Equal(new[] { "kenri", "けんり" }, SearchService.Alternatives("kenri"));
         Assert.Equal(new[] { "dmg" }, SearchService.Alternatives("dmg"));
         Assert.Equal(new[] { "ka" }, SearchService.Alternatives("ka"));              // 2 文字以下は、ひらがなにしない（a・ka などが、ほぼ全部に一致してしまうため）
         Assert.Equal(new[] { "がぶりあす" }, SearchService.Alternatives("がぶりあす"));
@@ -133,5 +213,39 @@ public class SearchServiceTests
         var parts = SearchService.Split("メガガブリアスZ", SearchService.Terms("gaburiasu")).ToList();
         Assert.Equal(new[] { "メガ", "ガブリアス", "Z" }, parts.Select(p => p.Text));
         Assert.Equal(new[] { false, true, false }, parts.Select(p => p.Match));
+    }
+
+    /// <summary>
+    /// 実際の索引に、Champions のポケモン・わざ・特性の名前を足す（検索の対象の名前。点数は SearchService と同じ判定。
+    /// 実行時は、ポケモン・わざ・特性に少し加点するので、同点のときの並びだけ違うことがある）。
+    /// </summary>
+    private static async Task<List<SearchIndexRow>> RealIndexWithChampionsNames()
+    {
+        var rows = RealIndex();
+        var root = Path.Combine(RepoRoot(), "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "api", "game");
+        var data = await new DataCatalog(new FileDataSource(root)).GetDataSetAsync("Champions");
+        rows.AddRange(data.Pokemon.Select(p => new SearchIndexRow("pokemon", p.Name, "ポケモン一覧", "pokemon-list", "")));
+        rows.AddRange(data.Moves.Select(m => new SearchIndexRow("move", m.Name, "わざ一覧", "move-list", "")));
+        rows.AddRange(data.Abilities.Where(a => a.Name.Length > 0).Select(a => new SearchIndexRow("ability", a.Name, "特性", "pokemon-list", "")));
+        return rows;
+    }
+
+    [Theory]
+    [InlineData("gaburiasu", "pokemon", "ガブリアス")]    // ローマ字でポケモン名（ガブリアス が先頭）
+    [InlineData("ガブリアス", "pokemon", "ガブリアス")]
+    [InlineData("がぶりあす", "pokemon", "ガブリアス")]
+    [InlineData("じしん", "move", "じしん")]              // わざ（名前の完全一致）
+    [InlineData("jishin", "move", "じしん")]
+    [InlineData("いかく", "ability", "いかく")]           // 特性
+    [InlineData("kenri", "page", "権利表記")]             // 既存の確認済みクエリ（ページ）
+    [InlineData("toiawase", "page", "問い合わせ")]
+    [InlineData("homu", "page", "ホーム")]
+    [InlineData("yougo", "page", "用語・略語")]
+    [InlineData("damejikeisanki", "page", "ダメージ計算機")]
+    public async Task The_top_hit_for_known_queries_stays_put(string query, string type, string title)
+    {
+        var top = SearchService.RankIndex(await RealIndexWithChampionsNames(), query).FirstOrDefault();
+        Assert.NotNull(top);
+        Assert.Equal((type, title), (top.Type, top.Title));
     }
 }

@@ -32,6 +32,15 @@ test("問い合わせ・プライバシー・権利表記の説明が索引に�
     }
 });
 
+test("ページの項目には、ひらがなの読みが付く（権利表記は けんりひょうき）", () => {
+    const pages = index.filter((e) => e.type === "page");
+    assert.ok(pages.length >= 17, `ページが ${pages.length} 件しかありません`);
+    for (const page of pages) assert.match(page.reading ?? "", /^[ぁ-ゖー]+$/, `${page.title} の読みが無い・ひらがなでない`);
+    assert.equal(index.find((e) => e.url === "/copyright" && e.type === "page").reading, "けんりひょうき");
+    // 読みは、ページ以外の項目には付かない
+    assert.ok(index.filter((e) => e.type !== "page").every((e) => e.reading === undefined));
+});
+
 test("--check は、索引が今のページと合っていれば成功する", () => {
     const out = execFileSync(process.execPath, [join(here, "gen-search-index.mjs"), "--check"], { encoding: "utf8" });
     assert.match(out, /最新です/);
