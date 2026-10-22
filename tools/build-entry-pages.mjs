@@ -2,7 +2,8 @@
 //   node tools/build-entry-pages.mjs [--env production|develop] [--dir publish/wwwroot]
 //
 // 作るもの（--dir の中）:
-//   index.html               ホーム（テンプレートの head・#app の中を、ホームの内容に置き換える）
+//   home.html                ホーム（テンプレートの head・#app の中を、ホームの内容に置き換える）。Worker が / のときだけ返す（worker/home.js）
+//   index.html               SPA のフォールバック（存在しない URL）。汎用の title と読み込み表示だけ。ホームの本文は入れない（soft 404 にしないため）
 //   <route>.html             そのほかの入口ページ（例: battle-terms.html）。URL は /battle-terms（Cloudflare の静的アセットは .html を外して配る）
 //   robots.txt               本番は Sitemap の行を付ける。確認用は Sitemap も Disallow も付けない（確認用は noindex のヘッダーで止める）
 //   sitemap.xml              本番だけ
@@ -42,9 +43,14 @@ export function escapeHtml(text) {
         .replace(/"/g, "&quot;");
 }
 
-/** ルート（先頭の / なし。ホームは空）→ ファイル名。ホームは index.html（SPA のフォールバックにもなる）。 */
+/** ルート（先頭の / なし。ホームは空）→ ファイル名。ホームは home.html（Worker が / で返す。index.html は SPA のフォールバック用）。 */
 export function pageFile(route) {
-    return route === "" ? "index.html" : `${route}.html`;
+    return route === "" ? "home.html" : `${route}.html`;
+}
+
+/** 汎用の head（SPA のフォールバック用の index.html）。存在しない URL に、ホームの title・本文を出さないため。 */
+export function buildFallbackHead() {
+    return [`<title>${escapeHtml(SITE_NAME)}</title>`].join("\n    ");
 }
 
 /** ルート → 正規の URL（ホームは末尾の / 付き）。 */
@@ -71,25 +77,21 @@ export function validatePages(pages) {
     }
 }
 
-/** head の中身（title・description・canonical・OGP・Twitter カード）。ホームは canonical と og:url を付けない（SPA のフォールバックでも同じ HTML を返すため）。 */
+/** head の中身（title・description・canonical・OGP・Twitter カード）。ホームも、/ で返す home.html として canonical を付ける。 */
 export function buildHead(page, origin) {
-    const isHome = page.route === "";
     const url = pageUrl(origin, page.route);
-    const lines = [
+    return [
         `<title>${escapeHtml(page.title)}</title>`,
         `<meta name="description" content="${escapeHtml(page.description)}" />`,
-    ];
-    if (!isHome) lines.push(`<link rel="canonical" href="${escapeHtml(url)}" />`);
-    lines.push(
+        `<link rel="canonical" href="${escapeHtml(url)}" />`,
         `<meta property="og:site_name" content="${escapeHtml(SITE_NAME)}" />`,
         `<meta property="og:locale" content="ja_JP" />`,
         `<meta property="og:type" content="website" />`,
         `<meta property="og:title" content="${escapeHtml(page.title)}" />`,
         `<meta property="og:description" content="${escapeHtml(page.description)}" />`,
-    );
-    if (!isHome) lines.push(`<meta property="og:url" content="${escapeHtml(url)}" />`);
-    lines.push(`<meta name="twitter:card" content="summary" />`);
-    return lines.join("\n    ");
+        `<meta property="og:url" content="${escapeHtml(url)}" />`,
+        `<meta name="twitter:card" content="summary" />`,
+    ].join("\n    ");
 }
 
 /** #app の中の本文（検索エンジンが読める実テキスト。Blazor が起動すると置き換わる）。主なページへのリンクを付ける。 */
@@ -159,6 +161,8 @@ export function run({ dir, env, pagesFile = DEFAULT_PAGES_FILE }) {
     // テンプレートは最初に 1 回だけ読む（index.html はホームの内容で書き換えるので、後から読み直さない）
     const template = readFileSync(indexPath, "utf8");
     const outputs = pages.map((page) => ({ file: pageFile(page.route), html: renderPage(template, page, pages, origin) }));
+    // SPA のフォールバック（index.html）は、汎用の title と読み込み表示だけにする（ホームの本文を、存在しない URL に出さない）
+    outputs.push({ file: "index.html", html: replaceBetween(template, HEAD_START, HEAD_END, buildFallbackHead()) });
     for (const { file, html } of outputs) writeFileSync(join(dir, file), html);
     writeFileSync(join(dir, "robots.txt"), renderRobots(env, origin));
     if (env === "production") writeFileSync(join(dir, "sitemap.xml"), renderSitemap(pages, origin));

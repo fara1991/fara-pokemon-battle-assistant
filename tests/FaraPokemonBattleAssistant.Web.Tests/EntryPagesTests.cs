@@ -86,14 +86,13 @@ public class EntryPagesTests
     }
 
     [Fact]
-    public void Fallback_guard_script_is_loaded_before_blazor_and_exists()
+    public void Fallback_index_is_generic_and_home_content_is_only_in_the_home_page()
     {
-        // 静的ファイルの無い URL（SPA のフォールバック）でホームの本文を見せないための確認（js/entry-static.js）
+        // 存在しない URL（SPA のフォールバック）は index.html を返す。ホームの本文を出さないため、汎用の title と読み込み表示だけにする
         var html = File.ReadAllText(Path.Combine(Web, "wwwroot", "index.html"));
-        var guard = html.IndexOf("js/entry-static.js", StringComparison.Ordinal);
-        Assert.True(guard > 0);
-        Assert.True(guard < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
-        Assert.Contains("main.entry-static[data-route]", File.ReadAllText(Path.Combine(Web, "wwwroot", "js", "entry-static.js")));
+        Assert.Contains("<title>Pokémon Battle Assistant</title>", html);
+        Assert.DoesNotContain("main class=\"entry-static\"", html);
+        Assert.Contains("class=\"loading-screen\"", html);
     }
 
     [Fact]

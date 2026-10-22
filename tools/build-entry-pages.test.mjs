@@ -41,14 +41,14 @@ const TEMPLATE = `<!DOCTYPE html>
 const battleTerms = pages.find((p) => p.route === "battle-terms");
 const home = pages.find((p) => p.route === "");
 
-test("ホームは index.html、そのほかは <route>.html（拡張子なしの URL で配られる）", () => {
-    assert.equal(pageFile(""), "index.html");
+test("ホームは home.html（Worker が / で返す）、そのほかは <route>.html（拡張子なしの URL で配られる）", () => {
+    assert.equal(pageFile(""), "home.html");
     assert.equal(pageFile("battle-terms"), "battle-terms.html");
     assert.equal(pageUrl(origin, ""), "https://pokemon.fara-labs.com/");
     assert.equal(pageUrl(origin, "battle-terms"), "https://pokemon.fara-labs.com/battle-terms");
 });
 
-test("title と description、canonical・OGP の値が入る。ホームには canonical と og:url を付けない", () => {
+test("title と description、canonical・OGP の値が入る（ホームも、/ で返すので canonical を付ける）", () => {
     const head = buildHead(battleTerms, origin);
     assert.match(head, /<title>用語・略語 \| Pokémon Battle Assistant<\/title>/);
     assert.match(head, /<meta name="description" content="ポケモン対戦で使う略語/);
@@ -58,8 +58,8 @@ test("title と description、canonical・OGP の値が入る。ホームには 
     assert.match(head, /<meta name="twitter:card" content="summary" \/>/);
 
     const homeHead = buildHead(home, origin);
-    assert.doesNotMatch(homeHead, /canonical/);
-    assert.doesNotMatch(homeHead, /og:url/);
+    assert.match(homeHead, /<link rel="canonical" href="https:\/\/pokemon\.fara-labs\.com\/" \/>/);
+    assert.match(homeHead, /<meta property="og:url" content="https:\/\/pokemon\.fara-labs\.com\/" \/>/);
 });
 
 test("属性と本文の文字は HTML としてエスケープする", () => {
@@ -139,12 +139,17 @@ test("run: 本番は各ページ・robots.txt・sitemap.xml を書き、確認�
     const dir = mkdtempSync(join(tmpdir(), "entry-pages-"));
     writeFileSync(join(dir, "index.html"), TEMPLATE);
     const written = run({ dir, env: "production" });
-    assert.deepEqual(written, pages.map((p) => pageFile(p.route)));
+    assert.deepEqual(written, [...pages.map((p) => pageFile(p.route)), "index.html"]);
     assert.ok(existsSync(join(dir, "battle-terms.html")));
     assert.ok(existsSync(join(dir, "sitemap.xml")));
     assert.ok(existsSync(join(dir, "robots.txt")));
     assert.ok(!existsSync(join(dir, "glossary.html")), "旧 URL のファイルは作らない（転送を妨げない）");
-    assert.match(readFileSync(join(dir, "index.html"), "utf8"), /<title>ホーム/);
+    // ホームの本文は home.html。index.html（SPA のフォールバック）は汎用の title と読み込み表示だけ
+    assert.match(readFileSync(join(dir, "home.html"), "utf8"), /<title>ホーム/);
+    const fallback = readFileSync(join(dir, "index.html"), "utf8");
+    assert.match(fallback, /<title>Pokémon Battle Assistant<\/title>/);
+    assert.doesNotMatch(fallback, /ホーム|entry-static|description/);
+    assert.match(fallback, /loading-screen/);
 
     const devDir = mkdtempSync(join(tmpdir(), "entry-pages-dev-"));
     writeFileSync(join(devDir, "index.html"), TEMPLATE);
@@ -160,4 +165,28 @@ test("run: 不正な --env と、index.html が無いフォルダは失敗する
     const dir = mkdtempSync(join(tmpdir(), "entry-pages-none-"));
     assert.throws(() => run({ dir, env: "staging" }), /--env/);
     assert.throws(() => run({ dir, env: "production" }), /index\.html/);
+});
+
+test("CI・deploy・package.json の --dir（省略時は publish/wwwroot）は、直前の dotnet publish の出力の wwwroot と一致する", () => {
+    // 一時フォルダでの run() の確認では、CI の呼び方の誤り（artifacts/web を渡して wwwroot を渡さない）を見つけられなかった。ここで確かめる
+    const files = [".github/workflows/build.yml", ".github/workflows/deploy.yml", ".github/workflows/deploy-develop.yml", "package.json"];
+    let checked = 0;
+    for (const file of files) {
+        const lines = readFileSync(join(here, "..", file), "utf8").split("\n");
+        lines.forEach((line, i) => {
+            if (!line.includes("node tools/build-entry-pages.mjs")) return;
+            const dirArg = /--dir\s+(\S+)/.exec(line)?.[1] ?? "publish/wwwroot";
+            let publishOutput = null;
+            for (let j = i; j >= 0 && publishOutput === null; j--) {
+                if (lines[j].includes("dotnet publish") && lines[j].includes("FaraPokemonBattleAssistant.Web")) {
+                    publishOutput = /(?:--output|-o)\s+(\S+)/.exec(lines[j])?.[1] ?? null;
+                }
+            }
+            assert.ok(publishOutput, `${file}:${i + 1} の前に dotnet publish（出力先）がありません`);
+            const expected = `${publishOutput}/wwwroot`;
+            assert.equal(dirArg.replace(/\\/g, "/").replace(/\/$/, ""), expected, `${file}:${i + 1} の --dir が publish の出力と違います`);
+            checked++;
+        });
+    }
+    assert.equal(checked, 4, "build-entry-pages の呼び出しを 4 か所（build・deploy・deploy-develop・package.json）確かめる");
 });
