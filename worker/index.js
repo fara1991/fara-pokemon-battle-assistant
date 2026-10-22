@@ -50,6 +50,7 @@
 // 1 年間アクセスが無い置き場は、Durable Object のアラームで自動的に消す（アクセスすると延長。延長の書き込みは 1 日に 1 回まで）。
 
 import { DurableObject } from "cloudflare:workers";
+import { handleReport } from "./report.js";
 
 /** パス → 使えるメソッド。 */
 const ROUTES = {
@@ -350,6 +351,14 @@ export default {
       const passed = new Response(response.body, response);
       passed.headers.set("X-Worker-Fallback", "assets");
       return passed;
+    }
+    // 作者への報告の受け口（登録データとは別。worker/report.js）
+    if (url.pathname === "/api/report" || url.pathname === "/api/report/config") {
+      try {
+        return await handleReport(request, env, "Pokémon Battle Assistant");
+      } catch {
+        return error(500, "internal_error", "サーバーでエラーが発生しました");
+      }
     }
     try {
       return await catchInvalid(() => handleApi(request, env, url));

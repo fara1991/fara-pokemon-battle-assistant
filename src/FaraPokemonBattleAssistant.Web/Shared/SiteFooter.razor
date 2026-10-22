@@ -1,0 +1,38 @@
+@* 3 サイト共通の形のフッター: サイト名 | 作者へ報告 | プライバシーポリシー | © 公開年 Fara（Fara は作者のホームページへ）。
+   「作者へ報告」には、いま見ているページを ?from= で付ける（報告に、どのページかが分かるように） *@
+@inject NavigationManager Nav
+@implements IDisposable
+
+<footer class="site-footer">
+    <div class="site-footer-line">
+        <span class="site-footer-name">@SiteInfo.Name</span>
+        <span class="site-footer-sep" aria-hidden="true">|</span>
+        <a href="@ReportHref">作者へ報告</a>
+        <span class="site-footer-sep" aria-hidden="true">|</span>
+        <a href="privacy">プライバシーポリシー</a>
+        <span class="site-footer-sep" aria-hidden="true">|</span>
+        <span>© @SiteInfo.PublishedYear <a href="@SiteInfo.AuthorHomeUrl">@SiteInfo.Author</a></span>
+    </div>
+    @* ポケモンの名前・画像の権利について（このサイトだけの 2 行目） *@
+    <div class="site-footer-note">非公式のファンサイトです。ポケットモンスター・ポケモンに関する名称・画像の権利は、各権利者に帰属します。</div>
+</footer>
+
+@code {
+    private string ReportHref
+    {
+        get
+        {
+            var path = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0];
+            // 報告ページ・プライバシーポリシー自体からは、付けない
+            return path is "/report" or "/privacy" || ReportForm.CleanPage(path) == ""
+                ? "report"
+                : "report?from=" + Uri.EscapeDataString(path);
+        }
+    }
+
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

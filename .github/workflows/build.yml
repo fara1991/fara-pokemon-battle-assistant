@@ -65,5 +65,8 @@ jobs:
           npx wrangler deploy --dry-run --env=""
           npx wrangler deploy --dry-run --env develop
 
+      - name: Report endpoint test
+        run: npm run test:report
+
       - name: API test
         run: npm run test:worker
