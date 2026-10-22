@@ -311,7 +311,12 @@ public sealed class UsageData
     {
         var suffix = format == BattleFormat.Doubles ? "doubles" : "singles";
         var rank = new Dictionary<int, int>();
-        var rankTable = CsvTable.Parse(await source.ReadTextAsync($"{dir}/usage_pokemon_{suffix}.csv", ct).ConfigureAwait(false) ?? "");
+        var rankText = await source.ReadTextAsync($"{dir}/usage_pokemon_{suffix}.csv", ct).ConfigureAwait(false);
+        // 使用率が無いゲーム（ファイルが無い）は、ほかの 4 ファイルも無い（sync_data.py がまとめて書く）ので、読みに行かない。
+        // 空の使用率を返すと、呼び出し側が UsageFallback（別のゲームの使用率）に切り替える
+        if (rankText is null)
+            return new UsageData(format, dir, dataSet, rank, new(), new(), new(), new());
+        var rankTable = CsvTable.Parse(rankText);
         foreach (var row in rankTable.Rows)
             rank.TryAdd(rankTable.GetInt(row, "SpeciesId"), rankTable.GetInt(row, "Rank"));
 
