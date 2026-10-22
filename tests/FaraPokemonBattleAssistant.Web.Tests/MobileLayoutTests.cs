@@ -11,10 +11,10 @@ public class MobileLayoutTests
     private static readonly string Web = FindUpDirectory("src/FaraPokemonBattleAssistant.Web");
 
     [Fact]
-    public void Drawer_keeps_the_mini_behaviour_at_all_widths_at_or_above_the_mobile_breakpoint()
+    public void Drawer_sets_breakpoint_Sm_and_leaves_the_mobile_variant_to_the_Mobile_switch()
     {
-        // MudBlazor の既定（Md = 960px）のままだと、Mini が 960px 未満で Temporary になり、768〜959px でサイドバーが画面の外に消える。
-        // スマホの判定（768px）と食い違わないよう、Breakpoint を下げる（Sm = 600px。768px 未満は Mobile で Temporary を使う）
+        // 既定の Md（960px）だと、768〜959px で Mini が Temporary に落ちて、サイドバーが画面の外に消える。
+        // Sm にする。768px 未満は、Mobile が Variant を Temporary に明示するので、Breakpoint は結果に影響しない
         var razor = Read("Shared", "MainLayout.razor");
         var drawer = Section(razor, "<MudDrawer", "</MudDrawer>");
         Assert.Contains("Breakpoint=\"Breakpoint.Sm\"", drawer);
@@ -28,13 +28,13 @@ public class MobileLayoutTests
         var mobile = Section(razor, "@if (Mobile)\n        {\n            @* スマホでは、メニューを開かずに切り替えられるよう", "else");
         Assert.Contains("Class=\"header-search-toggle\"", mobile);
         Assert.Contains("aria-label=\"検索\"", mobile);
-        Assert.Contains("aria-controls=\"site-search-input\"", mobile);
+        Assert.Contains("aria-controls=\"site-search-sheet\"", mobile);
         Assert.Contains("aria-expanded=\"@(searchOpen ? \"true\" : \"false\")\"", mobile);
         Assert.Contains("OnClick=\"OpenSearch\"", mobile);
     }
 
     [Fact]
-    public void Mobile_search_sheet_is_mounted_only_on_mobile_and_closes_through_MainLayout()
+    public void Mobile_search_sheet_is_mounted_only_in_the_mobile_branch_and_PC_search_is_not_duplicated()
     {
         var razor = Read("Shared", "MainLayout.razor");
         Assert.Contains("<SiteSearch Sheet=\"true\" OnDone=\"CloseSearch\" />", razor);
@@ -42,6 +42,55 @@ public class MobileLayoutTests
         var pcBranch = Section(razor, "else\n        {\n            <SiteSearch />", "</MudAppBar>");
         Assert.Contains("<HeaderControls />", pcBranch);
         Assert.DoesNotContain("Sheet=", pcBranch);
+    }
+
+    [Fact]
+    public void Search_button_controls_the_sheet_element_that_exists_in_the_markup()
+    {
+        var layout = Read("Shared", "MainLayout.razor");
+        Assert.Contains("aria-controls=\"site-search-sheet\"", layout);
+        var search = Read("Shared", "SiteSearch.razor");
+        // 開閉の対象（sheet の領域）には、同じ id が付く（スマホの欄のときだけ）
+        Assert.Contains("<div id=\"@(Sheet ? \"site-search-sheet\" : null)\"", search);
+    }
+
+    [Fact]
+    public void Escape_is_handled_on_the_search_root_so_focus_anywhere_in_the_sheet_closes_it()
+    {
+        var razor = Read("Shared", "SiteSearch.razor");
+        var root = Section(razor, "<div id=\"@(Sheet", "\n");
+        Assert.Contains("@onkeydown=\"OnKeyDown\"", root);
+        // 入力欄の keydown は、根の要素に移した（× ボタンや結果の上でも、Esc が届く）
+        Assert.Contains("value=\"@query\" @oninput=\"OnInput\" />", razor);
+        Assert.DoesNotContain("@onkeydown=\"OnKeyDown\" />", razor);
+    }
+
+    [Fact]
+    public void Hamburger_closes_an_open_search_sheet_without_moving_focus_to_the_button()
+    {
+        var razor = Read("Shared", "MainLayout.razor");
+        var toggle = Section(razor, "private void ToggleDrawer()", "private void SetDrawerOpen");
+        Assert.Contains("if (searchOpen) HideSearch(focusButton: false);", toggle);
+    }
+
+    [Fact]
+    public void Every_search_sheet_js_call_goes_through_a_guarded_helper()
+    {
+        var razor = Read("Shared", "MainLayout.razor");
+        Assert.DoesNotContain("JS.InvokeVoidAsync(\"faraSearchSheet\"", razor.Replace("try { await JS.InvokeVoidAsync(\"faraSearchSheet\"", ""));
+        var helper = Section(razor, "private async Task SetSearchSheetAsync(", "/// <summary>サイドバーの見出し");
+        Assert.Contains("try { await JS.InvokeVoidAsync(\"faraSearchSheet\", open, focus); }", helper);
+        Assert.Contains("catch { /* JS が使えないときは、反映しない */ }", helper);
+    }
+
+    [Fact]
+    public void Closing_on_mobile_or_navigation_moves_focus_out_of_the_sheet_first()
+    {
+        var razor = Read("Shared", "MainLayout.razor");
+        var mobileChanged = Section(razor, "public void OnMobileChanged(bool matches)", "private bool DrawerOpen");
+        Assert.Contains("_ = SetSearchSheetAsync(false, true);", mobileChanged);   // 表示の切り替えでは、C# の状態に関係なく閉じる
+        var location = Section(razor, "private void OnLocationChanged(", "var next = GroupOf");
+        Assert.Contains("HideSearch(focusButton: true);", location);
     }
 
     [Fact]

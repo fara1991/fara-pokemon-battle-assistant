@@ -6,12 +6,12 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="site-search @(Sheet ? "site-search-sheet" : null)" role="search" @onfocusout="Close" @onfocusin="OnFocusIn">
+<div id="@(Sheet ? "site-search-sheet" : null)" class="site-search @(Sheet ? "site-search-sheet" : null)" role="search" @onfocusout="Close" @onfocusin="OnFocusIn" @onkeydown="OnKeyDown">
     <svg class="site-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
     <input id="site-search-input" type="search" class="site-search-input" placeholder="検索（例: ガブリアス、dmg、努力値）" autocomplete="off" spellcheck="false"
            aria-label="サイト内を検索" role="combobox" aria-expanded="@(open ? "true" : "false")" aria-controls="site-search-list" aria-autocomplete="list"
            aria-activedescendant="@ActiveId"
-           value="@query" @oninput="OnInput" @onkeydown="OnKeyDown" />
+           value="@query" @oninput="OnInput" />
     @if (Sheet)
     {
         <button type="button" class="site-search-close" aria-label="検索を閉じる" title="検索を閉じる" @onclick="Done">
