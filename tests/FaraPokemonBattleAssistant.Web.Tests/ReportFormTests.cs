@@ -129,8 +129,10 @@ public class ReportFormTests
     public void The_author_link_goes_to_the_dev_homepage_on_the_dev_site()
     {
         var before = SiteLinks.CurrentHost;
+        var beforeDevelop = SiteLinks.DevelopHost;
         try
         {
+            SiteLinks.DevelopHost = "pokemon-dev.fara-labs.com";
             SiteLinks.CurrentHost = "pokemon.fara-labs.com";
             Assert.Equal("https://fara-labs.com/", SiteInfo.AuthorHomeUrl);
             SiteLinks.CurrentHost = "pokemon-dev.fara-labs.com";
@@ -139,6 +141,7 @@ public class ReportFormTests
         finally
         {
             SiteLinks.CurrentHost = before;
+            SiteLinks.DevelopHost = beforeDevelop;
         }
     }
 }
