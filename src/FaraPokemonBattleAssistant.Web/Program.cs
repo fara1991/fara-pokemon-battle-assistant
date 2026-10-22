@@ -34,7 +34,8 @@ SiteLinks.CurrentHost = new Uri(baseAddress).Host;
 // （Scoped だと Development 環境のスコープ検証で起動時に例外になる）
 builder.Services.AddSingleton(_ => new HttpClient { BaseAddress = new Uri(baseAddress) });
 // ゲームデータ（CSV）は同じオリジンの /api/game/...（wwwroot/api/game の静的アセット。Worker を通して、そのまま返す。メンテナンス中だけ 503）
-builder.Services.AddSingleton(sp => new DataCatalog(new HttpDataSource(sp.GetRequiredService<HttpClient>(), baseAddress + HttpDataSource.GameDataPath)));
+// 使用率（usage_*.csv）は、Champions が Gen9 の使用率を代わりに読むときも同じファイルを 1 回だけ取る（Services/SharedUsageDataSource.cs）
+builder.Services.AddSingleton(sp => new DataCatalog(new SharedUsageDataSource(new HttpDataSource(sp.GetRequiredService<HttpClient>(), baseAddress + HttpDataSource.GameDataPath))));
 // 登録データの保存先。アクセスキーがあればクラウド（同じオリジンの /api/my/pokemon・/api/my/team）、無ければ localStorage
 builder.Services.AddSingleton(sp => new CloudSync(sp.GetRequiredService<IJSRuntime>(), sp.GetRequiredService<HttpClient>(), baseAddress, sp));
 builder.Services.AddSingleton<IRosterStore>(sp => sp.GetRequiredService<CloudSync>());
