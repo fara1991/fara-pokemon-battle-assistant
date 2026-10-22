@@ -13,6 +13,8 @@ option {
 /* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる。fara-labs.com と同じ紫系） ---- */
 :root,
 [data-bs-theme="light"] {
+    /* ヘッダーの上端の線（.scroll-progress）。ヘッダーは暗い地色のままなので、ライトでもダークでも同じ色 */
+    --app-header-accent: linear-gradient(90deg, #c084fc 0%, #e879f9 100%);
     --app-body-bg: #f7f4fd;
     --app-card-border: #d8cdf2;
     --app-input-border: #9d8fc4;
@@ -3579,6 +3581,25 @@ html.vt-nav .app-header {
 
 .app-header :focus-visible {
     outline-color: #e9d5ff;
+}
+
+/* ページを読んだ量を、ヘッダーの上端の線で示す（js/scroll-progress.js が html の --scroll-progress に 0〜1 を入れる）。見るだけの表示なので、押せない・読み上げない */
+.scroll-progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--app-header-accent);
+    transform-origin: left;
+    transform: scaleX(var(--scroll-progress, 0));
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .scroll-progress {
+        transition: transform 0.12s linear;
+    }
 }
 
 /* サイドバー（後ろの宇宙の背景がわずかに透けるよう、少しだけ半透明） */
