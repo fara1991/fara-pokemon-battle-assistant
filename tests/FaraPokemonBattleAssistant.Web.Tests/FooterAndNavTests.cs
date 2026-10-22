@@ -117,12 +117,35 @@ public class FooterAndNavTests
         var app = Read(Path.Combine(Web, "App.razor"));
         Assert.Contains("<NotFoundView HomeHref=\"/\" />", app);
         Assert.DoesNotContain("Sorry, there's nothing at this address.", app);
-        var view = Read(Path.Combine(Web, "Shared", "NotFoundView.razor"));
+        // 部品は kit の NotFoundView（このサイトの NotFoundView は持たない）
+        Assert.False(File.Exists(Path.Combine(Web, "Shared", "NotFoundView.razor")));
+        var view = Read(Path.Combine(Kit, "Components", "NotFoundView.razor"));
         Assert.Contains("<meta name=\"robots\" content=\"noindex\" />", view);
+        Assert.Contains("[Parameter] public bool NoIndex { get; set; } = true;", view);
         Assert.Contains("ページが見つかりません", view);
         Assert.Contains("URL が間違っているか、ページが移動した可能性があります。", view);
         Assert.Contains("ホームへ戻る", view);
-        Assert.Contains("class=\"not-found-code\"", view);
+        Assert.Contains("class=\"fsk-not-found-code\"", view);
+    }
+
+    [Fact]
+    public void Maintenance_screen_is_the_kit_screen_with_the_twitter_contact()
+    {
+        // メンテナンス中（MAINTENANCE=true）は、アプリの代わりにこの画面だけを動かす（Program.cs）。画面は kit の MaintenanceScreen、連絡先だけがこのサイトのもの
+        Assert.False(File.Exists(Path.Combine(Web, "MaintenanceScreen.razor")));
+        var page = Read(Path.Combine(Web, "MaintenancePage.razor"));
+        Assert.Contains("<MaintenanceScreen Info=\"Info\">", page);
+        Assert.Contains("お知らせは Twitter で", page);
+        Assert.Contains("class=\"fsk-maintenance-link\" href=\"https://twitter.com/game_fara\"", page);
+        Assert.Contains("@@game_fara（Twitter）", page);
+        var program = Read(Path.Combine(Web, "Program.cs"));
+        Assert.Contains("builder.RootComponents.Add<MaintenancePage>(\"#app\");", program);
+        // SiteOptions（kit の画面が読む）は、メンテナンスの分岐より前に登録する
+        Assert.True(program.IndexOf("AddFaraSiteKit(", StringComparison.Ordinal) < program.IndexOf("MaintenanceState.On", StringComparison.Ordinal));
+        // 画面の見た目は kit の CSS（.fsk-maintenance）。このサイトの CSS には、旧い .maintenance-screen を残さない
+        var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        Assert.DoesNotContain(".maintenance-screen", css);
+        Assert.DoesNotContain(".maintenance-twitter", css);
     }
 
     [Fact]

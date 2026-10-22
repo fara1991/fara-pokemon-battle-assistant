@@ -22,7 +22,7 @@ var maintenance = await MaintenanceInfo.LoadAsync(new HttpClient { BaseAddress =
 builder.Services.AddSingleton(maintenance);
 if (maintenance.State == MaintenanceState.On)
 {
-    builder.RootComponents.Add<MaintenanceScreen>("#app");
+    builder.RootComponents.Add<MaintenancePage>("#app");
     builder.RootComponents.Add<HeadOutlet>("head::after");
     await builder.Build().RunAsync();
     return;

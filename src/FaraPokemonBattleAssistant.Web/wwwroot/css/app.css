@@ -4499,11 +4499,8 @@ a.fsk-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed
 @media (max-width: 599.98px) and (orientation: landscape) {
     .fsk-notice { margin-top: calc(var(--mud-appbar-height, 3.5rem) / 4); }
 }
-.maintenance-screen { min-height: 100vh; display: grid; place-content: center; justify-items: center; padding: 24px; box-sizing: border-box; background: #0c0616; color: #f3edff; text-align: center; line-height: 1.8; }
-.maintenance-screen h1 { font-size: 1.5rem; color: #b39ddb; }
-.maintenance-screen p { color: #b4a7d1; margin: 0 0 0.5rem; }
-.maintenance-screen .maintenance-schedule { color: #f3edff; font-weight: 700; }
-.maintenance-twitter { display: inline-block; margin-top: 8px; padding: 8px 20px; border-radius: 99px; background: #7c3aed; color: #fff; text-decoration: none; font-weight: 700; }
+/* メンテナンス画面（kit の MaintenanceScreen。.fsk-maintenance の見た目は kit の CSS）。連絡先のボタンは、ライト・ダークのどちらでも、これまで通り同じ紫 */
+.fsk-maintenance .fsk-maintenance-link { background: #7c3aed; }
 
 @media (max-width: 575.98px) {
     .entry-static-nav ul {
@@ -4511,9 +4508,9 @@ a.fsk-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed
     }
 }
 
-/* ---------- 404（存在しない URL）: ポートフォリオの 404 と同じ形（Shared/NotFoundView.razor） ---------- */
-.not-found { text-align: center; display: grid; justify-items: center; gap: 4px; padding: clamp(40px, 12vh, 120px) 16px 48px; }
-.not-found-code {
+/* ---------- 404（存在しない URL）: ポートフォリオの 404 と同じ形（kit の NotFoundView。.fsk-not-found の見た目の基本は kit の CSS） ---------- */
+.fsk-not-found { text-align: center; display: grid; justify-items: center; gap: 4px; padding: clamp(40px, 12vh, 120px) 16px 48px; }
+.fsk-not-found-code {
     margin: 0;
     font: 800 clamp(96px, 20vw, 180px)/1 "Outfit", "Zen Kaku Gothic New", system-ui, sans-serif;
     background-image: linear-gradient(120deg, #7c3aed 0%, #a855f7 60%, #6366f1 100%);
@@ -4521,13 +4518,14 @@ a.fsk-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed
     background-clip: text;
     color: transparent;
 }
-html[data-bs-theme="dark"] .not-found-code { background-image: linear-gradient(120deg, #c084fc 0%, #a855f7 60%, #818cf8 100%); }
+html[data-bs-theme="dark"] .fsk-not-found-code { background-image: linear-gradient(120deg, #c084fc 0%, #a855f7 60%, #818cf8 100%); }
 /* 短いページでも、フッターが画面の下に来るよう、スマホでは中身の高さを確保する（ヘッダー・フッターの分を引く） */
-@media (max-width: 720px) { .not-found { min-height: calc(100dvh - 132px); align-content: center; } }
-.not-found h1 { font-size: clamp(24px, 3.6vw, 32px); margin: 8px 0 0; }
-.not-found-text { margin: 0 0 20px; color: var(--bs-secondary-color, #6b6485); }
-html[data-bs-theme="dark"] .not-found-text { color: #b4a7d1; }
-.not-found-button { border-radius: 999px !important; padding: 10px 24px !important; text-transform: none !important; font-weight: 700 !important; }
+@media (max-width: 720px) { .fsk-not-found { min-height: calc(100dvh - 132px); align-content: center; } }
+.fsk-not-found h1 { font-size: clamp(24px, 3.6vw, 32px); margin: 8px 0 0; }
+.fsk-not-found-lead { margin: 0 0 20px; color: var(--bs-secondary-color, #6b6485); }
+html[data-bs-theme="dark"] .fsk-not-found-lead { color: #b4a7d1; }
+/* ホームへ戻るボタン: kit は紫のグラデーションと影を付ける。このサイトは、これまで通り、MudBlazor の既定の塗り（primary）にして、丸い形・余白・太字だけを足す */
+.fsk-btn-primary.mud-button-root { background: var(--mud-palette-primary); box-shadow: var(--mud-elevation-2); border-radius: 999px; padding: 10px 24px; text-transform: none; font-weight: 700; }
 
 /* ---------- 日本語の改行（本文だけ。フォームの入力欄やコマンドの表には当てない） ---------- */
 .page-column p, .page-column h3, .policy-card p, .policy-card li, .policy-card h5 {
