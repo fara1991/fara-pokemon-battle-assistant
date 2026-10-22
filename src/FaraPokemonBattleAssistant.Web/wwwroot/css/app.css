@@ -4182,3 +4182,9 @@ html.vt-nav .app-header {
 .team-format { background: #6b5f8a; color: #fff; font-weight: 600; margin-left: 0.4rem; vertical-align: middle; }
 .team-format-doubles { background: var(--bs-primary, #7c3aed); }
 .team-format-select { min-width: 7rem; }
+/* ダブルバトルのダメージ計算機: 2 体ずつの結果 */
+.calc-summary-row { padding: 0.45rem 0.1rem; border-bottom: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); }
+.calc-summary-row:last-child { border-bottom: 0; }
+.calc-summary-row.active .calc-summary-title { color: var(--bs-primary, #7c3aed); }
+.calc-summary-title { display: block; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.calc-summary-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin-top: 0.2rem; }

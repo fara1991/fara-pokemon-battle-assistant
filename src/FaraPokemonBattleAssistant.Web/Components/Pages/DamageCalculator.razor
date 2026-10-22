@@ -40,8 +40,9 @@ else if (data is not null && dataSet is not null)
     </div>
     <div class="calc-grid pane-fill @(s.Result is not null && !s.EstimateMode ? "has-result-bar" : "")">
         <div class="calc-col">
+            @if (Doubles) { <SlotPicker Title="自分側" Names="@SlotNames(true)" Selected="s.AttackerIndex" SelectedChanged="SelectAttacker" /> }
             <MudCard Elevation="0" Class="card">
-                <MudCardHeader Class="card-header"><CardHeaderContent><h5>攻撃側</h5></CardHeaderContent></MudCardHeader>
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>攻撃側@(Doubles ? $"（自分側 {s.AttackerIndex + 1}体目）" : "")</h5></CardHeaderContent></MudCardHeader>
                 <MudCardContent Class="card-body">
                     <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterAttacker" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
                     <div class="form-group mb-2">
@@ -99,8 +100,9 @@ else if (data is not null && dataSet is not null)
 
         <div class="calc-right">
         <div class="calc-col">
+            @if (Doubles) { <SlotPicker Title="相手側" Names="@SlotNames(false)" Selected="s.DefenderIndex" SelectedChanged="SelectDefender" /> }
             <MudCard Elevation="0" Class="card">
-                <MudCardHeader Class="card-header"><CardHeaderContent><h5>防御側</h5></CardHeaderContent></MudCardHeader>
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>防御側@(Doubles ? $"（相手側 {s.DefenderIndex + 1}体目）" : "")</h5></CardHeaderContent></MudCardHeader>
                 <MudCardContent Class="card-body">
                     <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterDefender" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
                     <div class="form-group mb-2">
@@ -185,6 +187,10 @@ else if (data is not null && dataSet is not null)
                 </MudCardContent>
             </MudCard>
 
+            @if (Doubles && !s.EstimateMode)
+            {
+                @RenderSummary()
+            }
             @if (s.EstimateMode)
             {
                 <MudCard Elevation="0" Class="card result-card estimate-card result-sticky">
@@ -271,23 +277,55 @@ else if (data is not null && dataSet is not null)
     {
         public string DataSetKey { get; set; } = "";
         public BattleFormat Format { get; set; }
-        public PokemonBuild? Attacker { get; set; }
-        public PokemonBuild? Defender { get; set; }
-        public Move? Move { get; set; }
+        /// <summary>
+        /// ダブルバトルでは、自分側（攻撃側）・相手側（防御側）それぞれ 2 体ずつ持ち、いま入力している体（<see cref="AttackerIndex"/>・
+        /// <see cref="DefenderIndex"/>）だけを入力欄に出す。シングルは 1 体目だけ。Attacker / Defender / Move などは、その「いま入力している体」を指す。
+        /// </summary>
+        public PokemonBuild?[] Attackers { get; set; } = new PokemonBuild?[2];
+        public PokemonBuild?[] Defenders { get; set; } = new PokemonBuild?[2];
+        /// <summary>攻撃側の体ごとに選んでいる技と Z 技のオン・オフ、「登録から選ぶ」の状態。</summary>
+        public Move?[] Moves { get; set; } = new Move?[2];
+        public bool[] ZMoves { get; set; } = new bool[2];
+        public bool[] UseRosterAttackers { get; set; } = new bool[2];
+        public bool[] UseRosterDefenders { get; set; } = new bool[2];
+        public string?[] AttackerRosterKeys { get; set; } = new string?[2];
+        public string?[] DefenderRosterKeys { get; set; } = new string?[2];
+        public Pokemon?[] AttackerMegas { get; set; } = new Pokemon?[2];
+        public Pokemon?[] DefenderMegas { get; set; } = new Pokemon?[2];
+        /// <summary>いま入力している体（0 = 1 体目、1 = 2 体目）。</summary>
+        public int AttackerIndex { get; set; }
+        public int DefenderIndex { get; set; }
+
+        public PokemonBuild? Attacker { get => Attackers[AttackerIndex]; set => Attackers[AttackerIndex] = value; }
+        public PokemonBuild? Defender { get => Defenders[DefenderIndex]; set => Defenders[DefenderIndex] = value; }
+        public Move? Move { get => Moves[AttackerIndex]; set => Moves[AttackerIndex] = value; }
+
+        /// <summary>選んでいるポケモン・技・選んでいる登録を、全部の体で空にする（ゲームを切り替えたとき。「登録から選ぶ」・Z 技のスイッチは、これまでどおり残す）。</summary>
+        public void ResetSelections()
+        {
+            Attackers = new PokemonBuild?[2];
+            Defenders = new PokemonBuild?[2];
+            Moves = new Move?[2];
+            AttackerRosterKeys = new string?[2];
+            DefenderRosterKeys = new string?[2];
+            AttackerMegas = new Pokemon?[2];
+            DefenderMegas = new Pokemon?[2];
+            AttackerIndex = DefenderIndex = 0;
+        }
         /// <summary>相手の努力値の推定で、受けたダメージを急所のときのものとして扱う。</summary>
         public bool EstimateCritical { get; set; }
         /// <summary>「相手のポイントを推定」の画面にしているか（オフは、振り方が決まっている計算）。</summary>
         public bool EstimateMode { get; set; }
         /// <summary>Z 技として使う（第 7 世代）。</summary>
-        public bool IsZMove { get; set; }
-        /// <summary>「登録から選ぶ」のスイッチ（攻撃側・防御側）と、選んでいる登録の Key。</summary>
-        public bool UseRosterAttacker { get; set; }
-        public bool UseRosterDefender { get; set; }
-        public string? AttackerRosterKey { get; set; }
-        public string? DefenderRosterKey { get; set; }
+        public bool IsZMove { get => ZMoves[AttackerIndex]; set => ZMoves[AttackerIndex] = value; }
+        /// <summary>「登録から選ぶ」のスイッチ（攻撃側・防御側）と、選んでいる登録の Key（いま入力している体のもの）。</summary>
+        public bool UseRosterAttacker { get => UseRosterAttackers[AttackerIndex]; set => UseRosterAttackers[AttackerIndex] = value; }
+        public bool UseRosterDefender { get => UseRosterDefenders[DefenderIndex]; set => UseRosterDefenders[DefenderIndex] = value; }
+        public string? AttackerRosterKey { get => AttackerRosterKeys[AttackerIndex]; set => AttackerRosterKeys[AttackerIndex] = value; }
+        public string? DefenderRosterKey { get => DefenderRosterKeys[DefenderIndex]; set => DefenderRosterKeys[DefenderIndex] = value; }
         /// <summary>登録から選んだポケモンを、メガシンカ後の姿にしているとき、その姿。</summary>
-        public Pokemon? AttackerMega { get; set; }
-        public Pokemon? DefenderMega { get; set; }
+        public Pokemon? AttackerMega { get => AttackerMegas[AttackerIndex]; set => AttackerMegas[AttackerIndex] = value; }
+        public Pokemon? DefenderMega { get => DefenderMegas[DefenderIndex]; set => DefenderMegas[DefenderIndex] = value; }
         public bool Reflect { get; set; }
         public bool LightScreen { get; set; }
         public Weather Weather { get; set; }
@@ -310,6 +348,12 @@ else if (data is not null && dataSet is not null)
     }
 
     private State s = new();
+
+    /// <summary>ダブルバトルか（自分側・相手側それぞれ 2 体を入力できる）。</summary>
+    private bool Doubles => App.Format == BattleFormat.Doubles;
+
+    protected override int SlotCount => Doubles ? 4 : 2;
+
     private DataSetInfo? dataSet;
     private PokemonDataSet? data;
     private UsageData? usage;
@@ -346,8 +390,9 @@ else if (data is not null && dataSet is not null)
     {
         if (AttackerQuery is null && DefenderQuery is null) return;
         // 数字でない・存在しない ID は無視する（保存してあった攻撃側・防御側を消さない）
-        if (QueryPokemonId(AttackerQuery) is { } a) OnAttackerChanged(a.ToString());
-        if (QueryPokemonId(DefenderQuery) is { } d) OnDefenderChanged(d.ToString());
+        // ダブルバトルでは、2 体目を上書きしないよう、1 体目の入力に切り替えてから入れる
+        if (QueryPokemonId(AttackerQuery) is { } a) { SelectAttacker(0); OnAttackerChanged(a.ToString()); }
+        if (QueryPokemonId(DefenderQuery) is { } d) { SelectDefender(0); OnDefenderChanged(d.ToString()); }
         Nav.NavigateTo("damage-calculator", replace: true);
     }
 
@@ -366,15 +411,30 @@ else if (data is not null && dataSet is not null)
         if (data is null || dataSet is null or { CalcSupported: false }) return null;   // 読み込み前・未対応のゲームは、対戦画面にしない
         // 結果がまだ無くても対戦画面にする（フィールドと、案内だけを出す）
         if (s.EstimateMode) return (BattleScene?)s.EstimateScene ?? new WaitingScene("攻撃側・防御側のポケモンと技を選び、受けたダメージを入れると、ここに推定結果が出ます。");
+        if (Doubles)
+        {
+            // ダブルバトル: 自分側 2 体・相手側 2 体のうち、そろっている組み合わせの結果を全部出す
+            var scenes = Combinations().Select(c => SceneOf(OutcomeOf(c.Attacker, c.Defender), c.Attacker, c.Defender)).Where(x => x is not null).Select(x => x!).ToList();
+            return scenes.Count == 0
+                ? new WaitingScene("攻撃側・防御側のポケモンと技を選ぶと、ここに結果が出ます。自分側・相手側それぞれ 2 体ずつ選べます。")
+                : new DamagePairScene(scenes);
+        }
         if (s.Result is not { } r || s.LastRequest is not { } q)
             return new WaitingScene(string.IsNullOrEmpty(errorMessage) ? "攻撃側・防御側のポケモンと技を選ぶと、ここに結果が出ます。" : errorMessage);
+        return SceneOf(new CalcOutcome(r, q, s.ResultCrit, s.LastRequestCrit, ""));
+    }
+
+    /// <summary><paramref name="attackerSlot"/>・<paramref name="defenderSlot"/> は、ダブルバトルの何体目か（0 から。シングルは 0）。</summary>
+    private static DamageScene? SceneOf(CalcOutcome o, int attackerSlot = 0, int defenderSlot = 0)
+    {
+        if (o.Result is not { } r || o.Request is not { } q) return null;
         return new DamageScene(
             q.Attacker.Pokemon.Name, q.Attacker.CurrentHp, q.Attacker.MaxHp,
             q.Defender.Pokemon.Name, r.DefenderHP, StartHp(r, q),
             r.MinDamage, r.MaxDamage, r.TypeEffectiveness == 0.0,
             r.Converted?.Name ?? q.Move.Name, r.MoveType, r.RangeText,
             r.KnockOut.ToString(), r.KnockOut.IsGuaranteed, r.EffectivenessText,
-            s.ResultCrit?.RangeText, s.ResultCrit?.KnockOut.ToString(), s.ResultCrit?.KnockOut.IsGuaranteed ?? false);
+            o.Crit?.RangeText, o.Crit?.KnockOut.ToString(), o.Crit?.KnockOut.IsGuaranteed ?? false, attackerSlot, defenderSlot);
     }
 
     // 数字でない値（?attacker=abc）を int? で受けると、Blazor が例外を出してアプリ全体がエラー画面になるので、文字列で受ける
@@ -387,13 +447,55 @@ else if (data is not null && dataSet is not null)
     protected override PokemonDataSet? CalcData => data;
     protected override IReadOnlyList<RosterChoiceGroup> RosterChoices => rosterGroups;
     protected override string CalcDataSetKey => s.DataSetKey;
-    protected override bool GetUseRoster(int side) => side == 0 ? s.UseRosterAttacker : s.UseRosterDefender;
-    protected override void SetUseRoster(int side, bool value) { if (side == 0) s.UseRosterAttacker = value; else s.UseRosterDefender = value; }
-    protected override string? GetRosterKey(int side) => side == 0 ? s.AttackerRosterKey : s.DefenderRosterKey;
-    protected override Pokemon? GetMega(int side) => side == 0 ? s.AttackerMega : s.DefenderMega;
-    protected override PokemonBuild? GetBuild(int side) => side == 0 ? s.Attacker : s.Defender;
-    protected override void PickRosterChoice(int side, RosterChoice choice, Pokemon? mega) => PickFromRoster(choice, side == 0, mega);
-    protected override void SelectPokemon(int side, int pokemonId) { if (side == 0) OnAttackerChanged(pokemonId.ToString()); else OnDefenderChanged(pokemonId.ToString()); }
+    // 側 0・1 = 自分側 1 の攻撃側・相手側 1 の防御側、側 2・3 = 自分側 2・相手側 2（ダブルバトル）。いま入力している体に関わらず、決まった体を指す
+    private static bool IsAttackerSide(int side) => side % 2 == 0;
+    protected override bool GetUseRoster(int side) => IsAttackerSide(side) ? s.UseRosterAttackers[side / 2] : s.UseRosterDefenders[side / 2];
+    protected override void SetUseRoster(int side, bool value) { if (IsAttackerSide(side)) s.UseRosterAttackers[side / 2] = value; else s.UseRosterDefenders[side / 2] = value; }
+    protected override string? GetRosterKey(int side) => IsAttackerSide(side) ? s.AttackerRosterKeys[side / 2] : s.DefenderRosterKeys[side / 2];
+    protected override Pokemon? GetMega(int side) => IsAttackerSide(side) ? s.AttackerMegas[side / 2] : s.DefenderMegas[side / 2];
+    protected override PokemonBuild? GetBuild(int side) => IsAttackerSide(side) ? s.Attackers[side / 2] : s.Defenders[side / 2];
+    protected override void PickRosterChoice(int side, RosterChoice choice, Pokemon? mega) => WithSlot(side, () => PickFromRoster(choice, IsAttackerSide(side), mega));
+    protected override void SelectPokemon(int side, int pokemonId) => WithSlot(side, () => { if (IsAttackerSide(side)) OnAttackerChanged(pokemonId.ToString()); else OnDefenderChanged(pokemonId.ToString()); });
+
+    /// <summary>入力欄に出していない体（<paramref name="side"/>）への操作を、その体を一時的に選んだ状態で行う（もう一方のページで選んだポケモンを入れるときなど）。</summary>
+    private void WithSlot(int side, Action action)
+    {
+        var (attackerIndex, defenderIndex) = (s.AttackerIndex, s.DefenderIndex);
+        if (IsAttackerSide(side)) s.AttackerIndex = side / 2; else s.DefenderIndex = side / 2;
+        try { action(); }
+        finally
+        {
+            (s.AttackerIndex, s.DefenderIndex) = (attackerIndex, defenderIndex);
+            // 操作が、いま入力している体の技・持ち物の候補を書き換えているので、元に戻す
+            RefreshAttackerLists();
+            RefreshDefenderLists();
+        }
+    }
+
+    /// <summary>入力する自分側（攻撃側）の体を切り替える（ダブルバトル）。技・持ち物の候補と結果は、その体のものに入れ替える。</summary>
+    private void SelectAttacker(int index)
+    {
+        if (index == s.AttackerIndex || index < 0 || index > 1) return;
+        s.AttackerIndex = index;
+        resultKey = "";
+        estimateKey = "";
+        hitSel = 0;
+        RefreshAttackerLists();
+    }
+
+    /// <summary>入力する相手側（防御側）の体を切り替える（ダブルバトル）。</summary>
+    private void SelectDefender(int index)
+    {
+        if (index == s.DefenderIndex || index < 0 || index > 1) return;
+        s.DefenderIndex = index;
+        resultKey = "";
+        estimateKey = "";
+        RefreshDefenderLists();
+    }
+
+    /// <summary>切り替えの表示名（ポケモン名。選んでいなければ「未選択」）。</summary>
+    private IReadOnlyList<string> SlotNames(bool attacker) =>
+        (attacker ? s.Attackers : s.Defenders).Select(b => b?.Pokemon.Name ?? "未選択").ToList();
 
     private static T ParseEnum<T>(object? value, T fallback) where T : struct => Enum.TryParse<T>(value?.ToString(), out var v) ? v : fallback;
 
@@ -423,11 +525,7 @@ else if (data is not null && dataSet is not null)
             if (s.DataSetKey != key)
             {
                 s.DataSetKey = key;
-                s.AttackerRosterKey = s.DefenderRosterKey = null;
-                s.AttackerMega = s.DefenderMega = null;
-                s.Attacker = null;
-                s.Defender = null;
-                s.Move = null;
+                s.ResetSelections();
                 s.Result = null;
                 s.LastRequest = null;
                 s.EstimateText = "";
@@ -435,6 +533,13 @@ else if (data is not null && dataSet is not null)
                 s.EstimateScene = null;
             }
             s.Format = App.Format;
+            // バトル形式がシングルになったときは、1 体目の入力に戻す（2 体目の入力は残す）
+            if (!Doubles && (s.AttackerIndex != 0 || s.DefenderIndex != 0))
+            {
+                s.AttackerIndex = s.DefenderIndex = 0;
+                resultKey = "";
+                estimateKey = "";
+            }
             // そのゲームに無いフィールド（第 5 世代まで・サイコフィールドは第 6 世代まで）は外す
             if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
             RefreshAttackerLists();
@@ -1437,45 +1542,113 @@ else if (data is not null && dataSet is not null)
 
     private void Calculate()
     {
-        errorMessage = "";
-        s.Result = null;
-        s.LastRequest = null;
-        s.ResultCrit = null;
-        s.LastRequestCrit = null;
-        if (data is null || s.Attacker is null || s.Defender is null || s.Move is null) return;
-        if (s.Move.Id != hitSelMove) { hitSelMove = s.Move.Id; hitSel = 0; }   // 技を変えたら、回数の選択は最大に戻す
-        if (!s.Move.IsDamaging)
+        if (s.Move is not null && s.Move.Id != hitSelMove) { hitSelMove = s.Move.Id; hitSel = 0; }   // 技を変えたら、回数の選択は最大に戻す
+        var outcome = CalculateFor(s.Attacker, s.Move, UseZMove, s.Defender);
+        errorMessage = outcome.Error;
+        s.Result = outcome.Result;
+        s.LastRequest = outcome.Request;
+        s.ResultCrit = outcome.Crit;
+        s.LastRequestCrit = outcome.CritRequest;
+    }
+
+    /// <summary>1 つの組み合わせ（攻撃側・技・防御側）の結果。天候・フィールド・壁はいまの入力。画面の状態は書き換えない。</summary>
+    private sealed record CalcOutcome(DamageResult? Result, DamageRequest? Request, DamageResult? Crit, DamageRequest? CritRequest, string Error);
+
+    private CalcOutcome CalculateFor(PokemonBuild? attacker, Move? move, bool zMove, PokemonBuild? defender)
+    {
+        var none = new CalcOutcome(null, null, null, null, "");
+        if (data is null || attacker is null || defender is null || move is null) return none;
+        if (!move.IsDamaging)
         {
-            errorMessage = s.Move.IsFixedDamage
-                ? $"{s.Move.Name} は固定ダメージ技のため計算できません。"
-                : $"{s.Move.Name} はダメージを与える技ではありません。";
-            return;
+            return none with
+            {
+                Error = move.IsFixedDamage
+                    ? $"{move.Name} は固定ダメージ技のため計算できません。"
+                    : $"{move.Name} はダメージを与える技ではありません。",
+            };
         }
         try
         {
-            s.LastRequest = new DamageRequest
+            var request = new DamageRequest
             {
-                Attacker = s.Attacker,
-                Move = s.Move,
-                Defender = s.Defender,
+                Attacker = attacker,
+                Move = move,
+                Defender = defender,
                 Format = App.Format,
                 IsCritical = false,
-                IsZMove = UseZMove,
+                IsZMove = zMove,
                 Weather = s.Weather,
                 Terrain = s.Terrain,
                 Reflect = s.Reflect,
                 LightScreen = s.LightScreen,
-                HitCountOverride = MoveEffects.HitsTwoToFive(s.Move) ? 5 : null,
+                HitCountOverride = MoveEffects.HitsTwoToFive(move) ? 5 : null,
             };
             // 急所なし・ありの両方を計算して並べて出す
             var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation);
-            s.Result = calc.Calculate(s.LastRequest);
-            s.LastRequestCrit = s.LastRequest.With(isCritical: true);
-            s.ResultCrit = calc.Calculate(s.LastRequestCrit);
+            var result = calc.Calculate(request);
+            var critRequest = request.With(isCritical: true);
+            return new CalcOutcome(result, request, calc.Calculate(critRequest), critRequest, "");
         }
         catch (Exception ex)
         {
-            errorMessage = $"計算エラー: {ex.Message}";
+            return none with { Error = $"計算エラー: {ex.Message}" };
         }
     }
+
+    /// <summary>ダブルバトルの 2 体分の結果に出す組み合わせ（自分側の体 × 相手側の体）。</summary>
+    private static IEnumerable<(int Attacker, int Defender)> Combinations() =>
+        new[] { (0, 0), (0, 1), (1, 0), (1, 1) };
+
+    private readonly Dictionary<(int, int), (string Key, CalcOutcome Outcome)> comboCache = new();
+
+    /// <summary>自分側の体 <paramref name="attackerIndex"/> が相手側の体 <paramref name="defenderIndex"/> に、その体の技を使った結果。入力が変わったときだけ計算し直す。</summary>
+    private CalcOutcome OutcomeOf(int attackerIndex, int defenderIndex)
+    {
+        var attacker = s.Attackers[attackerIndex];
+        var defender = s.Defenders[defenderIndex];
+        var move = s.Moves[attackerIndex];
+        var zMove = s.ZMoves[attackerIndex] && dataSet?.HasZMove == true;
+        if (data is null || attacker is null || defender is null || move is null) return new CalcOutcome(null, null, null, null, "");
+        var key = string.Join(";", App.DataSetKey, BuildKey(attacker), BuildKey(defender), move.Id, s.Weather, s.Terrain, App.Format, s.Reflect, s.LightScreen, zMove);
+        if (comboCache.TryGetValue((attackerIndex, defenderIndex), out var cached) && cached.Key == key) return cached.Outcome;
+        var outcome = CalculateFor(attacker, move, zMove, defender);
+        comboCache[(attackerIndex, defenderIndex)] = (key, outcome);
+        return outcome;
+    }
+
+    /// <summary>ダブルバトル: 自分側 2 体 × 相手側 2 体のうち、そろっている組み合わせの結果を並べる。押すと、その組み合わせの入力欄に切り替える。</summary>
+    private RenderFragment RenderSummary() => __builder =>
+    {
+        <MudCard Elevation="0" Class="card result-card calc-summary">
+            <MudCardHeader Class="card-header"><CardHeaderContent><h5>2 体ずつの結果 <Help Title="2 体ずつの結果">ダブルバトルでは、自分側・相手側のそれぞれ 2 体について、攻撃側・技・防御側がそろっている組み合わせの結果を並べます。技は攻撃側の体ごとに選びます。組み合わせを押すと、その 2 体の入力欄に切り替わります。天候・フィールド・壁は全部で共通です。</Help></h5></CardHeaderContent></MudCardHeader>
+            <MudCardContent Class="card-body">
+                @{ var any = false; }
+                @foreach (var (ai, di) in Combinations())
+                {
+                    var o = OutcomeOf(ai, di);
+                    if (o.Result is not { } r || o.Request is not { } q) continue;
+                    any = true;
+                    var (attackerIndex, defenderIndex) = (ai, di);
+                    <div class="calc-summary-row @(s.AttackerIndex == ai && s.DefenderIndex == di ? "active" : "")">
+                        <button type="button" class="calc-summary-title" @onclick="() => { SelectAttacker(attackerIndex); SelectDefender(defenderIndex); }">
+                            <strong>自分側 @(ai + 1)</strong> @q.Attacker.Pokemon.Name → <strong>相手側 @(di + 1)</strong> @q.Defender.Pokemon.Name
+                        </button>
+                        <div class="calc-summary-body">
+                            <TypeIcon Type="@r.MoveType" Small="true" /> <span>@(r.Converted?.Name ?? q.Move.Name)</span>
+                            <strong>@r.RangeText</strong>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@(r.KnockOut.IsGuaranteed ? Color.Error : Color.Warning)" Class="app-badge">@r.KnockOut</MudChip>
+                            @if (o.Crit is { } cr)
+                            {
+                                <span class="small text-muted">急所 @($"{cr.MinPercent:0.0}〜{cr.MaxPercent:0.0}%")</span>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (!any)
+                {
+                    <Notice Empty="true" Class="mb-0">自分側の攻撃側・技と、相手側の防御側を選ぶと、ここに結果が並びます。</Notice>
+                }
+            </MudCardContent>
+        </MudCard>
+    };
 }
