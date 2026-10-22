@@ -37,7 +37,7 @@ public sealed class ReportForm
         if (message.Length < MinMessage) return $"内容を {MinMessage} 文字以上で書いてください";
         if (message.Length > MaxMessage) return $"内容は {MaxMessage} 文字までにしてください（いま {message.Length} 文字）";
         if (Contact.Trim().Length > MaxContact) return $"連絡先は {MaxContact} 文字までにしてください";
-        if (string.IsNullOrEmpty(TurnstileToken)) return "「ロボットではありません」の確認をしてください";
+        if (string.IsNullOrEmpty(TurnstileToken)) return "「ロボットではありません」の確認が終わっていません。表示された確認をしてから、もう一度押してください";
         return null;
     }
 
@@ -84,6 +84,7 @@ public sealed class ReportForm
         return statusCode switch
         {
             413 => "内容が長すぎます。短くして、もう一度お試しください",
+            429 => "短い間に何度も送信されました。少し待ってから、もう一度お試しください",
             503 => "いまは報告を受け付けていません。しばらくしてからお試しください",
             >= 500 => "送信に失敗しました。しばらくしてからもう一度お試しください",
             _ => "送信できませんでした。入力を確かめて、もう一度お試しください",

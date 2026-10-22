@@ -100,11 +100,15 @@
         if (sending) return;
         error = "";
         form.Page = ReportForm.CleanPage(From);
-        try { form.TurnstileToken = await JS.InvokeAsync<string>("faraReport.token") ?? ""; } catch { form.TurnstileToken = ""; }
-        if (form.Validate() is { } problem) { error = problem; return; }
+        // 確認以外の入力を先に確かめる（確認を待たずに、入力の間違いを知らせる）
+        form.TurnstileToken = "pending";
+        if (form.Validate() is { } problem) { form.TurnstileToken = ""; error = problem; return; }
         sending = true;
         try
         {
+            // 確認のトークンは、読み込み直後や、送信に失敗して作り直した直後は、数秒かかることがある。待ってから送る
+            try { form.TurnstileToken = await JS.InvokeAsync<string>("faraReport.waitToken", 5000) ?? ""; } catch { form.TurnstileToken = ""; }
+            if (form.Validate() is { } notChecked) { error = notChecked; return; }
             using var request = new HttpRequestMessage(HttpMethod.Post, "api/report") { Content = new StringContent(form.ToJson(), Encoding.UTF8, "application/json") };
             using var response = await Http.SendAsync(request);
             if (response.IsSuccessStatusCode)
