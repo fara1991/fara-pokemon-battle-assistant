@@ -27,11 +27,11 @@ public class FooterAndNavTests
     public void Footer_links_to_the_contact_page_under_the_same_route()
     {
         var footer = Read(Path.Combine(Web, "Shared", "SiteFooter.razor"));
-        Assert.Contains("作者へ問い合わせ</a>", footer);
+        Assert.Contains("問い合わせ</a>", footer);
         var report = Read(Path.Combine(Web, "Components", "Pages", "Report.razor"));
         Assert.Contains("@page \"/report\"", report);                          // ルートは維持
-        Assert.Contains("<PageTitle>作者へ問い合わせ | Pokémon Battle Assistant</PageTitle>", report);
-        Assert.Contains("<h3>作者へ問い合わせ</h3>", report);
+        Assert.Contains("<PageTitle>問い合わせ | Pokémon Battle Assistant</PageTitle>", report);
+        Assert.Contains("<h3>問い合わせ</h3>", report);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class FooterAndNavTests
     public void Side_menu_has_the_contact_and_privacy_links()
     {
         var nav = Read(Path.Combine(Web, "Shared", "NavMenu.razor"));
-        Assert.Contains("(\"report\", \"作者へ問い合わせ\"", nav);
+        Assert.Contains("(\"report\", \"問い合わせ\"", nav);
         Assert.Contains("(\"privacy\", \"プライバシーポリシー\"", nav);
     }
 

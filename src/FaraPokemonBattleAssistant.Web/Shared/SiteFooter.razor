@@ -1,5 +1,5 @@
-@* 3 サイト共通の形のフッター: サイト名 | 作者へ問い合わせ | プライバシーポリシー | © 公開年 Fara（Fara は作者のホームページへ）と、SNS のアイコン（Services/SocialLinks.cs）。
-   「作者へ問い合わせ」（/report）には、いま見ているページを ?from= で付ける（報告に、どのページかが分かるように） *@
+@* 3 サイト共通の形のフッター: サイト名 | 問い合わせ | プライバシーポリシー | © 公開年 Fara（Fara は作者のホームページへ）と、SNS のアイコン（Services/SocialLinks.cs）。
+   「問い合わせ」（/report）には、いま見ているページを ?from= で付ける（報告に、どのページかが分かるように） *@
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -7,7 +7,7 @@
     <div class="site-footer-line">
         <span class="site-footer-name">@SiteInfo.Name</span>
         <span class="site-footer-sep" aria-hidden="true">|</span>
-        <a href="@ReportHref">作者へ問い合わせ</a>
+        <a href="@ReportHref">問い合わせ</a>
         <span class="site-footer-sep" aria-hidden="true">|</span>
         <a href="privacy">プライバシーポリシー</a>
         <span class="site-footer-sep" aria-hidden="true">|</span>
