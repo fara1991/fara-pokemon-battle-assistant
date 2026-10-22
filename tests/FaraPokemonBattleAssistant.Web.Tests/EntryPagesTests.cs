@@ -92,7 +92,39 @@ public class EntryPagesTests
         var html = File.ReadAllText(Path.Combine(Web, "wwwroot", "index.html"));
         Assert.Contains("<title>Pokémon Battle Assistant</title>", html);
         Assert.DoesNotContain("main class=\"entry-static\"", html);
-        Assert.Contains("class=\"loading-screen\"", html);
+        Assert.Contains("id=\"boot-indicator\"", html);
+    }
+
+    [Fact]
+    public void Boot_indicator_is_outside_app_so_it_is_not_part_of_the_body_text()
+    {
+        // 「読み込み中…」は #app の外・本文の前に 1 つだけ。Blazor が #app を描いても残るので、js/boot-indicator.js が外す
+        var html = File.ReadAllText(Path.Combine(Web, "wwwroot", "index.html"));
+        Assert.Equal(1, CountOccurrences(html, "id=\"boot-indicator\""));
+        var indicator = html.IndexOf("id=\"boot-indicator\"", StringComparison.Ordinal);
+        Assert.True(indicator < html.IndexOf("<div id=\"app\">", StringComparison.Ordinal));
+        Assert.Contains("role=\"status\" aria-live=\"polite\"", html);
+        Assert.DoesNotContain("loading-screen", html);
+        // 文言は CSS（:empty::before）で出す。生の HTML の本文テキストには「読み込み中」を入れない（JS を実行しない取得でも見えないように）
+        Assert.DoesNotMatch(">[^<]*読み込み中", html);
+        Assert.Contains(".boot-indicator-label:empty::before", File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css")));
+        // 外部の js ファイルで外す（インライン script は CSP で使えない）。Blazor の起動より前に読む
+        Assert.True(html.IndexOf("js/boot-indicator.js", StringComparison.Ordinal) < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
+        Assert.True(File.Exists(Path.Combine(Web, "wwwroot", "js", "boot-indicator.js")));
+        // JavaScript が無いときは隠す（noscript の style は _headers の style-src 'unsafe-inline' で許可）
+        Assert.Contains("<noscript><style>#boot-indicator { display: none; }</style></noscript>", html);
+    }
+
+    [Fact]
+    public void Boot_indicator_css_uses_primary_color_and_stops_for_reduced_motion()
+    {
+        var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        Assert.Contains("background: #7c3aed;", RuleBody(css, ".boot-indicator-label {"));
+        Assert.Contains("color: #fff;", RuleBody(css, ".boot-indicator-label {"));
+        Assert.Contains("animation: boot-indicator-slide", RuleBody(css, ".boot-indicator-bar::after {"));
+        var reduced = css.IndexOf("@media (prefers-reduced-motion: reduce) {\n    .boot-indicator-bar::after {", StringComparison.Ordinal);
+        Assert.True(reduced >= 0, "prefers-reduced-motion で動きを止める規則がありません");
+        Assert.Contains("animation: none;", RuleBody(css[reduced..], ".boot-indicator-bar::after {"));
     }
 
     [Fact]

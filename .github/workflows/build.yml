@@ -98,5 +98,8 @@ jobs:
       - name: Entry pages test
         run: npm run test:entry
 
+      - name: Boot indicator test
+        run: npm run test:boot
+
       - name: Home page (Worker) test
         run: npm run test:home

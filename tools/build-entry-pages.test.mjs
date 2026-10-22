@@ -15,28 +15,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pages = JSON.parse(readFileSync(join(here, "entry-pages.json"), "utf8"));
 const origin = SITES.production;
 
-/** dotnet publish の index.html に近いテンプレート（区切りは src の wwwroot/index.html と同じ） */
-const TEMPLATE = `<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="utf-8" />
-    ${HEAD_START}
-    <title>ホーム | Pokémon Battle Assistant</title>
-    <meta name="description" content="x" />
-    ${HEAD_END}
-    <base href="/" />
-    <link href="css/app.css" rel="stylesheet" />
-</head>
-<body>
-    <div id="app">
-        ${BODY_START}
-        <div class="loading-screen"><p>読み込み中...</p></div>
-        ${BODY_END}
-    </div>
-    <script src="_framework/blazor.webassembly.js"></script>
-</body>
-</html>
-`;
+/** テンプレートは実物の wwwroot/index.html（dotnet publish が出す元。区切りや読み込み表示がずれないように、そのまま読む） */
+const TEMPLATE = readFileSync(join(here, "..", "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "index.html"), "utf8");
+const BOOT_INDICATOR = 'id="boot-indicator"';
 
 const battleTerms = pages.find((p) => p.route === "battle-terms");
 const home = pages.find((p) => p.route === "");
@@ -86,11 +67,40 @@ test("テンプレートの区切りの間だけを書き換え、区切りと #
     const html = renderPage(TEMPLATE, battleTerms, pages, origin);
     assert.match(html, /<title>用語・略語/);
     assert.match(html, /<main class="entry-static" data-route="battle-terms">/);
-    assert.doesNotMatch(html, /読み込み中/);
     assert.ok(html.includes(BODY_START) && html.includes(BODY_END));
     assert.ok(html.includes(HEAD_START) && html.includes(HEAD_END));
     assert.match(html, /_framework\/blazor\.webassembly\.js/);
     assert.match(html, /<base href="\/" \/>/);
+});
+
+test("読み込み表示（#boot-indicator）は #app の外・本文の前に 1 つだけあり、本文（main）の中には入らない", () => {
+    const outputs = [
+        ...pages.map((p) => renderPage(TEMPLATE, p, pages, origin)),
+        TEMPLATE,   // SPA のフォールバック（index.html。本文は空で、Blazor が描く）
+    ];
+    for (const html of outputs) {
+        assert.equal(html.split(BOOT_INDICATOR).length - 1, 1);
+        const indicator = html.indexOf(BOOT_INDICATOR);
+        assert.ok(indicator < html.indexOf('<div id="app">'), "#app より前（#app の外）にある");
+        const main = html.indexOf("<main");
+        if (main >= 0) {
+            assert.ok(indicator < main, "本文より前にある");
+            const mainEnd = html.indexOf("</main>", main);
+            assert.doesNotMatch(html.slice(main, mainEnd), /読み込み中|boot-indicator/, "本文の中に入らない");
+        }
+        // 文言は CSS（:empty::before）で出すので、生の HTML の本文テキスト（タグの外）には「読み込み中」が無い（JS を実行しない取得でも見えない）
+        const bodyText = html.slice(html.indexOf("<body>")).replace(/<[^>]*>/g, "");
+        assert.doesNotMatch(bodyText, /読み込み中/);
+    }
+});
+
+test("読み込み表示は、JavaScript が無いとき隠れる（noscript の style）と、起動後に外す js（boot-indicator.js）が Blazor より前に読まれる", () => {
+    const html = renderPage(TEMPLATE, battleTerms, pages, origin);
+    assert.match(html, /<noscript><style>#boot-indicator \{ display: none; \}<\/style><\/noscript>/);
+    const script = html.indexOf('src="js/boot-indicator.js"');
+    assert.ok(script > html.indexOf('<div id="app">'), "#app の後ろで読む（#app が無いと外せない）");
+    assert.ok(script < html.indexOf("_framework/blazor.webassembly.js"), "Blazor の起動より前に監視を始める");
+    assert.match(html, /role="status" aria-live="polite"/);
 });
 
 test("同じテンプレートから何度作っても同じ結果（区切りが残るので、作り直しても崩れない）", () => {
@@ -151,7 +161,7 @@ test("run: 本番は各ページ・robots.txt・sitemap.xml を書き、確認�
     const fallback = readFileSync(join(dir, "index.html"), "utf8");
     assert.match(fallback, /<title>Pokémon Battle Assistant<\/title>/);
     assert.doesNotMatch(fallback, /ホーム|entry-static|description/);
-    assert.match(fallback, /loading-screen/);
+    assert.match(fallback, /id="boot-indicator"/);
 
     const devDir = mkdtempSync(join(tmpdir(), "entry-pages-dev-"));
     writeFileSync(join(devDir, "index.html"), TEMPLATE);
