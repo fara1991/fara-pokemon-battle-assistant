@@ -747,13 +747,65 @@ body {
     }
 }
 
-.loading-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    gap: 1rem;
+/* 起動までの「読み込み中…」（index.html の #boot-indicator。js/boot-indicator.js が Blazor の描画で外す）。
+   上端の細いバーと、右上の小さなラベル。#app の外に置くので、入口ページの本文（検索の対象）には入らない。
+   色はテーマによらず primary の #7c3aed（ラベルの白文字は十分なコントラスト）。動きは prefers-reduced-motion では止める */
+.boot-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.boot-indicator-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    overflow: hidden;
+    background: rgba(124, 58, 237, 0.18);
+}
+
+.boot-indicator-bar::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 35%;
+    background: linear-gradient(90deg, #7c3aed 0%, #a855f7 100%);
+    transform: translateX(-100%);
+    animation: boot-indicator-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes boot-indicator-slide {
+    to { transform: translateX(286%); }
+}
+
+.boot-indicator-label {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.75rem;
+    padding: 0.2rem 0.65rem;
+    border-radius: 99px;
+    background: #7c3aed;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.4;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .boot-indicator-bar::after {
+        animation: none;
+        transform: none;
+        width: 100%;
+        opacity: 0.55;
+    }
 }
 
 /* 入口ページの静的な本文（tools/build-entry-pages.mjs が #app の中に書く）。WebAssembly が起動すると Blazor が置き換える。
