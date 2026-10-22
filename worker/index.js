@@ -349,7 +349,7 @@ export default {
     const url = new URL(request.url);
     // トップページ（ホームの本文入りの home.html）。SPA のフォールバック（index.html）とは別に返す（worker/home.js）
     if (url.pathname === "/") return serveHome(request, env);
-    // メンテナンスの状態（Worker の変数 MAINTENANCE。worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
+    // メンテナンスの状態（Worker の変数 MAINTENANCE。external/fara-site-kit/worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
     const maintenance = getMaintenance(env);
     if (url.pathname === "/api/maintenance") {
       return new Response(JSON.stringify({ state: maintenance.state, message: maintenance.message }), {
@@ -366,7 +366,7 @@ export default {
       passed.headers.set("X-Worker-Fallback", "assets");
       return passed;
     }
-    // 作者への報告の受け口（登録データとは別。worker/report.js）
+    // 作者への報告の受け口（登録データとは別。external/fara-site-kit/worker/report.js）
     if (url.pathname === "/api/report" || url.pathname === "/api/report/config") {
       try {
         return await handleReport(request, env, "Pokémon Battle Assistant");

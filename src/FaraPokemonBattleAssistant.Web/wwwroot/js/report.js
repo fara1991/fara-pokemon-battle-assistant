@@ -1,6 +1,6 @@
 // 「作者へ報告」ページ（Components/Pages/Report.razor）の、Cloudflare Turnstile（ボット判定）の部品。
 // 外部のスクリプトは https://challenges.cloudflare.com だけ（_headers の CSP で許可している）。
-// サイトキーは公開してよい値で、GET /api/report/config から読む（worker/report.js）。
+// サイトキーは公開してよい値で、GET /api/report/config から読む（external/fara-site-kit/worker/report.js）。
 (function () {
     "use strict";
     var TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";

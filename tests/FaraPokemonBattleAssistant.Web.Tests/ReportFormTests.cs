@@ -27,7 +27,7 @@ public class ReportFormTests
     [Fact]
     public void Categories_match_the_server_names()
     {
-        // worker/report.js の CATEGORIES と同じ ID（画面と通知の食い違いを防ぐ）
+        // external/fara-site-kit/worker/report.js の CATEGORIES と同じ ID（画面と通知の食い違いを防ぐ）
         Assert.Equal(new[] { "bug", "request", "other" }, ReportForm.Categories.Select(c => c.Id));
     }
 
