@@ -1,5 +1,5 @@
 // worker/maintenance.js のテスト。  node --test worker/maintenance.test.mjs
-// 3 サイト共通のファイルなので、このテストも 3 つのリポジトリで同じ内容にしている。
+// 4 つのリポジトリ（pokemon・avatar・bot・portfolio）で共通のファイルなので、このテストも同じ内容にしている。
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { getMaintenance, maintenanceResponse, maintenancePageHtml, noticeHtml, withNotice, escapeHtml } from "./maintenance.js";
@@ -87,6 +87,19 @@ test("noticeHtml: 文が無いときの既定の文、HTML は無害化", () => 
   assert.match(noticeHtml("<i>x</i>"), /&lt;i&gt;x&lt;\/i&gt;/);
   assert.match(noticeHtml("x"), /class="maintenance-notice" role="status"/);
   assert.ok(!/style=/.test(noticeHtml("x")), "CSP のため、インラインの style は使わない");
+});
+
+test("noticeHtml: 1 行目に見出し「【お知らせ】」、本文は次の要素（2 行目以降に出す）", () => {
+  const html = noticeHtml("2026年10月25日（日）20:00〜21:00頃、サイトの更新を行います。");
+  assert.match(html, /<strong class="maintenance-notice-title">【お知らせ】<\/strong>/);
+  assert.match(html, /<span class="maintenance-notice-text">2026年10月25日（日）20:00〜21:00頃、サイトの更新を行います。<\/span>/);
+  assert.ok(html.indexOf("【お知らせ】") < html.indexOf("2026年10月25日"), "見出しが先");
+});
+
+test("noticeHtml: 本文は見出しとは別の要素で、本文の HTML も無害化", () => {
+  const html = noticeHtml("<b>x</b>");
+  assert.match(html, /<span class="maintenance-notice-text">&lt;b&gt;x&lt;\/b&gt;<\/span>/);
+  assert.equal((html.match(/【お知らせ】/g) ?? []).length, 1);
 });
 
 // HTMLRewriter は Workers にだけあるので、<main> の直後に足すだけの代わりを渡す

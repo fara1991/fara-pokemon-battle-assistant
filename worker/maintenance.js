@@ -1,4 +1,4 @@
-// メンテナンス表示（3 サイトで同じファイルを使う。各リポジトリの worker/ に同じ内容を置いている。直すときは 3 つともそろえること）。
+// メンテナンス表示（4 つのリポジトリ＝pokemon・avatar・bot・portfolio で同じファイルを使う。各リポジトリの worker/ に同じ内容を置いている。直すときは 4 つともそろえること）。
 //
 // Cloudflare のダッシュボード（Worker の「変数とシークレット」）の変数で切り替える。デプロイ（変数の保存）の数秒〜1 分後に反映される。
 //   MAINTENANCE          "false"（または未設定）= 通常 / "notice" = 通常のページの上に「更新予定」のお知らせを出す / "true" = メンテナンス画面（503）
@@ -41,10 +41,13 @@ export function maintenancePageHtml(siteName, message) {
 `;
 }
 
-/** お知らせのバナー（各サイトの CSS の .maintenance-notice で見た目を付ける。CSP のため、インラインの style は使わない）。 */
+/**
+ * お知らせのバナー。1 行目に見出し「【お知らせ】」、2 行目以降に本文（CSS で見出し・本文をそれぞれ次の行に置く）。
+ * 見た目は各サイトの CSS の .maintenance-notice で付ける。CSP のため、インラインの style は使わない。
+ */
 export function noticeHtml(message) {
   const text = message || "まもなくメンテナンスを行います。";
-  return `<div class="maintenance-notice" role="status"><strong>お知らせ</strong> ${escapeHtml(text)}</div>`;
+  return `<div class="maintenance-notice" role="status"><strong class="maintenance-notice-title">【お知らせ】</strong><span class="maintenance-notice-text">${escapeHtml(text)}</span></div>`;
 }
 
 /**
