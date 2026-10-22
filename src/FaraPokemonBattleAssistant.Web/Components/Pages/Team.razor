@@ -24,14 +24,21 @@ else if (data is not null && roster is not null && dataSet is not null)
                 <Notice Empty="true" Class="mb-3">登録したポケモンがまだありません。先に<a href="my-pokemon">育成ポケモン</a>で登録してください。</Notice>
             }
             <MudCard Elevation="0" Class="card mb-3">
-                <MudCardHeader Class="card-header"><CardHeaderContent><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで。同じ登録 ID をもう一度追加すると持ち物だけ更新します。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></CardHeaderContent></MudCardHeader>
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで（ダブルでも 6 体まで登録できます）。同じ登録 ID をもう一度追加すると持ち物とバトル形式を更新します。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></CardHeaderContent></MudCardHeader>
                 <MudCardContent Class="card-body">
                     <div class="row g-2">
                         <div class="col-4">
                             <label class="form-label">チーム番号</label>
-                            <input type="number" class="form-control" min="1" value="@s.TeamNumber" @onchange="@(e => s.TeamNumber = Math.Max(1, ParseId(e.Value)))" />
+                            <input type="number" class="form-control" min="1" value="@s.TeamNumber" @onchange="@(e => OnTeamNumberChanged(ParseId(e.Value)))" />
                         </div>
                         <div class="col-8">
+                            <label class="form-label">バトル形式 <Help Title="チームのバトル形式">そのチームで戦う形式（シングル・ダブル）です。あとから、チーム一覧で変えられます。チャットコマンドでは <code>add -t 番号 ID ダブル</code> や <code>set -t 番号 ダブル</code> で指定できます。</Help></label>
+                            <MudSelect T="string" Value="@(Convert.ToString(s.TeamFormat))" ValueChanged="@(v => s.TeamFormat = ParseFormat(v))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" aria-label="チームのバトル形式">
+                                <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Singles))">シングル</MudSelectItem>
+                                <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Doubles))">ダブル</MudSelectItem>
+                            </MudSelect>
+                        </div>
+                        <div class="col-12">
                             <label class="form-label">登録ポケモン</label>
                             <SearchableSelect TItem="RegisteredPokemon" Items="roster.Pokemon" DisplayText="@(e => $"#{e.Id} {e.PokemonName}（{e.Nature}）")" ValueSelector="@(e => e.Id.ToString())"
                                 SelectedValue="@(s.TeamEntryId == 0 ? "" : s.TeamEntryId.ToString())" SelectedValueChanged="@OnTeamEntryChanged" Dropdown="true" Placeholder="登録ポケモンを選ぶ...">
@@ -80,8 +87,12 @@ else if (data is not null && roster is not null && dataSet is not null)
                 var isActive = roster.ActiveTeam == team.Number;
                 <div class="card mb-3 @(isActive ? "border-primary" : "")">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">チーム@(team.Number) @(isActive ? "（使用中）" : "")</h5>
-                        <div>
+                        <h5 class="mb-0">チーム@(team.Number) @(isActive ? "（使用中）" : "") <span class="badge team-format @(team.BattleFormat == BattleFormat.Doubles ? "team-format-doubles" : "")">@TeamFormats.Label(team.BattleFormat)</span></h5>
+                        <div class="d-flex flex-wrap align-items-center gap-1">
+                            <MudSelect T="string" Value="@(Convert.ToString(team.BattleFormat))" ValueChanged="@(v => SetFormatAsync(team.Number, ParseFormat(v)))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select team-format-select" aria-label="@($"チーム{team.Number} のバトル形式")">
+                                <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Singles))">シングル</MudSelectItem>
+                                <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Doubles))">ダブル</MudSelectItem>
+                            </MudSelect>
                             @if (!isActive)
                             {
                                 <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="me-1" OnClick="@(() => UseTeamAsync(team.Number))">このチームを使用</MudButton>
@@ -123,6 +134,8 @@ else if (data is not null && roster is not null && dataSet is not null)
     {
         public string DataSetKey { get; set; } = "";
         public int TeamNumber { get; set; } = 1;
+        /// <summary>これから追加するチームのバトル形式（既にあるチーム番号を選ぶと、そのチームの形式になる）。</summary>
+        public BattleFormat TeamFormat { get; set; }
         public int TeamEntryId { get; set; }
         public Item? TeamItem { get; set; }
     }
@@ -147,6 +160,26 @@ else if (data is not null && roster is not null && dataSet is not null)
         }
     }
 
+    private static BattleFormat ParseFormat(string? value) => Enum.TryParse<BattleFormat>(value, out var f) ? f : BattleFormat.Singles;
+
+    /// <summary>チーム番号を変えたとき、既にあるチームなら、そのチームのバトル形式を入れる。</summary>
+    private void OnTeamNumberChanged(int number)
+    {
+        s.TeamNumber = Math.Max(1, number);
+        if (roster?.Teams.FirstOrDefault(t => t.Number == s.TeamNumber) is { } existing) s.TeamFormat = existing.BattleFormat;
+    }
+
+    private async Task SetFormatAsync(int teamNo, BattleFormat format)
+    {
+        await MutateAsync(async () =>
+        {
+            if (await Repo.SetTeamFormatAsync(App.DataSetKey, teamNo, format))
+                Show($"チーム{teamNo} を{TeamFormats.Label(format)}用にしました", false);
+            else
+                Toast.Warning($"チーム{teamNo} はありません（他の場所で削除された可能性があります）");
+        });
+    }
+
     private bool TeamEntryIsMega =>
         roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } entry && data?.FindPokemon(entry.PokemonId)?.FixedItemId is not null;
 
@@ -167,7 +200,7 @@ else if (data is not null && roster is not null && dataSet is not null)
     {
         await MutateAsync(async () =>
         {
-            var (team, _, replaced) = await Repo.AddToTeamAsync(App.DataSetKey, s.TeamNumber, s.TeamEntryId, s.TeamItem);
+            var (team, _, replaced) = await Repo.AddToTeamAsync(App.DataSetKey, s.TeamNumber, s.TeamEntryId, s.TeamItem, s.TeamFormat);
             Show($"チーム{team.Number} に{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）", false);
         });
     }
