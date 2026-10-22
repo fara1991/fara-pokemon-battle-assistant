@@ -103,6 +103,34 @@ public class EntryPagesTests
         Assert.Contains(".entry-static h1 {", css);
     }
 
+    [Fact]
+    public void Entry_pages_nav_has_no_bullets_and_no_default_blue_links()
+    {
+        // 起動前の見た目（素の青いリンク・箇条書きの記号）を出さない。リンクの色はアプリの primary（ライト・ダーク）に合わせる
+        var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        var nav = RuleBody(css, ".entry-static-nav ul {");
+        Assert.Contains("list-style: none;", nav);
+        Assert.Contains("grid-template-columns: repeat(2, minmax(0, 1fr));", nav);
+        Assert.Contains("color: #7c3aed;", RuleBody(css, ".entry-static-nav a {"));
+        Assert.Contains("text-decoration: none;", RuleBody(css, ".entry-static-nav a {"));
+        Assert.Contains("color: #a855f7;", RuleBody(css, "[data-bs-theme=\"dark\"] .entry-static-nav a {"));
+    }
+
+    [Fact]
+    public void Entry_pages_header_bar_is_the_same_height_as_the_app_header()
+    {
+        var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        Assert.Contains("height: 3.5rem;", RuleBody(css, ".entry-static-bar {"));
+        Assert.Contains("height: 3.5rem;", RuleBody(css, ".app-header.mud-appbar {"));
+    }
+
+    private static string RuleBody(string css, string selector)
+    {
+        var start = css.IndexOf(selector, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"CSS の規則が無い: {selector}");
+        return css[start..css.IndexOf('}', start)];
+    }
+
     private static int CountOccurrences(string text, string part)
     {
         var count = 0;

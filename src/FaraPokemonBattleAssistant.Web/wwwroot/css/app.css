@@ -765,10 +765,15 @@ body {
     color: var(--bs-body-color);
 }
 
+/* ヘッダーの帯は、起動後の .app-header（高さ 3.5rem・同じ地色）と同じ大きさにして、起動の前後で段がずれないようにする */
 .entry-static-bar {
+    box-sizing: border-box;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
     background: linear-gradient(90deg, #140a26 0%, #241243 100%);
     color: #fff;
-    padding: 0.9rem 1.25rem;
+    padding: 0 1.25rem;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
@@ -791,10 +796,28 @@ body {
     margin-bottom: 0.75rem;
 }
 
+/* リンクは、アプリのリンク（MudBlazor の primary）と同じ色・下線なし。箇条書きの記号は出さず、2 列に並べる（起動前の素の青いリンクを出さない） */
 .entry-static-nav ul {
-    margin-top: 1.25rem;
-    padding-left: 1.2rem;
-    columns: 2;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 1.5rem;
+}
+
+.entry-static-nav a {
+    color: #7c3aed;
+    text-decoration: none;
+}
+
+.entry-static-nav a:hover,
+.entry-static-nav a:focus-visible {
+    text-decoration: underline;
+}
+
+[data-bs-theme="dark"] .entry-static-nav a {
+    color: #a855f7;
 }
 
 .entry-static-note {
@@ -4280,9 +4303,9 @@ html.vt-nav .app-header {
     .site-footer-line > * { white-space: nowrap; }   /* 項目（リンク・サイト名・©）は途中で改行しない。折り返しは項目の間だけ */
 }
 /* SNS のアイコン（白い図形を、サービス色の地に置く）。.site-footer a（文字色・下線）より詳細度を上げ、色とホバーの文字色に負けないようにする */
-.site-footer a.site-footer-social { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--brand, #7c3aed); color: #fff; text-decoration: none; }
-.site-footer a.site-footer-social:hover { color: #fff; box-shadow: 0 3px 10px -3px var(--brand, #7c3aed); }
-.site-footer a.site-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed); outline-offset: 2px; }
+a.site-footer-social { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--brand, #7c3aed); color: #fff; text-decoration: none; }
+a.site-footer-social:hover { color: #fff; box-shadow: 0 3px 10px -3px var(--brand, #7c3aed); }
+a.site-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed); outline-offset: 2px; }
 
 /* 問い合わせ・プライバシーポリシー */
 .report-card, .policy-card { max-width: 46rem; }
@@ -4315,6 +4338,6 @@ html.vt-nav .app-header {
 
 @media (max-width: 575.98px) {
     .entry-static-nav ul {
-        columns: 1;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
