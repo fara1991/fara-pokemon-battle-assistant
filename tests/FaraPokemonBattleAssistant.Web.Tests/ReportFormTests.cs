@@ -1,6 +1,6 @@
 using System.Text.Json;
-using FaraPokemonBattleAssistant.Core;
 using FaraPokemonBattleAssistant.Web.Services;
+using FaraSiteKit.Core;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Web.Tests;

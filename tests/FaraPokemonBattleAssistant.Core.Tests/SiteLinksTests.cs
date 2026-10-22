@@ -1,4 +1,4 @@
-using FaraPokemonBattleAssistant.Core;
+using FaraSiteKit.Core;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Core.Tests;

@@ -3,6 +3,7 @@ using FaraPokemonBattleAssistant.Core.Roster;
 using FaraPokemonBattleAssistant.Core.Text;
 using FaraPokemonBattleAssistant.Web;
 using FaraPokemonBattleAssistant.Web.Services;
+using FaraSiteKit.Core;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
@@ -27,8 +28,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // 確認用サイトで開いているときだけ fara-labs.com へのリンクを確認用に切り替える（ホスト名は実行時に決まる）
 // 確認用のホスト名はこのサイトの値（kit の SiteLinks は既定では切り替えない）
-FaraPokemonBattleAssistant.Core.SiteLinks.DevelopHost = "pokemon-dev.fara-labs.com";
-FaraPokemonBattleAssistant.Core.SiteLinks.CurrentHost = new Uri(baseAddress).Host;
+SiteLinks.DevelopHost = "pokemon-dev.fara-labs.com";
+SiteLinks.CurrentHost = new Uri(baseAddress).Host;
 // シングルトンの DataCatalog から使うので、HttpClient もシングルトンにする
 // （Scoped だと Development 環境のスコープ検証で起動時に例外になる）
 builder.Services.AddSingleton(_ => new HttpClient { BaseAddress = new Uri(baseAddress) });
