@@ -38,6 +38,17 @@ jobs:
       - name: Publish web (sanity check)
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --no-build --output artifacts/web
 
+      - name: Build entry pages (sanity check)
+        run: node tools/build-entry-pages.mjs --env production --dir artifacts/web/wwwroot
+
+      - name: "入口ページの確認（ホームの HTML と canonical。/ で配られる home.html）"
+        run: |
+          test -f artifacts/web/wwwroot/home.html
+          grep -q '<link rel="canonical" href="https://pokemon.fara-labs.com/" />' artifacts/web/wwwroot/home.html
+          grep -q '<title>ホーム | Pokémon Battle Assistant</title>' artifacts/web/wwwroot/home.html
+          grep -q '<title>Pokémon Battle Assistant</title>' artifacts/web/wwwroot/index.html
+          ! grep -q 'entry-static' artifacts/web/wwwroot/index.html
+
       - name: Pack Core
         run: dotnet pack src/FaraPokemonBattleAssistant.Core --configuration Release --no-build --output artifacts/nuget
 
@@ -79,3 +90,9 @@ jobs:
 
       - name: Scroll progress test
         run: npm run test:scroll
+
+      - name: Entry pages test
+        run: npm run test:entry
+
+      - name: Home page (Worker) test
+        run: npm run test:home

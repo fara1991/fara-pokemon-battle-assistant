@@ -139,7 +139,7 @@ public class MaintenanceInfoTests
     {
         // データの更新をメンテナンス中に行えるように、/api/game/* も Worker を通す（通常はそのまま返し、メンテナンス中だけ 503）
         var text = File.ReadAllText(FindUp("wrangler.jsonc"));
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(text, @"""run_worker_first"": \[""/api/\*""\]").Count);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(text, @"""run_worker_first"": \[""/"", ""/api/\*""\]").Count);
         Assert.DoesNotContain("!/api/game/*", text);
         var js = File.ReadAllText(FindUp("worker/index.js"));
         var maintenance = js.IndexOf("maintenance.state === \"on\" && url.pathname.startsWith(\"/api/\")", StringComparison.Ordinal);

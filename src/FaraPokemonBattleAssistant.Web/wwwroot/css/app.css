@@ -756,6 +756,51 @@ body {
     gap: 1rem;
 }
 
+/* 入口ページの静的な本文（tools/build-entry-pages.mjs が #app の中に書く）。WebAssembly が起動すると Blazor が置き換える。
+   見た目は起動後のアプリに近づける（ヘッダーの帯・背景・カードの色は app-header と .card に合わせる） */
+/* 入口ページの静的な本文の色は、アプリの body と同じ変数（--app-body-bg・--bs-body-color。ライト・ダークの両方が定義されている） */
+.entry-static {
+    min-height: 100vh;
+    background: var(--app-body-bg);
+    color: var(--bs-body-color);
+}
+
+.entry-static-bar {
+    background: linear-gradient(90deg, #140a26 0%, #241243 100%);
+    color: #fff;
+    padding: 0.9rem 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.entry-static-body {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+    line-height: 1.8;
+}
+
+.entry-static-card {
+    background: var(--glass, rgba(255, 255, 255, 0.72));
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.entry-static h1 {
+    font-size: 1.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.entry-static-nav ul {
+    margin-top: 1.25rem;
+    padding-left: 1.2rem;
+    columns: 2;
+}
+
+.entry-static-note {
+    padding: 1rem;
+}
+
 /* ---- 努力値・ランク ---- */
 .ev-grid {
     display: flex;
@@ -4267,3 +4312,9 @@ html.vt-nav .app-header {
 .maintenance-screen p { color: #b4a7d1; margin: 0 0 0.5rem; }
 .maintenance-screen .maintenance-schedule { color: #f3edff; font-weight: 700; }
 .maintenance-twitter { display: inline-block; margin-top: 8px; padding: 8px 20px; border-radius: 99px; background: #7c3aed; color: #fff; text-decoration: none; font-weight: 700; }
+
+@media (max-width: 575.98px) {
+    .entry-static-nav ul {
+        columns: 1;
+    }
+}

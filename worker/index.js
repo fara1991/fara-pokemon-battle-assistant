@@ -52,6 +52,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { handleReport } from "./report.js";
 import { getMaintenance, maintenanceResponse } from "./maintenance.js";
+import { serveHome } from "./home.js";
 
 /** パス → 使えるメソッド。 */
 const ROUTES = {
@@ -345,6 +346,8 @@ function validateTeams(key, value, pokemonIds) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // トップページ（ホームの本文入りの home.html）。SPA のフォールバック（index.html）とは別に返す（worker/home.js）
+    if (url.pathname === "/") return serveHome(request, env);
     // メンテナンスの状態（Worker の変数 MAINTENANCE。worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
     const maintenance = getMaintenance(env);
     if (url.pathname === "/api/maintenance") {

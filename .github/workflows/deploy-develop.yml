@@ -42,6 +42,10 @@ jobs:
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
 
+      # 検索の入口ページの静的 HTML と robots.txt を作る（確認用のホスト名で canonical を付ける。sitemap.xml は作らない）
+      - name: Build entry pages (develop)
+        run: node tools/build-entry-pages.mjs --env develop
+
       # 確認用サイトが検索結果に載らないようにする
       - name: Add noindex header
         run: |
