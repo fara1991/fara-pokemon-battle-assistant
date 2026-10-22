@@ -7,6 +7,34 @@
     <title>Pokémon Battle Assistant</title>
     <!-- SEO-HEAD:END -->
     <base href="/" />
+    <!-- 起動までの読み込み表示（画面全体を覆う不透明なオーバーレイ）。最初に当てる（CSS の読み込み前にも本文が見えないように、インラインで書く）。
+         背景色は theme-init.js が決める data-bs-theme に従う（app.css の --app-body-bg と同じ色）。 -->
+    <style>
+        html, body { background: #f7f4fd; }
+        html[data-bs-theme="dark"], html[data-bs-theme="dark"] body { background: #0c0616; }
+        #boot-indicator {
+            position: fixed; inset: 0; z-index: 2147483000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.1rem;
+            box-sizing: border-box; padding: 1.5rem;
+            background: #f7f4fd; color: #3b2a5c;
+            font-family: "Zen Kaku Gothic New", "Yu Gothic", system-ui, sans-serif;
+        }
+        html[data-bs-theme="dark"] #boot-indicator { background: #0c0616; color: #e9e3f5; }
+        .boot-indicator-spinner {
+            width: 3rem; height: 3rem; box-sizing: border-box;
+            border: 0.3rem solid #7c3aed; border-right-color: transparent; border-radius: 50%;
+            animation: boot-indicator-spin 0.75s linear infinite;
+        }
+        html[data-bs-theme="dark"] .boot-indicator-spinner { border-color: #a855f7; border-right-color: transparent; }
+        .boot-indicator-label { font-size: 0.95rem; font-weight: 700; line-height: 1.6; text-align: center; max-width: 24rem; }
+        .boot-indicator-label:empty::before { content: "読み込み中…"; }
+        /* 時間がかかっているとき（再読み込みの案内）は、回転を止める */
+        #boot-indicator[data-state="slow"] .boot-indicator-spinner { animation: none; }
+        @keyframes boot-indicator-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .boot-indicator-spinner { animation: none; }
+        }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -14,14 +42,15 @@
     <link href="css/base.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <script src="js/theme-init.js"></script>
-    <!-- JavaScript が無いときは読み込み表示を出さない（本文だけが見える）。インラインの script は CSP で使えないので style で隠す -->
+    <!-- JavaScript が無いときは読み込み表示を出さない（静的な本文をそのまま読める）。インラインの script は CSP で使えないので style で隠す -->
     <noscript><style>#boot-indicator { display: none; }</style></noscript>
 </head>
 <body>
     <!-- 起動までの読み込み表示。#app の外に置く（Blazor が #app の中身を置き換えても残るので、js/boot-indicator.js が起動後に外す）。
+         静的な本文は、このオーバーレイの下に DOM として残す（検索エンジン・JavaScript が無い環境のため）。
          文言は CSS（:empty::before）で出すので、生の HTML の本文には入らない。読み上げは aria-label -->
     <div id="boot-indicator" class="boot-indicator">
-        <span class="boot-indicator-bar" aria-hidden="true"></span>
+        <div class="boot-indicator-spinner" aria-hidden="true"></div>
         <span class="boot-indicator-label" role="status" aria-live="polite" aria-label="読み込み中"></span>
     </div>
     <button type="button" id="scroll-top" class="scroll-top" aria-label="いちばん上へ" title="いちばん上へ">↑</button>

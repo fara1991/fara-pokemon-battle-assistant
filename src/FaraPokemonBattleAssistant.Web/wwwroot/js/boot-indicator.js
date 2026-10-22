@@ -2,7 +2,7 @@
 // - Blazor が #app に画面を描いたら外す（入口ページは #app の中に .entry-static の本文を置いているので、それ以外の子要素が出たら起動済み）。
 // - #blazor-error-ui が出たら外す（起動に失敗した。読み込み表示を出し続けない）。
 // - 一定時間（SLOW_MS）たっても描かれない、または blazor.webassembly.js の読み込みに失敗したら、
-//   「再読み込みしてください」の文言に切り替える（data-state="slow"。バーは止める）。
+//   「再読み込みしてください」の文言に切り替える（data-state="slow"。スピナーは止める）。
 // 通常の文言は生の HTML に入れず、CSS（.boot-indicator-label:empty::before）で出す。切り替えのときだけ JS が文字を入れる。
 // #app の外に置いてあるので、描画の後も残る（そのため、ここで外す）。
 (function () {

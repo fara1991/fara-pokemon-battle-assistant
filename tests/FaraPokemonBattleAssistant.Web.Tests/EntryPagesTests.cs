@@ -106,8 +106,8 @@ public class EntryPagesTests
         Assert.Contains("role=\"status\" aria-live=\"polite\"", html);
         Assert.DoesNotContain("loading-screen", html);
         // 文言は CSS（:empty::before）で出す。生の HTML の本文テキストには「読み込み中」を入れない（JS を実行しない取得でも見えないように）
-        Assert.DoesNotMatch(">[^<]*読み込み中", html);
-        Assert.Contains(".boot-indicator-label:empty::before", File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css")));
+        Assert.DoesNotMatch(">[^<]*読み込み中", html[html.IndexOf("<body>", StringComparison.Ordinal)..]);
+        Assert.Contains(".boot-indicator-label:empty::before", html);
         // 外部の js ファイルで外す（インライン script は CSP で使えない）。Blazor の起動より前に読む
         Assert.True(html.IndexOf("js/boot-indicator.js", StringComparison.Ordinal) < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
         Assert.True(File.Exists(Path.Combine(Web, "wwwroot", "js", "boot-indicator.js")));
@@ -116,15 +116,24 @@ public class EntryPagesTests
     }
 
     [Fact]
-    public void Boot_indicator_css_uses_primary_color_and_stops_for_reduced_motion()
+    public void Boot_overlay_is_inline_before_the_stylesheets_and_follows_the_theme()
     {
-        var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
-        Assert.Contains("background: #7c3aed;", RuleBody(css, ".boot-indicator-label {"));
-        Assert.Contains("color: #fff;", RuleBody(css, ".boot-indicator-label {"));
-        Assert.Contains("animation: boot-indicator-slide", RuleBody(css, ".boot-indicator-bar::after {"));
-        var reduced = css.IndexOf("@media (prefers-reduced-motion: reduce) {\n    .boot-indicator-bar::after {", StringComparison.Ordinal);
-        Assert.True(reduced >= 0, "prefers-reduced-motion で動きを止める規則がありません");
-        Assert.Contains("animation: none;", RuleBody(css[reduced..], ".boot-indicator-bar::after {"));
+        // 起動前のオーバーレイは CSS の読み込みを待たずに効くよう、head の最初のほうにインラインで書く（テーマは data-bs-theme で切り替える）
+        var html = File.ReadAllText(Path.Combine(Web, "wwwroot", "index.html"));
+        var style = html.IndexOf("<style>", StringComparison.Ordinal);
+        Assert.True(style >= 0 && style < html.IndexOf("<link href=\"_content/MudBlazor/MudBlazor.min.css\"", StringComparison.Ordinal));
+        var overlay = RuleBody(html, "#boot-indicator {");
+        Assert.Contains("position: fixed; inset: 0;", overlay);
+        Assert.Contains("background: #f7f4fd;", overlay);
+        Assert.Contains("background: #0c0616;", RuleBody(html, "html[data-bs-theme=\"dark\"] #boot-indicator {"));
+        Assert.Contains("border: 0.3rem solid #7c3aed;", RuleBody(html, ".boot-indicator-spinner {"));
+        Assert.Contains("border-color: #a855f7;", RuleBody(html, "html[data-bs-theme=\"dark\"] .boot-indicator-spinner {"));
+        Assert.Contains("content: \"読み込み中…\";", RuleBody(html, ".boot-indicator-label:empty::before {"));
+        // 再読み込みの案内（slow）と、動きを減らす設定では回転を止める
+        Assert.Contains("animation: none;", RuleBody(html, "#boot-indicator[data-state=\"slow\"] .boot-indicator-spinner {"));
+        var reduced = html.IndexOf("@media (prefers-reduced-motion: reduce) {", StringComparison.Ordinal);
+        Assert.True(reduced >= 0, "prefers-reduced-motion で回転を止める規則がありません");
+        Assert.Contains("animation: none;", RuleBody(html[reduced..], ".boot-indicator-spinner {"));
     }
 
     [Fact]
