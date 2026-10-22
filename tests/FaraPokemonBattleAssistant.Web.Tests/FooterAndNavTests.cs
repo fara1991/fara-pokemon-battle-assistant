@@ -65,10 +65,10 @@ public class FooterAndNavTests
     }
 
     [Fact]
-    public void Contact_page_has_no_author_card_and_uses_the_centered_column()
+    public void Contact_privacy_and_copyright_pages_use_the_centered_column()
     {
         // 「作者」「ほかの作品」の項目は削除済み（Twitter のリンクも、その中にあった）。
-        // 内容の列（見出し・カード）は page-column で、横の中央に置く（Copyright など、ほかのページには効かせない）
+        // 内容の列（見出し・カード）は page-column で、横の中央に置く（問い合わせ・プライバシー・権利表記の 3 ページ。ほかのページには効かせない）
         var report = Read(Path.Combine(Web, "Components", "Pages", "Report.razor"));
         Assert.DoesNotContain("ほかの作品", report);
         Assert.DoesNotContain("非公式", report);
@@ -80,6 +80,10 @@ public class FooterAndNavTests
         Assert.Contains("<div class=\"page-header page-column\">", privacy);
         Assert.Contains("<div class=\"pane-scroll page-pane\">", privacy);
         Assert.Contains("policy-card page-card", privacy);
+        var copyright = Read(Path.Combine(Web, "Components", "Pages", "Copyright.razor"));
+        Assert.Contains("<div class=\"page-header page-column\">", copyright);
+        Assert.Contains("<div class=\"pane-scroll page-pane\">", copyright);
+        Assert.Contains("policy-card page-card", copyright);
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
         Assert.Contains("margin-left: auto; margin-right: auto;", RuleBodyAt(css, ".page-column {"));
         Assert.Contains("scrollbar-gutter: stable both-edges;", RuleBodyAt(css, ".page-pane {"));   // 枠の中心と見出しの中心をそろえる（左右の余白が同じ）
