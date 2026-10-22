@@ -14,6 +14,7 @@
     "test:scroll": "node --test tests/js/scroll-progress.test.mjs",
     "test:boot": "node --test tests/js/boot-indicator.test.mjs",
     "test:entry": "node --test tools/build-entry-pages.test.mjs",
+    "test:search": "node --test tools/gen-search-index.test.mjs",
     "test:home": "node --test worker/home.test.mjs"
   },
   "devDependencies": {

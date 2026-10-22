@@ -98,6 +98,9 @@ jobs:
       - name: Entry pages test
         run: npm run test:entry
 
+      - name: Search index test
+        run: npm run test:search
+
       - name: Boot indicator test
         run: npm run test:boot
 
