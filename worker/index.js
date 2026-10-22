@@ -315,6 +315,8 @@ function validateTeams(key, value, pokemonIds) {
     if (!isId(t.Number)) invalid("invalid_team", `${key}.teams の Number は 1 以上の整数にしてください`);
     if (numbers.has(t.Number)) invalid("duplicate_team", `${key} にチーム${t.Number}が 2 つあります`);
     numbers.add(t.Number);
+    if (t.Format !== undefined && t.Format !== null && t.Format !== "Singles" && t.Format !== "Doubles")
+      invalid("invalid_team", `${key} のチーム${t.Number}の Format は "Singles" か "Doubles"（省略するとシングル）にしてください`);
     if (!Array.isArray(t.Slots)) invalid("invalid_team", `${key} のチーム${t.Number}の Slots は配列にしてください`);
     if (t.Slots.length === 0) invalid("empty_team", `${key} のチーム${t.Number}が 0 体です（空のチームは送らずに消してください）`);
     if (t.Slots.length > MAX_TEAM_SIZE)

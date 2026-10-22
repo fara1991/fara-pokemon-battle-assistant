@@ -18,7 +18,7 @@ public sealed class PokeCommandOptions
 /// <c>!pokech</c> / <c>!pokesv</c> / <c>!pokess</c> で始まるコマンド群。接頭辞でデータセットが決まる。
 /// <list type="bullet">
 /// <item><c>add -m 名前 H A B C D S 性格 [特性] [技]</c> 登録、<c>ls -m [名前]</c> 一覧、<c>detail -m ID</c> 詳細、<c>rm -m ID</c> 削除</item>
-/// <item><c>add -t 番号 ID [持ち物]</c>、<c>rm -t 番号 [名前]</c>、<c>use -t 番号</c>、<c>ls -t</c>、<c>detail -t 番号</c>、<c>help</c> 一覧</item>
+/// <item><c>add -t 番号 ID [持ち物] [シングル|ダブル]</c>、<c>set -t 番号 シングル|ダブル</c>、<c>rm -t 番号 [名前]</c>、<c>use -t 番号</c>、<c>ls -t</c>、<c>detail -t 番号</c>、<c>help</c> 一覧</item>
 /// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>scan 攻撃側 技±ランク 相手 受けたダメージ[%]</c> 相手の振り方の推定、<c>faster 自分 相手</c> 素早さ比較</item>
 /// </list>
 /// 使用チームに入っているポケモンは、その努力値・性格・特性・持ち物で計算される。
@@ -42,7 +42,7 @@ public sealed partial class PokeCommand
     public static string Usage(string prefix) =>
         $"!{prefix} の使い方\n" +
         "育成ポケモン(-m): add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID\n" +
-        "自分チーム(-t): add -t 番号 ID [持ち物] | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号\n" +
+        "自分チーム(-t): add -t 番号 ID [持ち物] [ダブル] | set -t 番号 シングル|ダブル | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号\n" +
         "相手チーム(-r): add -r 名前… | set -r 名前 … | ls -r | detail -r 名前 | rm -r 名前 | clear -r\n" +
         "対戦: dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | end [メモ]\n" +
         "履歴(-h): ls -h [名前] | detail -h ID | rm -h ID\n" +
@@ -75,7 +75,7 @@ public sealed partial class PokeCommand
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
         return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] [技] / set -m ID・名前 … / ls・detail・rm\n" +
-               "自分チーム(-t): add -t 番号 ID [持ち物] / use・unuse・ls・detail・rm\n" +
+               "自分チーム(-t): add -t 番号 ID [持ち物] [ダブル] / set -t 番号 シングル|ダブル / use・unuse・ls・detail・rm\n" +
                "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 持ち物 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除）\n" +
                "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了）\n" +
                "履歴(-h): ls・detail・rm\n" +
@@ -144,6 +144,7 @@ public sealed partial class PokeCommand
             case "add" when isTeam: return await AddTeamAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "add" when isPokemon: return await AddAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "add" when isRival: return await AddRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "set" when isTeam: return await SetTeamFormatAsync(ds, args, options, ct).ConfigureAwait(false);
             case "set" when isPokemon: return await SetMyAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "set" when isRival: return await SetRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "ls" when isRival: return await ListRivalsAsync(ds, data, ct).ConfigureAwait(false);
@@ -260,8 +261,10 @@ public sealed partial class PokeCommand
     private async Task<DamageCommandResult> AddTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
+        // 最後の言葉が「シングル」「ダブル」なら、チームのバトル形式の指定（持ち物の名前としては読まない）
+        args = TeamFormats.SplitTrailingFormat(args, 2, out var format);
         if (args.Count < 2 || !int.TryParse(args[0], out var teamNo) || !int.TryParse(args[1], out var entryId))
-            return Fail($"書式: !{ds.CommandPrefix} add -t チーム番号 登録ID [持ち物]");
+            return Fail($"書式: !{ds.CommandPrefix} add -t チーム番号 登録ID [持ち物] [シングル|ダブル]");
         Item? item = null;
         if (args.Count > 2)
         {
@@ -278,9 +281,21 @@ public sealed partial class PokeCommand
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == entryId);
         if (entry is null) return Fail($"登録ID {entryId} はありません");
-        var (team, _, replaced) = await _roster.AddToTeamAsync(ds.Key, teamNo, entryId, item, ct).ConfigureAwait(false);
+        var (team, _, replaced) = await _roster.AddToTeamAsync(ds.Key, teamNo, entryId, item, format, ct).ConfigureAwait(false);
         var itemText = item is null ? "持ち物なし" : $"@{item.Name}";
-        return Ok($"チーム{team.Number} に #{entry.Id} {entry.PokemonName}({itemText}) を{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）");
+        var formatText = team.BattleFormat == BattleFormat.Doubles ? "・ダブル" : "";
+        return Ok($"チーム{team.Number} に #{entry.Id} {entry.PokemonName}({itemText}) を{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6{formatText}）");
+    }
+
+    /// <summary><c>set -t 番号 シングル|ダブル</c>: チームのバトル形式を変える。</summary>
+    private async Task<DamageCommandResult> SetTeamFormatAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
+    {
+        if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
+        if (args.Count != 2 || !int.TryParse(args[0], out var teamNo) || !TeamFormats.TryParseWord(args[1], out var format))
+            return Fail($"書式: !{ds.CommandPrefix} set -t チーム番号 シングル|ダブル");
+        return await _roster.SetTeamFormatAsync(ds.Key, teamNo, format, ct).ConfigureAwait(false)
+            ? Ok($"チーム{teamNo} を{TeamFormats.Label(format)}用にしました")
+            : Fail($"チーム{teamNo} はありません");
     }
 
     private async Task<DamageCommandResult> RemoveTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
@@ -337,7 +352,8 @@ public sealed partial class PokeCommand
         {
             var names = t.Slots.Select(s => byId.TryGetValue(s.EntryId, out var p) ? p.PokemonName : $"#{s.EntryId}?");
             var active = roster.ActiveTeam == t.Number ? "(使用中)" : "";
-            return $"チーム{t.Number}{active}[{string.Join(",", names)}]";
+            var format = t.BattleFormat == BattleFormat.Doubles ? "(ダブル)" : "";
+            return $"チーム{t.Number}{active}{format}[{string.Join(",", names)}]";
         });
         return Ok($"{ds.Name}: " + string.Join(" ", parts));
     }
@@ -356,7 +372,8 @@ public sealed partial class PokeCommand
             return $"#{e.Id} {e.PokemonName}({NatureSpace(data, e.Nature)}{e.EVs.ToShortString()}){(item is null ? "" : "@" + item)}";
         });
         var active = roster.ActiveTeam == teamNo ? "(使用中)" : "";
-        return Ok($"チーム{teamNo}{active}: " + string.Join(" / ", parts));
+        var format = team.BattleFormat == BattleFormat.Doubles ? "(ダブル)" : "";
+        return Ok($"チーム{teamNo}{active}{format}: " + string.Join(" / ", parts));
     }
 
     // ------------------------------------------------------------------ 計算

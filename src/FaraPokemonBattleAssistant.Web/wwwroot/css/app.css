@@ -4178,6 +4178,10 @@ html.vt-nav .app-header {
 .slot-picker-btn small { color: var(--bs-secondary-color, #8b80a8); max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot-picker-btn.active { border-color: var(--bs-primary, #7c3aed); box-shadow: 0 0 0 1px var(--bs-primary, #7c3aed) inset; }
 
+/* 自分チーム: バトル形式（シングル・ダブル） */
+.team-format { background: #6b5f8a; color: #fff; font-weight: 600; margin-left: 0.4rem; vertical-align: middle; }
+.team-format-doubles { background: var(--bs-primary, #7c3aed); }
+.team-format-select { min-width: 7rem; }
 /* ダブルバトルのダメージ計算機: 2 体ずつの結果 */
 .calc-summary-row { padding: 0.45rem 0.1rem; border-bottom: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); }
 .calc-summary-row:last-child { border-bottom: 0; }

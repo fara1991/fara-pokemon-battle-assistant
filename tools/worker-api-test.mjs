@@ -102,7 +102,7 @@ try {
     got.json?.revision === 1 && same(got.json?.dataSets?.Champions?.pokemon, mons) && got.json?.dataSets?.Champions?.nextId === 4, got.text);
 
   // チームの PUT → GET（revision は共通）
-  const teams = [{ Number: 1, Slots: [slot(1, 275), slot(2)] }, { Number: 2, Slots: [slot(2)] }, { Number: 3, Slots: [slot(3)] }];
+  const teams = [{ Number: 1, Slots: [slot(1, 275), slot(2)] }, { Number: 2, Slots: [slot(2)], Format: "Doubles" }, { Number: 3, Slots: [slot(3)], Format: "Singles" }];
   const put2 = await req("PUT", T, key, { baseRevision: 1, dataSets: { champions: { teams, activeTeam: 2 } } });
   check("PUT my-team は 200 / revision 2（ゲームのキーは大文字小文字を区別しない）", put2.status === 200 && put2.json?.revision === 2, put2.text);
   const gotT = await req("GET", T, key);
@@ -129,6 +129,9 @@ try {
   await badTeam("存在しない使用中チーム", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeam: 5 } });
   await badTeam("同じチーム番号が 2 つ", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }, { Number: 1, Slots: [slot(2)] }], activeTeam: null } });
   await badTeam("同じポケモンが 2 回", { Champions: { teams: [{ Number: 1, Slots: [slot(1), slot(1)] }], activeTeam: null } });
+  await badTeam("知らないバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Triples" }], activeTeam: null } });
+  await badTeam("小文字のバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "doubles" }], activeTeam: null } });
+  await badTeam("文字列でないバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: 2 }], activeTeam: null } });
   await badTeam("空のチーム", { Champions: { teams: [{ Number: 1, Slots: [] }], activeTeam: null } });
   await badTeam("登録の無いゲームのチーム", { Gen9: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeam: null } });
   const r400 = await req("PUT", T, key, { baseRevision: 2, dataSets: { Champions: { teams: [{ Number: 1, Slots: [slot(99)] }], activeTeam: null } } });
