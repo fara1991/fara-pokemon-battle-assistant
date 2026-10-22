@@ -10,6 +10,8 @@
   "name": "fara-pokemon",
   "main": "worker/index.js",
   "compatibility_date": "2026-09-01",
+  // ダッシュボードで足した変数（MAINTENANCE・MAINTENANCE_MESSAGE など）を、公開（wrangler deploy）のたびに消さない
+  "keep_vars": true,
   "assets": {
     "directory": "./publish/wwwroot",
     "binding": "ASSETS",
@@ -33,6 +35,7 @@
     "develop": {
       // Worker 名（ダッシュボードで変更した名前に合わせる）
       "name": "fara-pokemon-dev",
+      "keep_vars": true,
       "assets": {
         "directory": "./publish/wwwroot",
         "binding": "ASSETS",

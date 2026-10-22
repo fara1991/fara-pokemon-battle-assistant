@@ -9,10 +9,22 @@ using Microsoft.JSInterop;
 using MudBlazor.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
+var baseAddress = builder.HostEnvironment.BaseAddress;
+
+// メンテナンスの状態（Worker の変数 MAINTENANCE。worker/maintenance.js）。読めなければ通常。
+// メンテナンス中（MAINTENANCE=true）は、アプリの代わりに、メンテナンス画面だけを動かす
+var maintenance = await MaintenanceInfo.LoadAsync(new HttpClient { BaseAddress = new Uri(baseAddress) });
+builder.Services.AddSingleton(maintenance);
+if (maintenance.State == MaintenanceState.On)
+{
+    builder.RootComponents.Add<MaintenanceScreen>("#app");
+    builder.RootComponents.Add<HeadOutlet>("head::after");
+    await builder.Build().RunAsync();
+    return;
+}
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-var baseAddress = builder.HostEnvironment.BaseAddress;
 // 確認用サイトで開いているときだけ fara-labs.com へのリンクを確認用に切り替える（ホスト名は実行時に決まる）
 FaraPokemonBattleAssistant.Core.SiteLinks.CurrentHost = new Uri(baseAddress).Host;
 // シングルトンの DataCatalog から使うので、HttpClient もシングルトンにする

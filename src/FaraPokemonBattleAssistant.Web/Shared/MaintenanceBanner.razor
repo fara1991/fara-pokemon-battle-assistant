@@ -1,0 +1,7 @@
+@* 「更新予定」のお知らせ（MAINTENANCE=notice のときだけ。Worker の変数 MAINTENANCE_MESSAGE の文を出す）。MAINTENANCE を false に戻すと消える *@
+@inject MaintenanceInfo Info
+
+@if (Info.State == MaintenanceState.Notice)
+{
+    <div class="maintenance-notice" role="status"><strong>お知らせ</strong> @Info.NoticeText</div>
+}

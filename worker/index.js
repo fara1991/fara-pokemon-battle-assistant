@@ -51,6 +51,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 import { handleReport } from "./report.js";
+import { getMaintenance, maintenanceResponse } from "./maintenance.js";
 
 /** パス → 使えるメソッド。 */
 const ROUTES = {
@@ -352,6 +353,15 @@ export default {
       passed.headers.set("X-Worker-Fallback", "assets");
       return passed;
     }
+    // メンテナンスの状態（Worker の変数 MAINTENANCE。worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
+    const maintenance = getMaintenance(env);
+    if (url.pathname === "/api/maintenance") {
+      return new Response(JSON.stringify({ state: maintenance.state, message: maintenance.message }), {
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
+    // メンテナンス中は、API（登録データ・報告など）も 503 にする
+    if (maintenance.state === "on") return maintenanceResponse(request, maintenance, "Pokémon Battle Assistant");
     // 作者への報告の受け口（登録データとは別。worker/report.js）
     if (url.pathname === "/api/report" || url.pathname === "/api/report/config") {
       try {
