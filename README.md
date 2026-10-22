@@ -205,7 +205,7 @@ npm run test:worker                                      # データ共有 API�
 
 ## 公開（Cloudflare Workers）
 
-`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/`（ホームの本文入りの `home.html`。`worker/home.js`）と `/api/*`（登録データの API `/api/my/*`・報告・メンテナンスの状態・ゲームデータ `/api/game/*`）だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/", "/api/*"]`）。存在しない URL は `index.html`（汎用の title と読み込み表示だけ。ホームの本文は入れない）を返します。入口ページの静的 HTML（`tools/build-entry-pages.mjs` が作る。`battle-terms.html` など）は、`publish:web` と `deploy*.yml` の publish の後に作ります（`--dir` は publish の出力の `wwwroot`）。ゲームデータは、通常は静的アセットをそのまま返し、メンテナンス中（Worker の変数 `MAINTENANCE=true`）だけ `503` にします。
+`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/`（ホームの本文入りの `home.html`。`worker/home.js`）と `/api/*`（登録データの API `/api/my/*`・報告・メンテナンスの状態・ゲームデータ `/api/game/*`）だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/", "/api/*"]`）。存在しない URL は `index.html`（汎用の title と読み込み表示だけ。ホームの本文は入れない）を返します。入口ページの静的 HTML（`tools/build-entry-pages.mjs` が作る。`battle-terms.html` など）と `_headers`（CSP）は、`publish:web` と `deploy*.yml` の publish の後に作ります（`--dir` は publish の出力の `wwwroot`）。作り方は fara-site-kit（`external/fara-site-kit/build`・`csp`）、サイトの設定は `tools/site.json`、入口ページの本文は `tools/entry-body.mjs`、文言は `tools/entry-pages.json`。ゲームデータは、通常は静的アセットをそのまま返し、メンテナンス中（Worker の変数 `MAINTENANCE=true`）だけ `503` にします。
 手動で公開し直すときは **Actions → Deploy to Cloudflare Workers → Run workflow**。
 
 `develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-dev`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。

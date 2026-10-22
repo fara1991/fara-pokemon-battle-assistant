@@ -1,192 +1,151 @@
-// 入口ページの静的 HTML の生成（tools/build-entry-pages.mjs）の確認。
+// 入口ページの静的 HTML・robots.txt・sitemap.xml・_headers の生成（tools/build-entry-pages.mjs）の確認。
 //   node --test tools/build-entry-pages.test.mjs
+// 作り方そのもの（head・区切り・CSP の形）は kit の検査（external/fara-site-kit/tests）が見る。ここでは pokemon の入力と、呼び出しの配線を見る。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-    SITES, buildBody, buildHead, pageFile, pageUrl, renderPage, renderRobots, renderSitemap, run, validatePages,
-    HEAD_START, HEAD_END, BODY_START, BODY_END,
-} from "./build-entry-pages.mjs";
+import { run, validateEntries, toKitPages } from "./build-entry-pages.mjs";
+import { buildBody, escapeHtml } from "./entry-body.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pages = JSON.parse(readFileSync(join(here, "entry-pages.json"), "utf8"));
-const origin = SITES.production;
-
-/** テンプレートは実物の wwwroot/index.html（dotnet publish が出す元。区切りや読み込み表示がずれないように、そのまま読む） */
+const site = JSON.parse(readFileSync(join(here, "site.json"), "utf8"));
+// テンプレートは Blazor の wwwroot/index.html（dotnet publish の元。区切りや読み込み表示がずれないように、そのまま読む）
 const TEMPLATE = readFileSync(join(here, "..", "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "index.html"), "utf8");
 const BOOT_INDICATOR = 'id="boot-indicator"';
 
 const battleTerms = pages.find((p) => p.route === "battle-terms");
-const home = pages.find((p) => p.route === "");
 
-test("ホームは home.html（Worker が / で返す）、そのほかは <route>.html（拡張子なしの URL で配られる）", () => {
-    assert.equal(pageFile(""), "home.html");
-    assert.equal(pageFile("battle-terms"), "battle-terms.html");
-    assert.equal(pageUrl(origin, ""), "https://pokemon.fara-labs.com/");
-    assert.equal(pageUrl(origin, "battle-terms"), "https://pokemon.fara-labs.com/battle-terms");
+/** 一時フォルダに、テンプレートを index.html として置いて run() を実行し、出力の名前 → 中身 を返す。 */
+/** HTML のページ（読み込み表示・起動前の覆いを確かめる対象）だけ。 */
+function htmlOutputs(outputs) {
+    return [...outputs.entries()].filter(([name]) => name.endsWith(".html")).map(([, html]) => html);
+}
+
+function generate(env) {
+    const dir = mkdtempSync(join(tmpdir(), `entry-pages-${env}-`));
+    writeFileSync(join(dir, "index.html"), TEMPLATE);
+    const written = run({ dir, env });
+    const out = new Map(readdirSync(dir).sort().map((name) => [name, readFileSync(join(dir, name), "utf8")]));
+    return { dir, written, out };
+}
+
+const prod = generate("production");
+const dev = generate("develop");
+
+test("ホームは home.html（Worker が / で返す）、そのほかは <route>.html。kit の path は / と /<route>", () => {
+    assert.ok(prod.out.has("home.html"));
+    assert.ok(prod.out.has("battle-terms.html"));
+    assert.deepEqual(toKitPages(pages).map((p) => p.path).slice(0, 2), ["/", "/damage-calculator"]);
 });
 
-test("title と description、canonical・OGP の値が入る（ホームも、/ で返すので canonical を付ける）", () => {
-    const head = buildHead(battleTerms, origin);
-    assert.match(head, /<title>用語・略語 \| Pokémon Battle Assistant<\/title>/);
-    assert.match(head, /<meta name="description" content="ポケモン対戦で使う略語/);
-    assert.match(head, /<link rel="canonical" href="https:\/\/pokemon\.fara-labs\.com\/battle-terms" \/>/);
-    assert.match(head, /<meta property="og:url" content="https:\/\/pokemon\.fara-labs\.com\/battle-terms" \/>/);
-    assert.match(head, /<meta property="og:locale" content="ja_JP" \/>/);
-    assert.match(head, /<meta name="twitter:card" content="summary" \/>/);
-
-    const homeHead = buildHead(home, origin);
-    assert.match(homeHead, /<link rel="canonical" href="https:\/\/pokemon\.fara-labs\.com\/" \/>/);
-    assert.match(homeHead, /<meta property="og:url" content="https:\/\/pokemon\.fara-labs\.com\/" \/>/);
+test("production: canonical と title は本番のホスト。develop は確認用のホスト（noindex なので、正規の URL も確認用）", () => {
+    assert.match(prod.out.get("battle-terms.html"), /<link rel="canonical" href="https:\/\/pokemon\.fara-labs\.com\/battle-terms" \/>/);
+    assert.match(prod.out.get("home.html"), /<link rel="canonical" href="https:\/\/pokemon\.fara-labs\.com\/" \/>/);
+    assert.match(dev.out.get("battle-terms.html"), /<link rel="canonical" href="https:\/\/pokemon-dev\.fara-labs\.com\/battle-terms" \/>/);
+    assert.match(prod.out.get("battle-terms.html"), /<title>用語・略語 \| Pokémon Battle Assistant<\/title>/);
 });
 
-test("属性と本文の文字は HTML としてエスケープする", () => {
-    const tricky = { ...battleTerms, title: 'a"<b>&', description: "x<script>&\"", heading: "<h>", paragraphs: ["<i>&"] };
-    const head = buildHead(tricky, origin);
-    assert.doesNotMatch(head, /<script>/);
-    assert.match(head, /a&quot;&lt;b&gt;&amp;/);
+test("本文（entry-body）: 属性と本文の文字はエスケープし、段落と主なページへのリンクを入れる", () => {
+    const tricky = { ...battleTerms, heading: "<h>", paragraphs: ["<i>&"] };
     const body = buildBody(tricky, pages);
     assert.match(body, /<h1>&lt;h&gt;<\/h1>/);
     assert.match(body, /<p>&lt;i&gt;&amp;<\/p>/);
-});
-
-test("本文に要約の段落と、主なページへのリンクが入る（JavaScript が無くても読める）", () => {
-    const body = buildBody(battleTerms, pages);
-    for (const text of battleTerms.paragraphs) assert.ok(body.includes(text.replace(/&/g, "&amp;")));
-    assert.match(body, /<h1>用語・略語<\/h1>/);
-    for (const p of pages) assert.ok(body.includes(`href="${p.route === "" ? "/" : `/${p.route}`}"`), p.route);
-    assert.match(body, /<noscript>/);
+    assert.equal(escapeHtml('a"<b>&'), "a&quot;&lt;b&gt;&amp;");
+    const plain = buildBody(battleTerms, pages);
+    for (const text of battleTerms.paragraphs) assert.ok(plain.includes(escapeHtml(text)));
+    for (const p of pages) assert.ok(plain.includes(`href="${p.route === "" ? "/" : `/${p.route}`}"`), p.route);
+    assert.match(plain, /<noscript>/);
     // list-style: none で list の意味が消えるため（Safari・VoiceOver）、ul に role="list" を付ける
-    assert.match(body, /<ul role="list">/);
+    assert.match(plain, /<ul role="list">/);
 });
 
-test("テンプレートの区切りの間だけを書き換え、区切りと #app・Blazor の読み込みは残す", () => {
-    const html = renderPage(TEMPLATE, battleTerms, pages, origin);
-    assert.match(html, /<title>用語・略語/);
-    assert.match(html, /<main class="entry-static" data-route="battle-terms">/);
-    assert.ok(html.includes(BODY_START) && html.includes(BODY_END));
-    assert.ok(html.includes(HEAD_START) && html.includes(HEAD_END));
-    assert.match(html, /_framework\/blazor\.webassembly\.js/);
-    assert.match(html, /<base href="\/" \/>/);
+test("テンプレートの区切りの中だけを書き換え、#app・Blazor の読み込みは残す", () => {
+    for (const html of [prod.out.get("battle-terms.html"), prod.out.get("home.html")]) {
+        assert.match(html, /<main class="entry-static" data-route="/);
+        assert.match(html, /_framework\/blazor\.webassembly\.js/);
+        assert.match(html, /<base href="\/" \/>/);
+    }
 });
 
-test("読み込み表示（#boot-indicator）は #app の外・本文の前に 1 つだけあり、本文（main）の中には入らない", () => {
-    const outputs = [
-        ...pages.map((p) => renderPage(TEMPLATE, p, pages, origin)),
-        TEMPLATE,   // SPA のフォールバック（index.html。本文は空で、Blazor が描く）
-    ];
-    for (const html of outputs) {
+test("読み込み表示（#boot-indicator）は #app の外・本文の前に 1 つだけ（本文の中には入らない）", () => {
+    for (const html of htmlOutputs(prod.out)) {
         assert.equal(html.split(BOOT_INDICATOR).length - 1, 1);
         const indicator = html.indexOf(BOOT_INDICATOR);
         assert.ok(indicator < html.indexOf('<div id="app">'), "#app より前（#app の外）にある");
         const main = html.indexOf("<main");
         if (main >= 0) {
             assert.ok(indicator < main, "本文より前にある");
-            const mainEnd = html.indexOf("</main>", main);
-            assert.doesNotMatch(html.slice(main, mainEnd), /読み込み中|boot-indicator/, "本文の中に入らない");
+            assert.doesNotMatch(html.slice(main, html.indexOf("</main>", main)), /読み込み中|boot-indicator/);
         }
-        // 文言は CSS（:empty::before）で出すので、生の HTML の本文テキスト（タグの外）には「読み込み中」が無い（JS を実行しない取得でも見えない）
-        const bodyText = html.slice(html.indexOf("<body>")).replace(/<[^>]*>/g, "");
-        assert.doesNotMatch(bodyText, /読み込み中/);
     }
 });
 
-test("読み込み表示は、JavaScript が無いとき隠れる（noscript の style）と、起動後に外す js（boot-indicator.js）が Blazor より前に読まれる", () => {
-    const html = renderPage(TEMPLATE, battleTerms, pages, origin);
-    assert.match(html, /<noscript><style>#boot-indicator \{ display: none; \}<\/style><\/noscript>/);
-    const script = html.indexOf('src="js/boot-indicator.js"');
-    assert.ok(script > html.indexOf('<div id="app">'), "#app の後ろで読む（#app が無いと外せない）");
-    assert.ok(script < html.indexOf("_framework/blazor.webassembly.js"), "Blazor の起動より前に監視を始める");
-    assert.match(html, /role="status" aria-live="polite"/);
-});
-
-test("起動前のオーバーレイのスタイルはインラインで、どの出力でも最初の stylesheet より前にある（CSS の読み込み前にも本文を隠す）", () => {
-    const outputs = [...pages.map((p) => renderPage(TEMPLATE, p, pages, origin)), TEMPLATE];
-    for (const html of outputs) {
+test("起動前のオーバーレイのスタイルはインラインで、最初の stylesheet より前にある。inert は直接書かない", () => {
+    for (const html of htmlOutputs(prod.out)) {
         const style = html.indexOf("<style>");
-        assert.ok(style >= 0, "インラインの style がある");
-        assert.ok(html.indexOf("#boot-indicator {") > style);
-        assert.ok(style < html.indexOf('<link href="_content/MudBlazor/MudBlazor.min.css"'), "最初の stylesheet より前");
-        assert.match(html, /html\[data-bs-theme="dark"\] #boot-indicator \{ background: #0c0616;/);
-        assert.match(html, /#boot-indicator \{[^}]*background: #f7f4fd;/);
-        assert.match(html, /\.boot-indicator-label:empty::before \{/);
-        // 保険: JS が動かなくても 60 秒で隠れる（CSS）。テンプレートに inert は直接書かない（JS が付けて外す）
+        assert.ok(style >= 0 && style < html.indexOf('<link href="_content/MudBlazor/MudBlazor.min.css"'));
         assert.match(html, /animation: boot-indicator-release 0s linear 60s forwards;/);
         assert.doesNotMatch(html, /inert/);
     }
 });
 
-test("同じテンプレートから何度作っても同じ結果（区切りが残るので、作り直しても崩れない）", () => {
-    const once = renderPage(TEMPLATE, battleTerms, pages, origin);
-    const twice = renderPage(once, battleTerms, pages, origin);
-    assert.equal(twice, once);
-});
-
-test("区切りが無いテンプレートは、作らずに失敗する", () => {
-    assert.throws(() => renderPage("<html></html>", home, pages, origin), /区切り/);
-    assert.throws(() => renderPage(TEMPLATE.replace(BODY_END, BODY_END + BODY_END), home, pages, origin), /区切り/);
-});
-
-test("robots.txt: 本番は Sitemap の行と個人のページの Disallow。確認用は Sitemap も Disallow も付けない", () => {
-    const prod = renderRobots("production", origin);
-    assert.match(prod, /^User-agent: \*$/m);
-    assert.match(prod, /^Disallow: \/my-$/m);
-    assert.match(prod, /^Disallow: \/api\/my\/$/m);
-    assert.match(prod, /^Sitemap: https:\/\/pokemon\.fara-labs\.com\/sitemap\.xml$/m);
-    // /api/game（ゲームデータ）は、ページの描画に使うので止めない
-    assert.doesNotMatch(prod, /api\/game/);
-
-    const dev = renderRobots("develop", SITES.develop);
-    assert.doesNotMatch(dev, /Sitemap:/);
-    assert.doesNotMatch(dev, /Disallow/);
-});
-
-test("sitemap.xml は入口ページの正規の URL だけを並べる", () => {
-    const xml = renderSitemap(pages, origin);
-    assert.match(xml, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
-    assert.equal((xml.match(/<url>/g) || []).length, pages.length);
-    assert.match(xml, /<loc>https:\/\/pokemon\.fara-labs\.com\/<\/loc>/);
-    assert.match(xml, /<loc>https:\/\/pokemon\.fara-labs\.com\/battle-terms<\/loc>/);
-    assert.doesNotMatch(xml, /\.html|my-|data-share|glossary/);
-});
-
-test("入口ページの一覧の確認: 重複・不正なルート・空の項目は失敗する", () => {
-    assert.doesNotThrow(() => validatePages(pages));
-    assert.throws(() => validatePages([...pages, battleTerms]), /重複/);
-    assert.throws(() => validatePages([{ ...battleTerms, route: "battle/terms" }]), /ルート/);
-    assert.throws(() => validatePages([{ ...battleTerms, route: "Battle" }]), /ルート/);
-    assert.throws(() => validatePages([{ ...battleTerms, title: " " }]), /title/);
-    assert.throws(() => validatePages([{ ...battleTerms, paragraphs: [] }]), /paragraphs/);
-    assert.throws(() => validatePages([{ ...battleTerms, description: "あ".repeat(151) }]), /長すぎ/);
-});
-
-test("run: 本番は各ページ・robots.txt・sitemap.xml を書き、確認用は sitemap.xml を書かない", () => {
-    const dir = mkdtempSync(join(tmpdir(), "entry-pages-"));
-    writeFileSync(join(dir, "index.html"), TEMPLATE);
-    const written = run({ dir, env: "production" });
-    assert.deepEqual(written, [...pages.map((p) => pageFile(p.route)), "index.html"]);
-    assert.ok(existsSync(join(dir, "battle-terms.html")));
-    assert.ok(existsSync(join(dir, "sitemap.xml")));
-    assert.ok(existsSync(join(dir, "robots.txt")));
-    assert.ok(!existsSync(join(dir, "glossary.html")), "旧 URL のファイルは作らない（転送を妨げない）");
-    // ホームの本文は home.html。index.html（SPA のフォールバック）は汎用の title と読み込み表示だけ
-    assert.match(readFileSync(join(dir, "home.html"), "utf8"), /<title>ホーム/);
-    const fallback = readFileSync(join(dir, "index.html"), "utf8");
+test("SPA のフォールバック（index.html）は汎用の title と読み込み表示だけ（ホームの本文・説明を出さない）", () => {
+    const fallback = prod.out.get("index.html");
     assert.match(fallback, /<title>Pokémon Battle Assistant<\/title>/);
     assert.doesNotMatch(fallback, /ホーム|entry-static|description/);
     assert.match(fallback, /id="boot-indicator"/);
+});
 
-    const devDir = mkdtempSync(join(tmpdir(), "entry-pages-dev-"));
-    writeFileSync(join(devDir, "index.html"), TEMPLATE);
-    run({ dir: devDir, env: "develop" });
-    assert.ok(existsSync(join(devDir, "battle-terms.html")));
-    assert.ok(!existsSync(join(devDir, "sitemap.xml")));
-    const devHtml = readFileSync(join(devDir, "battle-terms.html"), "utf8");
-    assert.match(devHtml, /https:\/\/pokemon-dev\.fara-labs\.com\/battle-terms/);
-    assert.ok(readdirSync(devDir).length >= pages.length + 1);
+test("robots.txt: 本番は Sitemap と個人のページの Disallow。確認用は Disallow も Sitemap も付けない（noindex のヘッダーで止める）", () => {
+    const robots = prod.out.get("robots.txt");
+    assert.match(robots, /^Disallow: \/my-$/m);
+    assert.match(robots, /^Disallow: \/api\/my\/$/m);
+    assert.match(robots, /^Sitemap: https:\/\/pokemon\.fara-labs\.com\/sitemap\.xml$/m);
+    assert.doesNotMatch(robots, /api\/game/);
+    assert.equal(dev.out.get("robots.txt"), "User-agent: *\nAllow: /\n");
+});
+
+test("sitemap.xml は本番だけ。入口ページの正規の URL だけを並べる", () => {
+    const xml = prod.out.get("sitemap.xml");
+    assert.equal((xml.match(/<url>/g) || []).length, pages.length);
+    assert.match(xml, /<loc>https:\/\/pokemon\.fara-labs\.com\/battle-terms<\/loc>/);
+    assert.doesNotMatch(xml, /\.html|my-|data-share/);
+    assert.ok(!dev.out.has("sitemap.xml"));
+});
+
+test("_headers: 本番の CSP に Cloudflare・Turnstile・Google Fonts の配信元が入り、script の 'unsafe-inline' は無い。確認用は noindex を付ける", () => {
+    const headers = prod.out.get("_headers");
+    assert.match(headers, /script-src 'self' 'wasm-unsafe-eval' https:\/\/static\.cloudflareinsights\.com https:\/\/challenges\.cloudflare\.com;/);
+    assert.match(headers, /style-src 'self' 'unsafe-inline' https:\/\/fonts\.googleapis\.com;/);
+    assert.match(headers, /font-src 'self' https:\/\/fonts\.gstatic\.com;/);
+    assert.match(headers, /img-src 'self' data: https:\/\/raw\.githubusercontent\.com;/);
+    const csp = /^\s*Content-Security-Policy: (.*)$/m.exec(headers)?.[1] ?? "";
+    assert.ok(csp.includes("script-src"), "CSP の行がある");
+    assert.doesNotMatch(csp, /script-src[^;]*'unsafe-inline'/);
+    assert.match(dev.out.get("_headers"), /X-Robots-Tag: noindex/);
+    assert.doesNotMatch(headers, /X-Robots-Tag/);
+    assert.equal(site.csp.scriptSrc.length, 2);
+});
+
+test("同じフォルダで作り直しても同じ結果（出力の index.html を次の実行のテンプレートにしても崩れない）", () => {
+    const again = run({ dir: prod.dir, env: "production" });
+    assert.deepEqual(again, prod.written);
+    for (const name of prod.written) {
+        assert.equal(readFileSync(join(prod.dir, name), "utf8"), prod.out.get(name), name);
+    }
+});
+
+test("入口ページの一覧の確認: 重複・不正なルート・空の項目は失敗する", () => {
+    assert.doesNotThrow(() => validateEntries(pages));
+    assert.throws(() => validateEntries([...pages, battleTerms]), /重複/);
+    assert.throws(() => validateEntries([{ ...battleTerms, route: "battle/terms" }]), /ルート/);
+    assert.throws(() => validateEntries([{ ...battleTerms, route: "Battle" }]), /ルート/);
+    assert.throws(() => validateEntries([{ ...battleTerms, title: " " }]), /title/);
+    assert.throws(() => validateEntries([{ ...battleTerms, paragraphs: [] }]), /paragraphs/);
 });
 
 test("run: 不正な --env と、index.html が無いフォルダは失敗する", () => {
@@ -195,8 +154,7 @@ test("run: 不正な --env と、index.html が無いフォルダは失敗する
     assert.throws(() => run({ dir, env: "production" }), /index\.html/);
 });
 
-test("CI・deploy・package.json の --dir（省略時は publish/wwwroot）は、直前の dotnet publish の出力の wwwroot と一致する", () => {
-    // 一時フォルダでの run() の確認では、CI の呼び方の誤り（artifacts/web を渡して wwwroot を渡さない）を見つけられなかった。ここで確かめる
+test("CI・deploy・package.json の build-entry-pages の呼び出しは、直前の dotnet publish の出力の wwwroot を渡している", () => {
     const files = [".github/workflows/build.yml", ".github/workflows/deploy.yml", ".github/workflows/deploy-develop.yml", "package.json"];
     let checked = 0;
     for (const file of files) {
@@ -211,8 +169,7 @@ test("CI・deploy・package.json の --dir（省略時は publish/wwwroot）は�
                 }
             }
             assert.ok(publishOutput, `${file}:${i + 1} の前に dotnet publish（出力先）がありません`);
-            const expected = `${publishOutput}/wwwroot`;
-            assert.equal(dirArg.replace(/\\/g, "/").replace(/\/$/, ""), expected, `${file}:${i + 1} の --dir が publish の出力と違います`);
+            assert.equal(dirArg.replace(/\\/g, "/").replace(/\/$/, ""), `${publishOutput}/wwwroot`, `${file}:${i + 1} の --dir が publish の出力と違います`);
             checked++;
         });
     }

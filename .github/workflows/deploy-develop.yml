@@ -48,7 +48,7 @@ jobs:
       - name: Build entry pages (develop)
         run: node tools/build-entry-pages.mjs --env develop
 
-      # 確認用サイトが検索結果に載らないようにする
+      # 確認用サイトが検索結果に載らないようにする。kit が X-Robots-Tag: noindex を入れるが、従来どおり nofollow も付けるため、ここで追記する
       - name: Add noindex header
         run: |
           cat >> publish/wwwroot/_headers <<'HEADERS'

@@ -98,6 +98,9 @@ jobs:
       - name: Entry pages test
         run: npm run test:entry
 
+      - name: Kit build and CSP test (pokemon の出力と同じ・_headers の形)
+        run: npm run test:kit
+
       - name: Search index test
         run: npm run test:search
 
