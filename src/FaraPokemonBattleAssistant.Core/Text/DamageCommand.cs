@@ -623,9 +623,9 @@ public sealed class DamageCommand
         type = null;
         const string word = "てらす";
         string? rest = null;
-        if (n.StartsWith(word)) rest = n[word.Length..];
-        else if (n.EndsWith(word)) rest = n[..^word.Length];
-        else if (n.StartsWith("tera")) rest = n[4..];
+        if (n.StartsWith(word, StringComparison.Ordinal)) rest = n[word.Length..];
+        else if (n.EndsWith(word, StringComparison.Ordinal)) rest = n[..^word.Length];
+        else if (n.StartsWith("tera", StringComparison.Ordinal)) rest = n[4..];
         else return false;
         rest = rest.TrimStart(':', '：', 'た', 'る');
         if (rest.Length == 0) return true;

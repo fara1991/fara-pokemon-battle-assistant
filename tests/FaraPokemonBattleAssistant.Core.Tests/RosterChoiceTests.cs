@@ -60,7 +60,7 @@ public class RosterChoiceTests
         var data = await TestData.Catalog().GetDataSetAsync("Champions");
         var charizard = data.Pokemon.First(p => p.Name == "リザードン");
         var forms = RosterRepository.MegaFormsOf(data, charizard);
-        Assert.Equal(new[] { "メガリザードンX", "メガリザードンY" }, forms.Select(f => f.Name).OrderBy(n => n));
+        Assert.Equal(new[] { "メガリザードンX", "メガリザードンY" }, forms.Select(f => f.Name).OrderBy(n => n, StringComparer.Ordinal));
         Assert.Empty(RosterRepository.MegaFormsOf(data, forms[0]));   // メガシンカ後の姿からは、さらに切り替えない
 
         var nature = data.Natures.First();

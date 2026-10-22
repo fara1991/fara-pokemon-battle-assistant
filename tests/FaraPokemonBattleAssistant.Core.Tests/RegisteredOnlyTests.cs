@@ -96,7 +96,7 @@ public class RegisteredOnlyTests
     public async Task Registered_mega_pokemon_holds_its_mega_stone()
     {
         var data = await TestData.Catalog().GetDataSetAsync("Champions");
-        var mega = data.Pokemon.First(p => p.IsMega && p.Name.StartsWith("メガメタグロス"));
+        var mega = data.Pokemon.First(p => p.IsMega && p.Name.StartsWith("メガメタグロス", StringComparison.Ordinal));
         var repo = new RosterRepository(new MemoryRosterStore());
         await repo.AddPokemonAsync("Champions", mega, new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
         var command = new PokeCommand(TestData.Catalog(), repo);

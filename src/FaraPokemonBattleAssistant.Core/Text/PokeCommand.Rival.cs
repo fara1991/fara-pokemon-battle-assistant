@@ -583,7 +583,7 @@ public sealed partial class PokeCommand
         var (attackerError, attackerProvider) = await ResolveRegisteredAttackerAsync(ds, data, "scan", args, provider, ct).ConfigureAwait(false);
         if (attackerError is not null) return Fail(attackerError);
         provider = attackerProvider;
-        if (args.Count > 0 && typedAttacker != args[0] && scanText.StartsWith(typedAttacker)) scanText = args[0] + scanText[typedAttacker.Length..];
+        if (args.Count > 0 && typedAttacker != args[0] && scanText.StartsWith(typedAttacker, StringComparison.Ordinal)) scanText = args[0] + scanText[typedAttacker.Length..];
         if (args.Count > 0 && RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
         // 防御側は相手なので、登録の構成は攻撃側だけに適用する
         Func<Pokemon, bool, PokemonBuild?> attackerOnly = (p, isAttacker) => isAttacker ? provider(p, true) : null;

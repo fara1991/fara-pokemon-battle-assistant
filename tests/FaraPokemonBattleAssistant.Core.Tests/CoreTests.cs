@@ -301,7 +301,7 @@ public class DataAndCommandTests
         var data = await TestData.Catalog().GetDataSetAsync("Champions");
         Assert.DoesNotContain(data.Pokemon, p => p.IsProvisional);
         Assert.Contains(data.Pokemon, p => p.Name == "イエッサン(♀)");
-        Assert.True(data.Pokemon.Count(p => p.Name.StartsWith("メガ")) >= 40);
+        Assert.True(data.Pokemon.Count(p => p.Name.StartsWith("メガ", StringComparison.Ordinal)) >= 40);
     }
 
     [Fact]
@@ -907,7 +907,7 @@ public class DataSourceTests : IDisposable
         // datasets.csv が無い（404）サイトで、Gen{g}/pokemon.csv の確認に index.html が返ってもデータセット扱いしない
         var handler = new FakeHandler
         {
-            Respond = req => req.RequestUri!.AbsolutePath.EndsWith("datasets.csv")
+            Respond = req => req.RequestUri!.AbsolutePath.EndsWith("datasets.csv", StringComparison.Ordinal)
                 ? new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
                 : Text(SpaIndexHtml, "text/html"),
         };
@@ -928,7 +928,7 @@ public class DataSourceTests : IDisposable
         Assert.Contains("対応していません", result.Message);
         var help = await poke.ExecuteAsync("!pokerg help");
         Assert.True(help.Success);
-        Assert.DoesNotContain(read, p => p.StartsWith("Gen1/"));
+        Assert.DoesNotContain(read, p => p.StartsWith("Gen1/", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1067,7 +1067,7 @@ public class GimmickAndFormTests
         Assert.True(stone.IsMegaStone);
         Assert.False(stone.IsOffensive);
         Assert.False(data.Pokemon.First(p => p.Name == "リザードン").IsMega);
-        Assert.All(data.Pokemon.Where(p => p.Name.StartsWith("メガ") && p.Name != "メガニウム" && p.Name != "メガヤンマ"), p => Assert.True(p.IsMega, p.Name));
+        Assert.All(data.Pokemon.Where(p => p.Name.StartsWith("メガ", StringComparison.Ordinal) && p.Name != "メガニウム" && p.Name != "メガヤンマ"), p => Assert.True(p.IsMega, p.Name));
     }
 
     [Fact]
@@ -1488,7 +1488,7 @@ public class ModernAbilityTests
         // シェルアーマー: 急所に当たらない
         var shellder = Build(data, "パルシェン", "shell-armor");
         var crit = calc.Calculate(new DamageRequest { Attacker = Build(data, "ガブリアス"), Move = move, Defender = shellder, IsCritical = true });
-        Assert.DoesNotContain(crit.Modifiers, m => m.StartsWith("急所"));
+        Assert.DoesNotContain(crit.Modifiers, m => m.StartsWith("急所", StringComparison.Ordinal));
         Assert.Contains(crit.Modifiers, m => m.Contains("急所に当たらない"));
     }
 
@@ -1517,7 +1517,7 @@ public class ModernAbilityTests
         var r = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = Build(data, "ハピナス") });
         // 威力 100 × 4505/4096 = 109.98… → 110（4506 でも同じなので、補正値は表示で確かめる）
         Assert.Contains(r.Modifiers, m => m.Contains("ちからのハチマキ(1.1倍)"));
-        var terapagos = data.Pokemon.FirstOrDefault(p => p.Name.StartsWith("テラパゴス") && data.AbilitiesOf(p).Any(a => a.Identifier == "tera-shell"));
+        var terapagos = data.Pokemon.FirstOrDefault(p => p.Name.StartsWith("テラパゴス", StringComparison.Ordinal) && data.AbilitiesOf(p).Any(a => a.Identifier == "tera-shell"));
         Assert.NotNull(terapagos);   // データに無いからといって、検証を黙って飛ばさない
         var defender = new PokemonBuild(terapagos) { Ability = data.AbilitiesOf(terapagos).First(a => a.Identifier == "tera-shell") };
         var fighting = data.Moves.First(m => m.Name == "インファイト");
@@ -1653,18 +1653,18 @@ public class MoveEffectTests
         var (data, calc) = await Load();
         var target = P(data, "カビゴン");
         var crit = calc.Calculate(new DamageRequest { Attacker = P(data, "マスカーニャ"), Move = M(data, "トリックフラワー"), Defender = target });
-        Assert.Contains(crit.Modifiers, m => m.StartsWith("急所"));
+        Assert.Contains(crit.Modifiers, m => m.StartsWith("急所", StringComparison.Ordinal));
 
         var lucario = P(data, "ルカリオ");
         var brick = calc.Calculate(new DamageRequest { Attacker = lucario, Move = M(data, "かわらわり"), Defender = target, Reflect = true });
-        Assert.DoesNotContain(brick.Modifiers, m => m.StartsWith("リフレクター"));
+        Assert.DoesNotContain(brick.Modifiers, m => m.StartsWith("リフレクター", StringComparison.Ordinal));
         Assert.Contains(brick.Modifiers, m => m.Contains("壁を壊す"));
 
         // サイコショックは特殊技なので、効く壁はひかりのかべ
         var alakazam = P(data, "ヤミラミ");
         var psyshock = M(data, "サイコショック");
-        Assert.DoesNotContain(calc.Calculate(new DamageRequest { Attacker = alakazam, Move = psyshock, Defender = target, Reflect = true }).Modifiers, m => m.StartsWith("リフレクター"));
-        Assert.Contains(calc.Calculate(new DamageRequest { Attacker = alakazam, Move = psyshock, Defender = target, LightScreen = true }).Modifiers, m => m.StartsWith("ひかりのかべ"));
+        Assert.DoesNotContain(calc.Calculate(new DamageRequest { Attacker = alakazam, Move = psyshock, Defender = target, Reflect = true }).Modifiers, m => m.StartsWith("リフレクター", StringComparison.Ordinal));
+        Assert.Contains(calc.Calculate(new DamageRequest { Attacker = alakazam, Move = psyshock, Defender = target, LightScreen = true }).Modifiers, m => m.StartsWith("ひかりのかべ", StringComparison.Ordinal));
 
         // サイコフィールドでは地面にいる相手に先制技が出ない
         var blocked = calc.Calculate(new DamageRequest { Attacker = lucario, Move = M(data, "しんそく"), Defender = target, Terrain = Terrain.Psychic });
