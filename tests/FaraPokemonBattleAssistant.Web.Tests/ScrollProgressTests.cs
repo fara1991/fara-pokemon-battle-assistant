@@ -64,6 +64,23 @@ public class ScrollProgressTests
         Assert.Contains(".page.battle-active", js);                       // 対戦画面は 0
     }
 
+    [Fact]
+    public void Scroll_progress_test_runs_in_ci()
+    {
+        var workflow = File.ReadAllText(FindUpFile(".github/workflows/build.yml"));
+        Assert.Contains("run: npm run test:scroll", workflow);
+    }
+
+    private static string FindUpFile(string relative)
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, relative);
+            if (File.Exists(candidate)) return candidate;
+        }
+        throw new FileNotFoundException(relative);
+    }
+
     private string ReadRule(string selector)
     {
         var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
