@@ -2,7 +2,7 @@
 //   npm run test:worker
 // wrangler dev をローカル（一時ディレクトリに保存）で起動して、/api/my/pokemon・/api/my/team・/api/my/access-key の
 // 401・空の GET・PUT・409・400・413・410、ポケモン削除でチームから外れることなどを確かめる。
-// あわせて、ゲームデータ（/api/game/*）が Worker を通らずに静的アセットとして返ること、以前のパス（/api/my-pokemon・/data/...）が無いことも確かめる。
+// あわせて、ゲームデータ（/api/game/*）が静的アセットとして（Worker を通して、そのまま）返ること、以前のパス（/api/my-pokemon・/data/...）が無いことも確かめる。
 // publish/wwwroot が無いと wrangler dev が起動しないので、無ければ空の index.html と最小の api/game/datasets.csv だけ置く。
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -317,12 +317,12 @@ try {
   check("以前の URL（/my-teams）も静的アセット（SPA）", (await fetch(`${base}/my-teams`)).status === 200);
   check("API 以外は今までどおり静的アセット（SPA）", page.status === 200 && (page.headers.get("content-type") ?? "").includes("text/html"));
 
-  // ゲームデータ（/api/game/*）は静的アセット。run_worker_first の "!/api/game/*" で Worker を通らない
-  // （Worker を通ると worker/index.js が X-Worker-Fallback を付けるので、それが無いことで確かめる）
+  // ゲームデータ（/api/game/*）は静的アセット。Worker を通して、そのまま返す（メンテナンス中だけ 503。worker/maintenance.test.mjs）
+  // （Worker を通ると worker/index.js が X-Worker-Fallback を付けるので、それがあることで確かめる）
   const csv = await fetch(`${base}/api/game/datasets.csv`);
   const csvText = await csv.text();
   check("/api/game/datasets.csv は 200 で CSV（アクセスキーなし）", csv.status === 200 && (csv.headers.get("content-type") ?? "").includes("text/csv") && csvText.startsWith("Key,"), `${csv.status} ${csv.headers.get("content-type")}`);
-  check("/api/game/* は Worker を通らない（X-Worker-Fallback が無い）", csv.headers.get("x-worker-fallback") === null);
+  check("/api/game/* は Worker を通して、静的アセットをそのまま返す（X-Worker-Fallback がある）", csv.headers.get("x-worker-fallback") === "assets");
   const missingCsv = await fetch(`${base}/api/game/NoSuchGame/pokemon.csv`);
   const missingText = await missingCsv.text();
   check("無い /api/game/... は CSV として返らない（404 か SPA の index.html）",
