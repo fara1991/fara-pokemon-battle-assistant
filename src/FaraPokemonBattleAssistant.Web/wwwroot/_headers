@@ -5,5 +5,7 @@
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   # Cloudflare の Web Analytics（ダッシュボードで自動挿入に設定済み）のスクリプトと送信先を許可している。
+  # 作者へ報告のボット判定（Cloudflare Turnstile。js/report.js）のため、challenges.cloudflare.com も許可している。
+  # （_headers は全ページに同じ CSP を付ける作りで、Worker は /api/* だけなので、/report だけ緩めることはできない。許可しているのは Cloudflare の配信元だけ）
   # 外部から読み込めるのは、ここに書いたものだけ。新しい外部のスクリプト・フォント・画像・接続先を使うときは、ここにも足すこと（足さないとブロックされる）
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://raw.githubusercontent.com; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://raw.githubusercontent.com; connect-src 'self' https://cloudflareinsights.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'

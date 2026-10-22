@@ -7,7 +7,8 @@
     "preview": "npm run publish:web && wrangler dev",
     "check": "npm run publish:web && wrangler deploy --dry-run --env=\"\" && wrangler deploy --dry-run --env develop",
     "gen:search": "node tools/gen-search-index.mjs",
-    "test:worker": "node tools/worker-api-test.mjs"
+    "test:worker": "node tools/worker-api-test.mjs",
+    "test:report": "node --test worker/report.test.mjs"
   },
   "devDependencies": {
     "wrangler": "4.136.3"
