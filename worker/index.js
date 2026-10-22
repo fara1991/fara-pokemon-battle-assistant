@@ -391,14 +391,15 @@ export default {
 
 /** 静的アセットの応答が、存在しないパスに返す SPA のフォールバック（index.html）か。 */
 function isHtmlFallback(response) {
-  return response.status === 200 && (response.headers.get("content-type") ?? "").toLowerCase().startsWith("text/html");
+  // Range 付きの要求では 206 になることもあるので、200 と 206 の両方を見る
+  return (response.status === 200 || response.status === 206) && (response.headers.get("content-type") ?? "").toLowerCase().startsWith("text/html");
 }
 
 /** 無いゲームデータ（/api/game/...）の応答。X-Worker-Fallback は、Worker を通ったことを示す（tools/worker-api-test.mjs が確かめる）。 */
 function gameDataNotFound() {
   return new Response("Not Found", {
     status: 404,
-    headers: { "Content-Type": "text/plain; charset=utf-8", "X-Worker-Fallback": "assets" },
+    headers: { ...BASE_HEADERS, "Content-Type": "text/plain; charset=utf-8", "X-Worker-Fallback": "assets" },
   });
 }
 
