@@ -61,9 +61,11 @@ public abstract class AppPageBase : ComponentBase, IDisposable
 
     private async Task HandleAppChangedAsync()
     {
-        // 接頭辞やゲーム名など、データの読み込みを待たずに出せるものは先に描き直す
+        // OnAppChangedAsync は、読み込みを待つ前に、前のゲームのデータを外す（同期の部分）。その後で描き直すので、外した状態が画面に出る。
+        // 読み込みを待たずに出せるもの（接頭辞やゲーム名など）は、待つ前に描き直す
+        var loading = OnAppChangedAsync();
         await InvokeAsync(StateHasChanged);
-        await OnAppChangedAsync();
+        await loading;
         await InvokeAsync(StateHasChanged);
     }
 
