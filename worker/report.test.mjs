@@ -2,7 +2,7 @@
 // 3 サイト共通のファイルなので、このテストも 3 つのリポジトリで同じ内容にしている。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { handleReport, clean, isConfigured } from "./report.js";
+import { handleReport, clean, cleanPage, isConfigured } from "./report.js";
 
 const ENV = { TURNSTILE_SITE_KEY: "site-key", TURNSTILE_SECRET: "secret-value", DISCORD_WEBHOOK_URL: "https://discord.example/webhook/abc" };
 const HOST = "https://site.example";
@@ -13,7 +13,7 @@ function post(body, { origin = HOST, type = "application/json", raw = false, ip 
   return new Request(`${HOST}/api/report`, { method: "POST", headers, body: raw ? body : JSON.stringify(body) });
 }
 
-const valid = { category: "bug", message: "ここが動きません", contact: "me@example.com", page: "https://site.example/speed", turnstileToken: "tok", website: "" };
+const valid = { category: "bug", message: "ここが動きません", contact: "me@example.com", page: "/speed", turnstileToken: "tok", website: "" };
 
 /** Turnstile と Discord への fetch を記録する偽物。 */
 function fakeFetch({ turnstile = { ok: true, body: { success: true } }, discord = { ok: true } } = {}) {
@@ -133,8 +133,8 @@ test("Turnstile の確認に失敗したら 400、通信できなければ 502�
   let f = fakeFetch({ turnstile: { ok: true, body: { success: false } } });
   assert.equal((await run(post(valid), ENV, f)).status, 400);
   assert.equal(f.calls.length, 1);
-  f = fakeFetch({ turnstile: { ok: false, body: {} } });
-  assert.equal((await run(post(valid), ENV, f)).status, 400);
+  f = fakeFetch({ turnstile: { ok: false, body: {} } });   // Turnstile 側の障害（5xx）
+  assert.equal((await run(post(valid), ENV, f)).status, 502);
   f = fakeFetch({ turnstile: { throws: true } });
   assert.equal((await run(post(valid), ENV, f)).status, 502);
   assert.equal(f.calls.length, 1);
@@ -169,4 +169,70 @@ test("メッセージは 2000 文字までに切って送る", async () => {
 test("存在しないパスと、使えないメソッド", async () => {
   assert.equal((await run(new Request(`${HOST}/api/report/x`, { method: "POST" }))).status, 404);
   assert.equal((await run(new Request(`${HOST}/api/report`, { method: "GET" }))).status, 405);
+});
+
+test("Turnstile が返した hostname が、このサイトと違えば断る（別のサイトで取ったトークンの使い回し）", async () => {
+  const other = fakeFetch({ turnstile: { ok: true, body: { success: true, hostname: "other.example" } } });
+  assert.equal((await run(post(valid), ENV, other)).status, 400);
+  assert.equal(other.calls.length, 1, "Discord には送らない");
+  const same = fakeFetch({ turnstile: { ok: true, body: { success: true, hostname: "site.example" } } });
+  assert.equal((await run(post(valid), ENV, same)).status, 200);
+  const none = fakeFetch({ turnstile: { ok: true, body: { success: true } } });
+  assert.equal((await run(post(valid), ENV, none)).status, 200, "hostname が無いときは確かめない");
+});
+
+test("Turnstile 側の障害（5xx）は 502、4xx は 400", async () => {
+  assert.equal((await run(post(valid), ENV, fakeFetch({ turnstile: { ok: false, body: {} } }))).status, 502);
+});
+
+test("宣言された本文の大きさが上限を超えたら、読む前に 413", async () => {
+  let read = false;
+  const req = post(valid);
+  const big = new Request(req, { headers: new Headers({ "Content-Type": "application/json", Origin: HOST, "Content-Length": String(20 * 1024) }) });
+  big.text = async () => { read = true; return "{}"; };
+  assert.equal((await run(big)).status, 413);
+  assert.equal(read, false);
+});
+
+test("外への通信には、時間切れの signal が付く", async () => {
+  const f = fakeFetch();
+  await run(post(valid), ENV, f);
+  assert.ok(f.calls[0].init.signal instanceof AbortSignal);
+  assert.ok(f.calls[1].init.signal instanceof AbortSignal);
+});
+
+test("絵文字を含む文字列を切っても、文字が割れない", () => {
+  const text = "😀".repeat(10);
+  const cut = clean(text, 3);
+  assert.equal(Array.from(cut).length, 3);
+  assert.equal(cut, "😀😀😀");
+  assert.doesNotMatch(cut, /[\ud800-\udbff](?![\udc00-\udfff])/);
+  assert.equal(clean("a\ud83db", 10), "ab", "対になっていないサロゲートは取る");
+});
+
+test("2000 文字の絵文字でも、Discord に送る本文は 2000 文字（割れない）", async () => {
+  const f = fakeFetch();
+  await run(post({ ...valid, message: "😀".repeat(2500) }), ENV, f);
+  const description = JSON.parse(f.calls[1].init.body).embeds[0].description;
+  assert.equal(Array.from(description).length, 2000);
+});
+
+test("ページ（page）は、サーバー側でも、パスだけを通す", async () => {
+  assert.equal(cleanPage("/speed-comparison"), "/speed-comparison");
+  assert.equal(cleanPage("/"), "/");
+  for (const bad of ["", "speed", "//evil.example", "https://evil.example", "/a b", "/[x](https://evil.example)", "/x?y=1", 5, null, undefined, "/" + "a".repeat(300)]) {
+    assert.equal(cleanPage(bad), "", String(bad));
+  }
+  const f = fakeFetch();
+  await run(post({ ...valid, page: "[クリック](https://evil.example)" }), ENV, f);
+  assert.deepEqual(JSON.parse(f.calls[1].init.body).embeds[0].fields.map((x) => x.name), ["種類", "連絡先"], "不正なページは載せない");
+});
+
+test("Discord の上限（title 256・description 4096・field 値 1024）を超えない", async () => {
+  const f = fakeFetch();
+  await run(post({ ...valid, message: "あ".repeat(3000), contact: "い".repeat(1000), page: "/" + "a".repeat(299) }), ENV, f);
+  const embed = JSON.parse(f.calls[1].init.body).embeds[0];
+  assert.ok(embed.title.length <= 256);
+  assert.ok(embed.description.length <= 4096);
+  for (const field of embed.fields) assert.ok(field.value.length <= 1024 && field.name.length <= 256, field.name);
 });

@@ -89,8 +89,7 @@
         }
         catch
         {
-            // JS が使えない・確認の部品を読み込めないとき
-            mounted = false;
+            // JS が使えない・確認の部品を読み込めないとき。mounted は戻さない（戻すと、描画のたびに読み込みを繰り返してしまう）
             disabled = true;
             StateHasChanged();
         }

@@ -15,6 +15,10 @@
 // 報告の本文は個人情報になりうるので、保存しない（Discord に送るだけ）。
 
 const MAX_BODY_CHARS = 8 * 1024;
+/** Content-Length（バイト）の上限。日本語 2000 文字（1 文字 3 バイト）と余白を入れても、これを超えない。 */
+const MAX_BODY_BYTES = 16 * 1024;
+/** 外へ出る通信（Turnstile・Discord）を待つ最大の時間。 */
+const FETCH_TIMEOUT_MS = 5000;
 const MAX_MESSAGE = 2000;
 const MAX_CONTACT = 200;
 const MAX_PAGE = 300;
@@ -25,11 +29,24 @@ const CATEGORIES = { bug: "不具合", request: "要望・提案", other: "そ�
 const json = (status, body, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers } });
 
-/** 制御文字（改行・タブ以外）を取り、前後の空白を取り、長さを切る。文字列でなければ空。 */
+/**
+ * 制御文字（改行・タブ以外）と、対になっていないサロゲートを取り、前後の空白を取り、長さ（文字数。絵文字は 1 文字）を切る。
+ * 文字列でなければ空。（UTF-16 のまま切ると絵文字が割れて、Discord が受け付けないことがあるため、文字単位で数える。）
+ */
 export function clean(value, max) {
   if (typeof value !== "string") return "";
-  // eslint-disable-next-line no-control-regex
-  return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, max);
+  const text = value
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, "")
+    .trim();
+  const chars = Array.from(text);
+  return chars.length > max ? chars.slice(0, max).join("").trim() : text;
+}
+
+/** 報告のきっかけのページ（パスだけ）。フッターのリンク・report.js と同じ条件。そうでなければ空。 */
+export function cleanPage(value) {
+  return typeof value === "string" && /^\/[A-Za-z0-9\-_/.]{0,299}$/.test(value) && !value.startsWith("//") ? value : "";
 }
 
 /** Origin ヘッダーのホスト。読めないもの（"null" など）は null。 */
@@ -66,6 +83,9 @@ export async function handleReport(request, env, siteName, deps = {}) {
   if (!origin || originHost(origin) !== url.host) return json(403, { error: "forbidden" });
   if (!(request.headers.get("Content-Type") ?? "").toLowerCase().startsWith("application/json")) return json(415, { error: "unsupported_media_type" });
 
+  // 大きな本文は、読み込む前に断る（Content-Length がうそでも、読んだあとの長さで再度確かめる）
+  const declared = Number(request.headers.get("Content-Length"));
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return json(413, { error: "too_large" });
   const text = await request.text();
   if (text.length > MAX_BODY_CHARS) return json(413, { error: "too_large" });
   let body;
@@ -80,7 +100,7 @@ export async function handleReport(request, env, siteName, deps = {}) {
   const message = clean(body.message, MAX_MESSAGE);
   if (message.length < MIN_MESSAGE) return json(400, { error: "invalid_message", message: `内容を ${MIN_MESSAGE} 文字以上で書いてください` });
   const contact = clean(body.contact, MAX_CONTACT);
-  const page = clean(body.page, MAX_PAGE);
+  const page = cleanPage(body.page);
   const token = typeof body.turnstileToken === "string" ? body.turnstileToken.slice(0, 2048) : "";
   if (!token) return json(400, { error: "missing_token", message: "「ロボットではありません」の確認をしてください" });
 
@@ -90,14 +110,18 @@ export async function handleReport(request, env, siteName, deps = {}) {
   const form = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
   const ip = request.headers.get("CF-Connecting-IP");
   if (ip) form.set("remoteip", ip);
-  let verified = false;
+  let result;
   try {
-    const res = await doFetch(TURNSTILE_URL, { method: "POST", body: form });
-    verified = res.ok && (await res.json())?.success === true;
+    const res = await doFetch(TURNSTILE_URL, { method: "POST", body: form, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    // Turnstile 側の障害（5xx）は、こちらの入力の問題ではないので 502
+    if (res.status >= 500) return json(502, { error: "verify_failed", message: "確認に失敗しました。もう一度お試しください" });
+    result = res.ok ? await res.json() : null;
   } catch {
     return json(502, { error: "verify_failed", message: "確認に失敗しました。もう一度お試しください" });
   }
-  if (!verified) return json(400, { error: "turnstile_failed", message: "「ロボットではありません」の確認に失敗しました。もう一度お試しください" });
+  // 確認が通ったページが、いま送っているこのサイトのものか（別のサイトで取ったトークンを使い回されないように）。hostname が無いときは確かめない
+  const hostOk = typeof result?.hostname !== "string" || result.hostname === url.hostname;
+  if (result?.success !== true || !hostOk) return json(400, { error: "turnstile_failed", message: "「ロボットではありません」の確認に失敗しました。もう一度お試しください" });
 
   // Discord へ。@everyone などのメンションは無効にする
   const fields = [{ name: "種類", value: CATEGORIES[category], inline: true }];
@@ -117,7 +141,7 @@ export async function handleReport(request, env, siteName, deps = {}) {
     }],
   };
   try {
-    const res = await doFetch(env.DISCORD_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await doFetch(env.DISCORD_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) return json(502, { error: "notify_failed", message: "送信に失敗しました。しばらくしてからもう一度お試しください" });
   } catch {
     return json(502, { error: "notify_failed", message: "送信に失敗しました。しばらくしてからもう一度お試しください" });
