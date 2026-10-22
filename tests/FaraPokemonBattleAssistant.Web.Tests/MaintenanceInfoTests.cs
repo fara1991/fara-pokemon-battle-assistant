@@ -105,7 +105,7 @@ public class MaintenanceInfoTests
         });
         var watch = System.Diagnostics.Stopwatch.StartNew();
         Assert.Equal(MaintenanceInfo.Off, await MaintenanceInfo.LoadAsync(Client(handler)));
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), "既定の待ち時間は 1 秒（起動を長く止めない）");
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(4), "既定の待ち時間は 2 秒（起動を長く止めない）");
     }
 
     [Fact]

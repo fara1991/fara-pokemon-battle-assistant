@@ -35,7 +35,7 @@ public sealed class HttpDataSource : IDataSource
 {
     /// <summary>
     /// 公開サイトがゲームデータ（CSV）を配っているパス（サイトの URL からの相対。例: <c>https://pokemon.fara-labs.com/</c> + <c>api/game/</c>）。
-    /// 静的アセットとしてそのまま配られ、登録データの API（<c>/api/my/...</c>）と違って Worker は通らない。
+    /// 静的アセットとしてそのまま配られる（Worker を通して、そのまま返す。メンテナンス中だけ 503）。
     /// </summary>
     public const string GameDataPath = "api/game/";
 

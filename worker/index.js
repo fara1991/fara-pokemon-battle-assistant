@@ -1,7 +1,7 @@
 // 登録データ（ポケモン・チーム）のデータ共有 API。
 //
-// サイト本体（静的アセット）は今までどおり Cloudflare が配信し、/api/my/* だけがこのスクリプトを通る
-// （wrangler.jsonc の assets.run_worker_first）。ゲームデータ（CSV）の /api/game/* は静的アセットで、ここには来ない。
+// サイト本体（静的アセット）は今までどおり Cloudflare が配信し、/api/*（登録データ・報告・メンテナンスの状態・ゲームデータ）だけがこのスクリプトを通る
+// （wrangler.jsonc の assets.run_worker_first）。ゲームデータ（CSV）の /api/game/* は、通常は静的アセットをそのまま返し、メンテナンス中だけ 503。
 //
 // 登録データはゲーム（データセット: Champions・Gen9 など）ごとに分かれているので、本文の dataSets はゲームのキーごとのオブジェクト。
 //

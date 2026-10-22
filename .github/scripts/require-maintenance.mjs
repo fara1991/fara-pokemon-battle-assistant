@@ -21,6 +21,11 @@ export function readMaintenanceValue(bindings) {
   return binding.type === "secret_text" ? "(secret)" : "";
 }
 
+/** ログに出す値。改行などを取り、長さを切る（値に改行が入っていても、::error:: の行を偽装されないように）。 */
+function printable(value) {
+  return String(value).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 50);
+}
+
 /**
  * 公開してよいか。
  * @param {string} value MAINTENANCE の値（readMaintenanceValue）
@@ -36,7 +41,7 @@ export function evaluate(value) {
   return {
     ok: false,
     state: "off",
-    message: `MAINTENANCE が notice になっていません（いまの値: ${v === "" ? "未設定" : v}）。先に Cloudflare の Worker の変数 MAINTENANCE を notice にして、更新予定のお知らせを出してから、公開してください`,
+    message: `MAINTENANCE が notice になっていません（いまの値: ${v === "" ? "未設定" : printable(v)}）。先に Cloudflare の Worker の変数 MAINTENANCE を notice にして、更新予定のお知らせを出してから、公開してください`,
   };
 }
 

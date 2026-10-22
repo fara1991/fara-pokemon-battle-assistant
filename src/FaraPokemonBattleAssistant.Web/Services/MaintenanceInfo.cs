@@ -57,7 +57,7 @@ public sealed record MaintenanceInfo(MaintenanceState State, string Message)
     {
         try
         {
-            using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(1));
+            using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(2));
             using var response = await http.GetAsync("api/maintenance", cts.Token);
             return response.IsSuccessStatusCode ? Parse(await response.Content.ReadAsStringAsync(cts.Token)) : Off;
         }

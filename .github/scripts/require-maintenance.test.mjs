@@ -21,6 +21,12 @@ test("evaluate: 止めるときのメッセージは、notice にする手順を
   assert.equal(evaluate("(secret)").state, "secret");
 });
 
+test("evaluate: 値に改行などが入っていても、メッセージは 1 行（::error:: の偽装を防ぐ）。長い値は切る", () => {
+  const message = evaluate("x\n::error::偽物\r\nfalse").message;
+  assert.ok(!/[\r\n]/.test(message));
+  assert.ok(evaluate("a".repeat(500)).message.length < 300);
+});
+
 test("readMaintenanceValue: テキストの変数の値を読む。シークレットと、無いときと、想定外の形", () => {
   assert.equal(readMaintenanceValue(bindings(" notice ")), "notice");
   assert.equal(readMaintenanceValue(bindings("x", "secret_text")), "(secret)");
