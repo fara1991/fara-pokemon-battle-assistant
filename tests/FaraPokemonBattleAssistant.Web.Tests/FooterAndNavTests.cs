@@ -117,11 +117,11 @@ public class FooterAndNavTests
     }
 
     [Fact]
-    public void About_page_links_to_the_copyright_page()
+    public void Author_section_on_the_contact_page_links_to_the_copyright_page()
     {
-        var about = Read(Path.Combine(Web, "Components", "Pages", "About.razor"));
-        Assert.Contains("<a href=\"copyright\">権利表記</a>", about);
-        Assert.DoesNotContain("登録商標です", about);                              // 文言は権利表記のページだけに置く
+        var report = Read(Path.Combine(Web, "Components", "Pages", "Report.razor"));
+        Assert.Contains("<a href=\"copyright\">権利表記</a>", report);
+        Assert.DoesNotContain("登録商標です", report);                              // 文言は権利表記のページだけに置く
     }
 
     [Fact]

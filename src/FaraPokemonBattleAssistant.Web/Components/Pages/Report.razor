@@ -1,4 +1,5 @@
 @page "/report"
+@using FaraPokemonBattleAssistant.Core
 @using System.Text
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -13,6 +14,19 @@
 
 @* PC: 見出しは固定にして、カードの中だけがスクロールする *@
 <div class="pane-scroll">
+@* 作者の紹介・ほかの連絡先・作品（以前の「作者・問い合わせ」のページの内容）。フォームは、この下 *@
+<MudCard Elevation="0" Class="card mb-3">
+    <MudCardContent Class="card-body">
+        <h5 class="card-title">作者</h5>
+        <p class="card-text">このサイトは Fara が作っています。フォームが使えないときや急ぎのときは、Twitter からもどうぞ。</p>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="https://twitter.com/game_fara" Target="_blank" Rel="noopener noreferrer">@@game_fara（Twitter）</MudButton>
+        <h5 class="card-title mt-3">ほかの作品</h5>
+        <p class="card-text">Fara のほかの作品は、こちらにまとめています。</p>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@SiteLinks.Localize("https://fara-labs.com/")" Target="_blank" Rel="noopener noreferrer">ホームページ</MudButton>
+        <p class="text-muted small mt-3 mb-0">このサイトは個人が作った非公式のファンサイトです。ポケモンの名称・画像の権利などは、<a href="copyright">権利表記</a>のページにまとめています。</p>
+    </MudCardContent>
+</MudCard>
+
 <MudCard Elevation="0" Class="card mb-3 report-card">
     <MudCardContent Class="card-body">
         @if (sent)
@@ -24,7 +38,7 @@
         {
             @if (disabled)
             {
-                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" NoIcon="true" Class="mb-3">いまは報告を受け付けていません。お急ぎの場合は、<a href="about-author">作者・問い合わせ</a>の連絡先へお願いします。</MudAlert>
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" NoIcon="true" Class="mb-3">いまは報告を受け付けていません。お急ぎの場合は、上の「作者」の Twitter からお願いします。</MudAlert>
             }
             <div class="form-group mb-3">
                 <label class="form-label" for="report-category">種類</label>
