@@ -48,7 +48,7 @@ fara-pokemon-battle-assistant/
 - `datasets.json` の `calc: "Reference"` のゲームは参照のみです（計算機などでは案内を出します）。
 - 第3〜7世代のダメージ計算（`LegacyDamageCalculator`）は、その世代の補正の順番・丸め（第3〜4世代は補正ごとの切り捨て・タイプ一致の位置、急所 2 倍 / 1.5 倍、スキン系 1.3 倍、フィールド 1.5 倍、まひ 1/4、やけど 1/8 など）で行います。公開されているダメージ計算ツール（@smogon/calc）の結果と、`tools/calc_vectors` で作った条件（`tests/.../Data/calc_vectors.json`。第3〜7世代に加え、ソード・シールド / スカーレット・バイオレット / チャンピオンズの条件も含む）で一致を確かめています（第3世代のウェザーボールは、天候があると威力ではなくダメージが 2 倍になり、変わったタイプで物理・特殊も決まります。天候がないときはツールが特殊技として計算しますが、ゲームではノーマルタイプの物理技なので、その条件だけ比較から除いています）。ちからずく・すてみの対象の技は `move_lists.js` で作る `Data/move_lists.json` で全部の技を照合します。今のゲームの計算を意図して変えたときは `Data/calc_snapshot.txt` を作り直し、変わったケースを確認します。
 - 手動で更新する場合: `python tools/sync_data.py`（HOME を飛ばすなら `--skip-home`）。
-- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイルで、Worker は通りません）。配信用BOT（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルはサイトの SPA 設定のため `404` ではなく `index.html`（`200`、`text/html`）が返るので、`HttpDataSource` は HTML を「無い」として扱います。
+- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイル。通常は Worker が、そのまま返します。メンテナンス中（`MAINTENANCE=true`）だけ `503`。そのとき配信用BOTは、取り直しに失敗した扱いで、古いキャッシュで続行します）。配信用BOT（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルはサイトの SPA 設定のため `404` ではなく `index.html`（`200`、`text/html`）が返るので、`HttpDataSource` は HTML を「無い」として扱います。
 
 ## チャットコマンド
 
@@ -188,7 +188,7 @@ npm run test:worker                                      # データ共有 API�
 
 ## 公開（Cloudflare Workers）
 
-`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体とゲームデータ（`/api/game/*`）は静的アセットで、登録データの API `/api/my/*` だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/api/*", "!/api/game/*"]`）。
+`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/api/*`（登録データの API `/api/my/*`・報告・メンテナンスの状態・ゲームデータ `/api/game/*`）だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/api/*"]`）。ゲームデータは、通常は静的アセットをそのまま返し、メンテナンス中（Worker の変数 `MAINTENANCE=true`）だけ `503` にします。
 手動で公開し直すときは **Actions → Deploy to Cloudflare Workers → Run workflow**。
 
 `develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-dev`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。

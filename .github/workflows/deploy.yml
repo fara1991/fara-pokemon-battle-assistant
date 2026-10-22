@@ -9,6 +9,11 @@ on:
       - "**.md"
       - ".github/ISSUE_TEMPLATE/**"
   workflow_dispatch:
+    inputs:
+      skip_maintenance_check:
+        description: "MAINTENANCE=notice の確認を飛ばして公開する（緊急の修正用。お知らせなしで公開される）"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -46,8 +51,19 @@ jobs:
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
 
+      # 本番の公開は、Cloudflare の Worker の変数 MAINTENANCE が notice（更新予定のお知らせを出している）のときだけ行う。
+      # 確認できないとき・notice でないときは、ここで止める（手動実行の skip_maintenance_check で飛ばせる）
+      - name: Require MAINTENANCE=notice
+        run: node .github/scripts/require-maintenance.mjs fara-pokemon
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          SKIP_MAINTENANCE_CHECK: ${{ inputs.skip_maintenance_check }}
+
+      # 公開と同時に MAINTENANCE=true（メンテナンス画面）にする。作業が終わったら、Cloudflare で false に戻す（お知らせも一緒に消える）。
+      # 確認を飛ばしたとき（緊急の修正）は、メンテナンス画面にしない
       - name: Deploy
-        run: npx wrangler deploy --env=""
+        run: npx wrangler deploy --env="" ${{ inputs.skip_maintenance_check && ' ' || '--var MAINTENANCE:true' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

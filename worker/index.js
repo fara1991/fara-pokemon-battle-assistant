@@ -1,7 +1,7 @@
 // 登録データ（ポケモン・チーム）のデータ共有 API。
 //
-// サイト本体（静的アセット）は今までどおり Cloudflare が配信し、/api/my/* だけがこのスクリプトを通る
-// （wrangler.jsonc の assets.run_worker_first）。ゲームデータ（CSV）の /api/game/* は静的アセットで、ここには来ない。
+// サイト本体（静的アセット）は今までどおり Cloudflare が配信し、/api/*（登録データ・報告・メンテナンスの状態・ゲームデータ）だけがこのスクリプトを通る
+// （wrangler.jsonc の assets.run_worker_first）。ゲームデータ（CSV）の /api/game/* は、通常は静的アセットをそのまま返し、メンテナンス中だけ 503。
 //
 // 登録データはゲーム（データセット: Champions・Gen9 など）ごとに分かれているので、本文の dataSets はゲームのキーごとのオブジェクト。
 //
@@ -345,14 +345,6 @@ function validateTeams(key, value, pokemonIds) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (!url.pathname.startsWith("/api/") || url.pathname.startsWith("/api/game/")) {
-      // run_worker_first の対象外（通常は来ない。/api/game/* はゲームデータの静的アセット）。静的アセットに任せる。
-      // ここを通ったことが分かるようにヘッダーを付ける（tools/worker-api-test.mjs が「付いていない」ことを確かめる）
-      const response = await env.ASSETS.fetch(request);
-      const passed = new Response(response.body, response);
-      passed.headers.set("X-Worker-Fallback", "assets");
-      return passed;
-    }
     // メンテナンスの状態（Worker の変数 MAINTENANCE。worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
     const maintenance = getMaintenance(env);
     if (url.pathname === "/api/maintenance") {
@@ -360,8 +352,16 @@ export default {
         headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
       });
     }
-    // メンテナンス中は、API（登録データ・報告など）も 503 にする
-    if (maintenance.state === "on") return maintenanceResponse(request, maintenance, "Pokémon Battle Assistant");
+    // メンテナンス中は、API（登録データ・報告など）と、ゲームデータ（/api/game/*。データの更新をメンテナンス中に行えるように）も 503 にする
+    if (maintenance.state === "on" && url.pathname.startsWith("/api/")) return maintenanceResponse(request, maintenance, "Pokémon Battle Assistant");
+    if (!url.pathname.startsWith("/api/") || url.pathname.startsWith("/api/game/")) {
+      // /api/game/* はゲームデータの静的アセット。そのまま返す（run_worker_first の対象外のパスは、通常は来ない）。
+      // ここを通ったことが分かるようにヘッダーを付ける（tools/worker-api-test.mjs が確かめる）
+      const response = await env.ASSETS.fetch(request);
+      const passed = new Response(response.body, response);
+      passed.headers.set("X-Worker-Fallback", "assets");
+      return passed;
+    }
     // 作者への報告の受け口（登録データとは別。worker/report.js）
     if (url.pathname === "/api/report" || url.pathname === "/api/report/config") {
       try {

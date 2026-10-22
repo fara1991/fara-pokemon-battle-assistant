@@ -105,7 +105,7 @@ public class MaintenanceInfoTests
         });
         var watch = System.Diagnostics.Stopwatch.StartNew();
         Assert.Equal(MaintenanceInfo.Off, await MaintenanceInfo.LoadAsync(Client(handler)));
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), "既定の待ち時間は 1 秒（起動を長く止めない）");
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(4), "既定の待ち時間は 2 秒（起動を長く止めない）");
     }
 
     [Fact]
@@ -132,6 +132,41 @@ public class MaintenanceInfoTests
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, "\"keep_vars\"\\s*:\\s*true"));
         var envStart = text.IndexOf("\"env\"", StringComparison.Ordinal);
         Assert.True(envStart > 0 && text.IndexOf("keep_vars", StringComparison.Ordinal) < envStart, "トップレベルにある（env の中ではない）");
+    }
+
+    [Fact]
+    public void Game_data_goes_through_the_worker_so_it_can_be_stopped_during_maintenance()
+    {
+        // データの更新をメンテナンス中に行えるように、/api/game/* も Worker を通す（通常はそのまま返し、メンテナンス中だけ 503）
+        var text = File.ReadAllText(FindUp("wrangler.jsonc"));
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(text, @"""run_worker_first"": \[""/api/\*""\]").Count);
+        Assert.DoesNotContain("!/api/game/*", text);
+        var js = File.ReadAllText(FindUp("worker/index.js"));
+        var maintenance = js.IndexOf("maintenance.state === \"on\" && url.pathname.startsWith(\"/api/\")", StringComparison.Ordinal);
+        var gameFallback = js.IndexOf("url.pathname.startsWith(\"/api/game/\")", StringComparison.Ordinal);
+        Assert.True(maintenance > 0 && gameFallback > maintenance, "メンテナンスの確認が、ゲームデータをそのまま返す処理より先にある");
+    }
+
+    [Fact]
+    public void Production_deploy_requires_MAINTENANCE_notice_and_turns_maintenance_on()
+    {
+        var yml = File.ReadAllText(FindUp(".github/workflows/deploy.yml"));
+        Assert.Contains("node .github/scripts/require-maintenance.mjs fara-pokemon", yml);
+        Assert.True(yml.IndexOf("require-maintenance.mjs", StringComparison.Ordinal) < yml.IndexOf("npx wrangler deploy", StringComparison.Ordinal), "確認は公開より前");
+        Assert.Contains("--var MAINTENANCE:true", yml);
+        Assert.Contains("inputs.skip_maintenance_check", yml);
+        Assert.Contains("skip_maintenance_check:", yml);
+        // 確認用（develop）の公開は、確認もメンテナンス化もしない
+        var develop = File.ReadAllText(FindUp(".github/workflows/deploy-develop.yml"));
+        Assert.DoesNotContain("require-maintenance", develop);
+        Assert.DoesNotContain("MAINTENANCE:true", develop);
+    }
+
+    [Fact]
+    public void Gate_script_is_tested_in_ci()
+    {
+        Assert.True(File.Exists(FindUp(".github/scripts/require-maintenance.mjs")));
+        Assert.Contains("test:gate", File.ReadAllText(FindUp(".github/workflows/build.yml")));
     }
 
     private static string FindUp(string relative)

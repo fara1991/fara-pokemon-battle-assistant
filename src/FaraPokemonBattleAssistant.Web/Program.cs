@@ -30,7 +30,7 @@ FaraPokemonBattleAssistant.Core.SiteLinks.CurrentHost = new Uri(baseAddress).Hos
 // シングルトンの DataCatalog から使うので、HttpClient もシングルトンにする
 // （Scoped だと Development 環境のスコープ検証で起動時に例外になる）
 builder.Services.AddSingleton(_ => new HttpClient { BaseAddress = new Uri(baseAddress) });
-// ゲームデータ（CSV）は同じオリジンの /api/game/...（wwwroot/api/game の静的アセット。Worker は通らない）
+// ゲームデータ（CSV）は同じオリジンの /api/game/...（wwwroot/api/game の静的アセット。Worker を通して、そのまま返す。メンテナンス中だけ 503）
 builder.Services.AddSingleton(sp => new DataCatalog(new HttpDataSource(sp.GetRequiredService<HttpClient>(), baseAddress + HttpDataSource.GameDataPath)));
 // 登録データの保存先。アクセスキーがあればクラウド（同じオリジンの /api/my/pokemon・/api/my/team）、無ければ localStorage
 builder.Services.AddSingleton(sp => new CloudSync(sp.GetRequiredService<IJSRuntime>(), sp.GetRequiredService<HttpClient>(), baseAddress, sp));
