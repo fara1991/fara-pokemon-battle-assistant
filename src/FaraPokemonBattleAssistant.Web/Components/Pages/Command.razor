@@ -461,6 +461,7 @@ else if (string.IsNullOrEmpty(loadError))
 
     /// <summary>データの読み込みに失敗したら、画面全体をエラー画面にせず、メッセージを出す。</summary>
     private int loadVersion;
+    private readonly DeferredFlag parseOnLoad = new();
 
     private async Task LoadAsync()
     {
@@ -483,6 +484,8 @@ else if (string.IsNullOrEmpty(loadError))
         var switched = s.DataSetKey != App.DataSetKey;
         if (switched)
         {
+            // 解析は、読み込みが成功したときにまとめて行う（途中で古くなった読み込みが、解析の印を消さないように）
+            parseOnLoad.Set();
             // 接頭辞はデータの読み込みを待たずにすぐ切り替える（入力の残りはそのまま）
             var previousPrefix = s.DataSetKey == "" ? null : App.DataSets.FirstOrDefault(d => d.Key == s.DataSetKey)?.CommandPrefix;
             if (previousPrefix is not null && s.Input.StartsWith("!" + previousPrefix + " ", StringComparison.OrdinalIgnoreCase))
@@ -503,9 +506,10 @@ else if (string.IsNullOrEmpty(loadError))
         usage = loadedUsage;
         var refreshed = await RefreshRegisteredAsync();
         if (version != loadVersion) return;
-        if (!refreshed && switched) registeredPokemon = Array.Empty<Pokemon>();   // 別のゲームの候補は残さない
+        if (!refreshed && parseOnLoad.IsSet) registeredPokemon = Array.Empty<Pokemon>();   // 別のゲームの候補は残さない
         if (s.Attacker is not null && registeredPokemon.All(p => p.Id != s.Attacker.Id)) { s.Attacker = null; s.Move = null; }
-        if (switched) ParseText();
+        // 切り替えのあとの、最初に成功した読み込みで、入力欄の解析をやり直す（途中で古くなった読み込みの後でも、ずれないように）
+        if (parseOnLoad.Take()) ParseText();
         RefreshMoves();
     }
 

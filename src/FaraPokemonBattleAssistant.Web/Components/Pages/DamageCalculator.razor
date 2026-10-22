@@ -365,6 +365,7 @@ else if (string.IsNullOrEmpty(loadError))
     private string rosterError = "";
     private string errorMessage = "";
 
+    private readonly HeldQuery held = new();
     private IReadOnlyList<Pokemon> pokemonList = Array.Empty<Pokemon>();
     private IReadOnlyList<Move> attackerMoves = Array.Empty<Move>();
     private IReadOnlyList<Item> attackerItems = Array.Empty<Item>();
@@ -393,13 +394,30 @@ else if (string.IsNullOrEmpty(loadError))
     private void ApplyQuery()
     {
         if (AttackerQuery is null && DefenderQuery is null) return;
-        // ゲームの読み込み中（データが無い）は、ID を捨てず URL も消さずに待つ。読み込みが終わったら LoadDataSet から、もう一度ここで反映する
-        if (data is null) return;
+        // ゲームの読み込み中（データが無い）は、ID を捨てず URL も消さずに保留する。保留したゲームの読み込みが成功したら、LoadDataSet から反映する
+        if (data is null)
+        {
+            // 読み込みに失敗していたら、保留せず、ID も URL も捨てる（エラーの表示のとおり、もう一度開き直す）
+            if (loadError.Length > 0) { Nav.NavigateTo("damage-calculator", replace: true); return; }
+            held.Hold(App.DataSetKey);
+            return;
+        }
         // 数字でない・存在しない ID は無視する（保存してあった攻撃側・防御側を消さない）
         // ダブルバトルでは、2 体目を上書きしないよう、1 体目の入力に切り替えてから入れる
         if (QueryPokemonId(AttackerQuery) is { } a) { SelectAttacker(0); OnAttackerChanged(a.ToString()); }
         if (QueryPokemonId(DefenderQuery) is { } d) { SelectDefender(0); OnDefenderChanged(d.ToString()); }
         Nav.NavigateTo("damage-calculator", replace: true);
+    }
+
+    /// <summary>
+    /// 保留した ID の結果を反映する。読み込みが成功し、保留したゲームのものなら適用する。
+    /// そうでなければ（別のゲームが読めた・失敗した）ID を捨て、URL の ID も消す（開き直せば、もう一度反映される）。
+    /// </summary>
+    private void ResolveHeld(string key, bool succeeded)
+    {
+        if (!stageReady || IsDisposed) return;   // 起動中は、OnAppReady の ApplyQuery に任せる
+        if (held.Complete(key, succeeded)) { ApplyQuery(); return; }
+        if (AttackerQuery is not null || DefenderQuery is not null) Nav.NavigateTo("damage-calculator", replace: true);
     }
 
     // 選んでいる攻撃側（手前）・防御側（奥）を、背景のバトルフィールドに立たせる
@@ -554,12 +572,13 @@ else if (string.IsNullOrEmpty(loadError))
             RefreshDefenderLists();
             // もう一方のページ（素早さ比較）で選んだポケモン・性格・「登録から選ぶ」を入れる
             ImportFromStage(key);
-            // 読み込みの間に届いた ?attacker= ・ ?defender= を、読み込み後に反映する
-            if (stageReady && !IsDisposed) ApplyQuery();
+            // 保留した ?attacker= ・ ?defender= を、保留したゲームの読み込みが成功したときだけ反映する（別のゲームなら捨てる）
+            ResolveHeld(key, succeeded: true);
         }
         catch (Exception ex)
         {
             if (version != loadVersion) return;   // 古い読み込みの失敗は、最新の読み込みに任せる
+            ResolveHeld(key, succeeded: false);   // 保留は捨てる
             data = null;   // 前のゲームのデータのまま描画・計算しない
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
