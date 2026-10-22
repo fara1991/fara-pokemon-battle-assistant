@@ -758,18 +758,11 @@ body {
 
 /* 入口ページの静的な本文（tools/build-entry-pages.mjs が #app の中に書く）。WebAssembly が起動すると Blazor が置き換える。
    見た目は起動後のアプリに近づける（ヘッダーの帯・背景・カードの色は app-header と .card に合わせる） */
-/* 入口ページの静的な本文の色。ライトは app.css の :root の色、ダークは [data-bs-theme="dark"] の色に合わせる（アプリの body・--glass と同じ値） */
+/* 入口ページの静的な本文の色は、アプリの body と同じ変数（--app-body-bg・--bs-body-color。ライト・ダークの両方が定義されている） */
 .entry-static {
-    --entry-bg: #f7f4fd;
-    --entry-text: #1d1530;
     min-height: 100vh;
-    background: var(--entry-bg);
-    color: var(--entry-text);
-}
-
-[data-bs-theme="dark"] .entry-static {
-    --entry-bg: #0c0616;
-    --entry-text: #f3edff;
+    background: var(--app-body-bg);
+    color: var(--bs-body-color);
 }
 
 .entry-static-bar {
