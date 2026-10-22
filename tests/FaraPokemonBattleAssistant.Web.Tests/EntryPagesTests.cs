@@ -124,6 +124,18 @@ public class EntryPagesTests
         Assert.Contains("height: 3.5rem;", RuleBody(css, ".app-header.mud-appbar {"));
     }
 
+    [Fact]
+    public void Report_entry_page_has_no_removed_author_text()
+    {
+        // 問い合わせの「作者」「ほかの作品」の項目は削除した。静的な入口ページ（検索・起動前の表示）にも、その文言を残さない
+        using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(Tools, "entry-pages.json")));
+        var report = doc.RootElement.EnumerateArray().Single(p => p.GetProperty("route").GetString() == "report");
+        var text = report.GetProperty("description").GetString() + "\n" + string.Join("\n", report.GetProperty("paragraphs").EnumerateArray().Select(p => p.GetString()));
+        Assert.DoesNotContain("ほかの作品", text);
+        Assert.DoesNotContain("作者の紹介", text);
+        Assert.DoesNotContain("Twitter", text);
+    }
+
     private static string RuleBody(string css, string selector)
     {
         var start = css.IndexOf(selector, StringComparison.Ordinal);

@@ -48,8 +48,7 @@ public class FooterAndNavTests
     [Fact]
     public void Social_icon_color_wins_over_the_generic_footer_link_rules()
     {
-        // フッター（.site-footer a）と問い合わせページの両方で使うので、.site-footer の外でも効く a.site-footer-social を、
-        // .site-footer a の規則（文字色 inherit・下線・hover の文字色）より後ろに書いて、白い図形を保つ
+        // フッターの SNS のアイコン。.site-footer a の規則（文字色 inherit・下線・hover の文字色）より後ろに書いて、白い図形を保つ
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
         Assert.Contains("a.site-footer-social {", css);
         Assert.Contains("a.site-footer-social:hover {", css);
@@ -66,18 +65,35 @@ public class FooterAndNavTests
     }
 
     [Fact]
-    public void Contact_page_twitter_link_is_the_footer_icon_with_a_label()
+    public void Contact_page_has_no_author_card_and_uses_the_centered_column()
     {
-        // 文字のボタンではなく、フッターと同じ SNS のアイコン（SocialIcon）。名前は aria-label で読む。URL は SocialLinks から取る
+        // 「作者」「ほかの作品」の項目は削除済み（Twitter のリンクも、その中にあった）。
+        // 内容の列（見出し・カード）は page-column で、横の中央に置く（Copyright など、ほかのページには効かせない）
         var report = Read(Path.Combine(Web, "Components", "Pages", "Report.razor"));
-        Assert.DoesNotContain("MudButton Variant=\"Variant.Filled\" Color=\"Color.Primary\" Href=\"https://twitter.com/game_fara\"", report);
-        Assert.Contains("class=\"site-footer-social service-twitter\"", report);
-        Assert.Contains("aria-label=\"@@game_fara（Twitter）\"", report);
-        Assert.Contains("<SocialIcon Name=\"@twitter.Service\"", report);
-        Assert.Contains("SocialLinks.All.FirstOrDefault(s => s.Service == \"twitter\")", report);   // 見つからないときは、リンクを出さない（null を参照しない）
-        Assert.Contains("@if (twitter is not null)", report);
-        Assert.Contains("target=\"_blank\"", report);
-        Assert.Contains("rel=\"noopener noreferrer\"", report);
+        Assert.DoesNotContain("ほかの作品", report);
+        Assert.DoesNotContain("非公式", report);
+        Assert.DoesNotContain("service-twitter", report);
+        Assert.Contains("<div class=\"page-header page-column\">", report);
+        Assert.Contains("<div class=\"pane-scroll page-pane\">", report);
+        Assert.Contains("report-card page-card", report);
+        var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
+        Assert.Contains("<div class=\"page-header page-column\">", privacy);
+        Assert.Contains("<div class=\"pane-scroll page-pane\">", privacy);
+        Assert.Contains("policy-card page-card", privacy);
+        var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        Assert.Contains("margin-left: auto; margin-right: auto;", RuleBodyAt(css, ".page-column {"));
+        Assert.Contains("scrollbar-gutter: stable both-edges;", RuleBodyAt(css, ".page-pane {"));   // 枠の中心と見出しの中心をそろえる（左右の余白が同じ）
+    }
+
+    [Fact]
+    public void Side_menu_has_the_copyright_link_between_contact_and_privacy_order()
+    {
+        // 権利表記のページは、画面内のリンクがここにしか無い（フッターには無い）。問い合わせ・プライバシーと同じ並び
+        var nav = Read(Path.Combine(Web, "Shared", "NavMenu.razor"));
+        var report = nav.IndexOf("(\"report\", \"問い合わせ\"", StringComparison.Ordinal);
+        var privacy = nav.IndexOf("(\"privacy\", \"プライバシーポリシー\"", StringComparison.Ordinal);
+        var copyright = nav.IndexOf("(\"copyright\", \"権利表記\", Icons.Material.Filled.Copyright", StringComparison.Ordinal);
+        Assert.True(report >= 0 && privacy > report && copyright > privacy, "サイドメニューに権利表記が無い、または並びが違う");
     }
 
     [Fact]
@@ -135,14 +151,6 @@ public class FooterAndNavTests
         Assert.Contains("非公式のファンサイトです", page);
         Assert.Contains("ポケットモンスター・ポケモンに関する名称・画像の権利は、各権利者に帰属します", page);
         Assert.Contains("登録商標です", page);
-    }
-
-    [Fact]
-    public void Author_section_on_the_contact_page_links_to_the_copyright_page()
-    {
-        var report = Read(Path.Combine(Web, "Components", "Pages", "Report.razor"));
-        Assert.Contains("<a href=\"copyright\">権利表記</a>", report);
-        Assert.DoesNotContain("登録商標です", report);                              // 文言は権利表記のページだけに置く
     }
 
     [Fact]
