@@ -56,6 +56,41 @@ public class ReportFormTests
     }
 
     [Fact]
+    public void Characters_are_counted_by_code_point_so_an_emoji_is_one_character()
+    {
+        // 報告フォームの文字数（「いま N 文字」の表示・上限の判定）は、kit のコードポイントの数え方（worker/report.js と同じ）。
+        // これまで（Razor の画面は UTF-16 の Length）は、絵文字（サロゲートペア）が 2 文字だった。「😀」は 1 文字になる
+        Assert.Equal(1, ReportForm.CountCharacters("😀"));
+        Assert.Equal(2, "😀".Length);
+        Assert.Equal(3, ReportForm.CountCharacters("あ😀い"));
+        Assert.Equal(0, ReportForm.CountCharacters(""));
+    }
+
+    [Fact]
+    public void The_message_limit_and_minimum_use_the_code_point_count()
+    {
+        var form = Valid();
+        // 絵文字 MaxMessage 個は、UTF-16 では 2 倍の長さだが、上限ちょうど（通る）
+        form.Message = string.Concat(Enumerable.Repeat("😀", ReportForm.MaxMessage));
+        Assert.Null(form.Validate());
+        form.Message = string.Concat(Enumerable.Repeat("😀", ReportForm.MaxMessage + 1));
+        Assert.Contains("文字までに", form.Validate());
+        // 絵文字 MinMessage 個は、最小の文字数ちょうど（通る）
+        form.Message = string.Concat(Enumerable.Repeat("😀", ReportForm.MinMessage));
+        Assert.Null(form.Validate());
+    }
+
+    [Fact]
+    public void The_report_page_shows_the_code_point_count()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !Directory.Exists(Path.Combine(dir, "external", "fara-site-kit"))) dir = Path.GetDirectoryName(dir);
+        var view = File.ReadAllText(Path.Combine(dir!, "external", "fara-site-kit", "src", "FaraSiteKit.Razor", "Components", "ReportFormView.razor"));
+        Assert.Contains("ReportForm.CountCharacters(Form.Message.Trim())", view);
+        Assert.DoesNotContain("Message.Trim().Length", view);
+    }
+
+    [Fact]
     public void A_long_contact_is_rejected_and_the_check_token_is_required()
     {
         var form = Valid();
@@ -128,19 +163,19 @@ public class ReportFormTests
     [Fact]
     public void The_author_link_goes_to_the_dev_homepage_on_the_dev_site()
     {
-        var before = SiteLinks.CurrentHost;
+        // フッターの作者のリンクは、kit の SiteFooter が、開いているホスト名（NavigationManager.BaseUri）と DevelopHost を比べて切り替える
         var beforeDevelop = SiteLinks.DevelopHost;
         try
         {
-            SiteLinks.DevelopHost = "pokemon-dev.fara-labs.com";
-            SiteLinks.CurrentHost = "pokemon.fara-labs.com";
-            Assert.Equal("https://fara-labs.com/", SiteInfo.AuthorHomeUrl);
-            SiteLinks.CurrentHost = "pokemon-dev.fara-labs.com";
-            Assert.Equal("https://dev.fara-labs.com/", SiteInfo.AuthorHomeUrl);
+            var options = new SiteOptions();
+            SiteInfo.Configure(options);
+            SiteLinks.DevelopHost = options.DevelopHost;
+            Assert.Equal("pokemon-dev.fara-labs.com", options.DevelopHost);
+            Assert.Equal("https://fara-labs.com/", SiteLinks.Localize(options.AuthorHomeUrl, "pokemon.fara-labs.com"));
+            Assert.Equal("https://dev.fara-labs.com/", SiteLinks.Localize(options.AuthorHomeUrl, "pokemon-dev.fara-labs.com"));
         }
         finally
         {
-            SiteLinks.CurrentHost = before;
             SiteLinks.DevelopHost = beforeDevelop;
         }
     }

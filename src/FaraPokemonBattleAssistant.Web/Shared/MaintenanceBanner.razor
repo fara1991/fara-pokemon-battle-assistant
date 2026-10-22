@@ -1,8 +1,0 @@
-@* 「更新予定」のお知らせ（MAINTENANCE=notice のときだけ。Worker の変数 MAINTENANCE_MESSAGE の文を出す）。1 行目に見出し「【お知らせ】」、2 行目以降に本文（external/fara-site-kit/worker/maintenance.js の noticeHtml と同じ形）。MAINTENANCE を false に戻すと消える *@
-@using FaraSiteKit.Core
-@inject MaintenanceInfo Info
-
-@if (Info.State == MaintenanceState.Notice)
-{
-    <div class="maintenance-notice" role="status"><strong class="maintenance-notice-title">【お知らせ】</strong><span class="maintenance-notice-text">@Info.NoticeText</span></div>
-}

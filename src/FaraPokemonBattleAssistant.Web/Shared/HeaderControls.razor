@@ -31,9 +31,8 @@
     </div>
     @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使える *@
     <BattleViewSwitch InputId="hdr-battle-view" Class="hdr-battle" Compact="true" />
-    @* ライト／ダーク: ON = ダークモード（月）、OFF = ライトモード（太陽） *@
-    <MudSwitch T="bool" Value="@(App.Theme == "dark")" ValueChanged="@(_ => App.ToggleThemeAsync())" Color="Color.Primary" Class="theme-switch" AriaLabel="ダークモード" title="ダークモードの ON / OFF"
-               ThumbIcon="@(App.Theme == "dark" ? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)" ThumbIconColor="@(App.Theme == "dark" ? Color.Primary : Color.Warning)" />
+    @* ライト／ダーク（kit の ThemeSwitch）: ON = ダークモード（月）、OFF = ライトモード（太陽） *@
+    <ThemeSwitch Class="theme-switch" />
 </div>
 
 @code {

@@ -114,4 +114,47 @@ public class AppStateTests
         Assert.True(AppState.IsSameGame("Gen9", "Gen9"));
         Assert.False(AppState.IsSameGame("Champions", "Gen9"));
     }
+
+    [Fact]
+    public async Task Saving_keeps_the_theme_and_other_items_stored_by_the_shared_layout()
+    {
+        // ライト／ダークは、共通部品（kit の SiteThemeState）が同じ JSON の Theme に持つ。ゲームを切り替えても、消さない・古い値で上書きしない
+        var js = new FakeJs { Stored = "{\"DataSetKey\":\"Champions\",\"Format\":\"Singles\",\"Theme\":\"dark\",\"Other\":1}" };
+        var app = new AppState(new DataCatalog(new DataSetListSource(), null), js);
+        await app.InitializeAsync();
+
+        await app.SetDataSetAsync("Gen9");
+
+        using var doc = System.Text.Json.JsonDocument.Parse(js.Stored!);
+        Assert.Equal("Gen9", doc.RootElement.GetProperty("DataSetKey").GetString());
+        Assert.Equal("dark", doc.RootElement.GetProperty("Theme").GetString());
+        Assert.Equal(1, doc.RootElement.GetProperty("Other").GetInt32());
+    }
+
+    [Fact]
+    public async Task The_theme_changed_after_start_is_not_overwritten_by_a_later_save()
+    {
+        // 起動のときは light だったが、その後に共通部品がダークへ変えた（localStorage の Theme を書き換えた）。そのあとのゲームの切り替えで、light に戻さない
+        var (app, js) = await CreateAsync();
+        js.Stored = "{\"Theme\":\"dark\"}";
+
+        await app.SetFormatAsync(FaraPokemonBattleAssistant.Core.Models.BattleFormat.Doubles);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(js.Stored!);
+        Assert.Equal("dark", doc.RootElement.GetProperty("Theme").GetString());
+        Assert.Equal("Doubles", doc.RootElement.GetProperty("Format").GetString());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not json")]
+    [InlineData("[1,2]")]
+    public void A_missing_or_broken_saved_value_is_replaced_by_game_and_format_only(string? existing)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(AppState.WriteSaved(existing, "Gen9", FaraPokemonBattleAssistant.Core.Models.BattleFormat.Singles));
+        Assert.Equal("Gen9", doc.RootElement.GetProperty("DataSetKey").GetString());
+        Assert.Equal("Singles", doc.RootElement.GetProperty("Format").GetString());
+        Assert.False(doc.RootElement.TryGetProperty("Theme", out _));
+    }
 }

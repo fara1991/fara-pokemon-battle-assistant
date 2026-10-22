@@ -8,7 +8,7 @@
     <!-- SEO-HEAD:END -->
     <base href="/" />
     <!-- 起動までの読み込み表示（画面全体を覆う不透明なオーバーレイ）。最初に当てる（CSS の読み込み前にも本文が見えないように、インラインで書く）。
-         背景色は theme-init.js が決める data-bs-theme に従う（app.css の --app-body-bg と同じ色）。 -->
+         背景色は theme-init.js（kit）が決める data-bs-theme に従う（app.css の --app-body-bg と同じ色）。 -->
     <style>
         html, body { background: #f7f4fd; }
         html[data-bs-theme="dark"], html[data-bs-theme="dark"] body { background: #0c0616; }
@@ -47,13 +47,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link href="css/base.css" rel="stylesheet" />
+    <!-- 共通部品（fara-site-kit）の CSS。サイトの app.css より前に読む（同じ強さの規則は app.css が勝つ） -->
+    <link href="_content/FaraSiteKit.Razor/css/fara-site-kit.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
-    <script src="js/theme-init.js"></script>
+    <!-- 描画の前に、保存されたテーマ（ライト／ダーク）と PC のサイドバーを隠す設定を html に反映する（kit の theme-init.js）。
+         data-storage-key・data-sidebar-key は、SiteOptions（Services/SiteInfo.cs の StorageKey・SidebarKey）と同じ値にする（違うと、起動の後にコンソールに警告が出る） -->
+    <script src="_content/FaraSiteKit.Razor/js/theme-init.js" data-storage-key="fara-pokemon-battle-assistant.settings" data-sidebar-key="fara-pokemon-battle-assistant.sidebar-hidden"></script>
+    <script src="js/site-init.js"></script>
     <!-- JavaScript が無いときは読み込み表示を出さない（静的な本文をそのまま読める）。インラインの script は CSP で使えないので style で隠す -->
     <noscript><style>#boot-indicator { display: none; }</style></noscript>
 </head>
 <body>
-    <!-- 起動までの読み込み表示。#app の外に置く（Blazor が #app の中身を置き換えても残るので、js/boot-indicator.js が起動後に外す）。
+    <!-- 起動までの読み込み表示。#app の外に置く（Blazor が #app の中身を置き換えても残るので、boot-indicator.js（kit）が起動後に外す）。
          静的な本文は、このオーバーレイの下に DOM として残す（検索エンジン・JavaScript が無い環境のため）。
          文言は CSS（:empty::before）で出すので、生の HTML の本文には入らない。読み上げは aria-label -->
     <div id="boot-indicator" class="boot-indicator">
@@ -71,11 +76,12 @@
         <a href="" class="reload">再読み込み</a>
         <a class="dismiss">🗙</a>
     </div>
-    <script src="js/boot-indicator.js"></script>
+    <script src="_content/FaraSiteKit.Razor/js/boot-indicator.js"></script>
+    <script src="_content/FaraSiteKit.Razor/js/fara-site-kit.js"></script>
     <script src="js/page.js"></script>
     <script src="js/motion.js"></script>
-    <script src="js/scroll-progress.js"></script>
-    <script src="js/report.js"></script>
+    <script src="_content/FaraSiteKit.Razor/js/scroll-progress.js"></script>
+    <script src="_content/FaraSiteKit.Razor/js/report.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
 </body>

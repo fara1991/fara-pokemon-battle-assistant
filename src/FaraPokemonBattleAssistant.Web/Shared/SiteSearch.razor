@@ -1,12 +1,13 @@
 @* 検索欄。入力するとすぐに、一致した場所（ページ・項目・用語・コマンド・ポケモン・わざ・特性）と、その前後の文章を出す。
    ↑↓ で結果を選び、ポケモンなど別の開き方がある結果は ←→ で選んで、Enter で開く。Esc で閉じる。Ctrl+K（Mac は ⌘K）か「/」で欄に移る（wwwroot/js/page.js）。
-   PC はヘッダーに置く。スマホは Sheet（ヘッダーの検索ボタンで、下に開く欄。× で閉じる・結果を開いたら閉じる・Esc で閉じる。MainLayout が出し入れする）。
+   PC はヘッダーに置く。スマホは Sheet（ヘッダーの検索ボタンで、下に開く欄。× で閉じる・結果を開いたら閉じる・Esc で閉じる）。欄の枠（#fsk-search-sheet）の出し入れは、kit の SiteLayout（SearchSheet）が行う。
    探す処理は Services/SearchService.cs。日本語入力の変換中の Enter は、page.js が止める（ここには届かない） *@
 @inject SearchService Search
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div id="@(Sheet ? "site-search-sheet" : null)" class="site-search @(Sheet ? "site-search-sheet" : null)" role="search" @onfocusout="Close" @onfocusin="OnFocusIn" @onkeydown="OnKeyDown">
+@* Esc は、ここで受ける（候補を閉じる・欄を閉じる）。kit の欄（SiteLayout の #fsk-search-sheet）にも Esc で閉じる処理があるので、ここで止める（検索の契約。候補を閉じるだけのときに、欄まで閉じないように） *@
+<div class="site-search @(Sheet ? "site-search-sheet" : null)" role="search" @onfocusout="Close" @onfocusin="OnFocusIn" @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true">
     <svg class="site-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
     <input id="site-search-input" type="search" class="site-search-input" placeholder="検索（例: ガブリアス、dmg、努力値）" autocomplete="off" spellcheck="false"
            aria-label="サイト内を検索" role="combobox" aria-expanded="@(open ? "true" : "false")" aria-controls="site-search-list" aria-autocomplete="list"
@@ -64,7 +65,7 @@
     /// <summary>スマホの検索欄（ヘッダーの下に開く）かどうか。PC の検索欄（ヘッダーの中）とは、見た目と閉じ方が違う</summary>
     [Parameter] public bool Sheet { get; set; }
 
-    /// <summary>スマホの検索欄を閉じるときに呼ぶ（× ・Esc・結果を開いたとき）。MainLayout が閉じる</summary>
+    /// <summary>スマホの検索欄を閉じるときに呼ぶ（× ・Esc・結果を開いたとき）。SiteLayout が閉じる</summary>
     [Parameter] public EventCallback OnDone { get; set; }
 
     private string query = "";
@@ -188,7 +189,7 @@
         activeAction = -1;
     }
 
-    /// <summary>スマホの欄を閉じる（MainLayout に知らせる）。PC の欄では、何もしない</summary>
+    /// <summary>スマホの欄を閉じる（SiteLayout に知らせる）。PC の欄では、何もしない</summary>
     private Task Done()
     {
         Close();

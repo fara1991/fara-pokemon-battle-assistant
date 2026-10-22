@@ -306,42 +306,7 @@ document.addEventListener("focusin", function (e) {
     if (t && t.tagName === "INPUT" && t.closest && t.closest(".searchable-select")) t.select();
 }, true);
 
-// サイドバーの表示・非表示（PC）。ハンバーガー（MudBlazor の MudIconButton。Shared/MainLayout.razor）を押すたびに、MainLayout が呼ぶ。
-// 状態は html の sidebar-hidden クラス（最初の反映は theme-init.js。対戦画面などの余白は、このクラスで決まる）。選んだ状態はこのブラウザに保存する
-window.faraSidebarChanged = function (hidden) {
-    document.documentElement.classList.toggle("sidebar-hidden", !!hidden);
-    try { localStorage.setItem("fara-pokemon-battle-assistant.sidebar-hidden", hidden ? "1" : "0"); } catch (err) { }
-    // 隠す・開くで、ページの幅が変わるので、測り直させる
-    window.dispatchEvent(new Event("resize"));
-};
-
-// 画面の幅がスマホ（768px 未満）かどうかを、Blazor（Shared/MainLayout.razor）に知らせる。最初の状態を返し、変わったら OnMobileChanged を呼ぶ
-window.faraWatchMobile = function (ref) {
-    var mq = window.matchMedia("(max-width: 767.98px)");
-    var handler = function (e) { ref.invokeMethodAsync("OnMobileChanged", e.matches); };
-    if (mq.addEventListener) mq.addEventListener("change", handler); else if (mq.addListener) mq.addListener(handler);
-    return mq.matches;
-};
-
-// スマホの検索ボタン（ヘッダー。Shared/MainLayout.razor）: 押した瞬間に、下に開く欄を出して、フォーカスする。
-// iOS Safari は、タップの流れの中で focus() しないとキーボードを出さないので、Blazor を待たずに、ここで行う（C# 側の状態は MainLayout が合わせる）
-document.addEventListener("click", function (e) {
-    if (e.target && e.target.closest && e.target.closest(".header-search-toggle")) window.faraSearchSheet(true, true);
-}, false);
-// スマホの検索欄の開閉（html の search-open クラス。見た目は app.css）。
-// 閉じるときは、フォーカスが欄の中にあれば（隠れると body に落ちるので）、欄が隠れる前に検索ボタンへ移す（ボタンが無ければ、欄からフォーカスを外す）。
-// focus が true なら、欄の中に無くても検索ボタンへ戻す（× ・Esc・結果を開いたあと）
-window.faraSearchSheet = function (open, focus) {
-    var sheet = document.getElementById("site-search-sheet");
-    var active = document.activeElement;
-    var inside = !!(sheet && active && sheet.contains(active));
-    var btn = document.querySelector(".header-search-toggle");
-    if (!open && (focus || inside) && btn) btn.focus();
-    else if (!open && inside && active.blur) active.blur();
-    document.documentElement.classList.toggle("search-open", !!open);
-    var input = document.getElementById("site-search-input");
-    if (open && focus && input) input.focus();
-};
+// サイドバーの開閉（PC）・スマホかどうかの判定・スマホの検索欄の開閉は、kit の js/fara-site-kit.js（window.faraSiteKit）が受け持つ（SiteLayout が呼ぶ）。
 
 // ヘッダーの検索欄へ移る: Ctrl+K（Mac は ⌘K）か「/」（文字を入力中は、「/」を奪わない）。欄は Blazor が描画する（Shared/SiteSearch.razor）
 document.addEventListener("keydown", function (e) {

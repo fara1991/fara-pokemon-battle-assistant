@@ -113,6 +113,20 @@ function plain(html) {
         .trim();
 }
 
+/**
+ * 問い合わせのページは、kit の ReportFormView が画面を出す（Report.razor には文言が無い）。検索の索引には、kit の画面が出す文言（題名・説明・ラベル・案内）を入れる。
+ * 説明の既定・ラベル・送信前の案内は kit（external/fara-site-kit/src/FaraSiteKit.Razor/Components/ReportFormView.razor）と同じ。連絡先の説明は Report.razor の ContactHint
+ */
+function reportFormView(src) {
+    if (!src.includes("<ReportFormView")) return null;
+    const hint = /ContactHint="([^"]*)"/.exec(src)?.[1] ?? "";
+    const title = "問い合わせ";
+    const body = `<div class="page-header page-column"><h3>${title}</h3><p>不具合・要望・ご意見を、作者に直接送れます。いただいた内容は、作者に通知されます（公開はされません）。</p></div>
+<label>種類</label><label>内容</label><label>連絡先（任意）</label><p>${hint}</p>
+<p>送信すると、プライバシーポリシーに書いたとおり、内容が作者に通知されます。個人情報（パスワード・アクセスキーなど）は書かないでください。</p>`;
+    return { title, body };
+}
+
 function pageUrl(src) {
     const m = /^@page\s+"([^"]+)"/m.exec(src);
     return m ? m[1] : null;
@@ -160,12 +174,13 @@ function build() {
         const raw = readFileSync(join(pagesDir, file), "utf8");
         const url = pageUrl(raw);
         if (!url || file === "LegacyUrlRedirect.razor") continue;
-        const title = pageTitle(raw) ?? file.replace(".razor", "");
+        const report = reportFormView(raw);
+        const title = report?.title ?? pageTitle(raw) ?? file.replace(".razor", "");
         const reading = PAGE_READINGS[title];
         if (!reading) throw new Error(`${file}: ページ「${title}」の読みが PAGE_READINGS にありません（ひらがなで足してください）`);
         if (!/^[ぁ-ゖー]+$/.test(reading)) throw new Error(`${file}: 「${title}」の読みは、ひらがなと「ー」だけにしてください`);
         usedReadings.add(title);
-        const body = stripRazor(raw, file);
+        const body = report?.body ?? stripRazor(raw, file);
         const description = pageDescription(body);
         entries.push({ type: "page", title, page: title, url, text: description, reading });
         for (const e of sectionsOf(body, title, url)) {

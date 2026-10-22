@@ -19,6 +19,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "external", "external", "{DA
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FaraSiteKit.Core", "external\fara-site-kit\src\FaraSiteKit.Core\FaraSiteKit.Core.csproj", "{59BFC9D6-E728-4761-88CE-AA0600093209}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FaraSiteKit.Razor", "external\fara-site-kit\src\FaraSiteKit.Razor\FaraSiteKit.Razor.csproj", "{89CA64A3-98C3-4BF9-87EE-AB54C59F374D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,6 +51,10 @@ Global
 		{59BFC9D6-E728-4761-88CE-AA0600093209}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{59BFC9D6-E728-4761-88CE-AA0600093209}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{59BFC9D6-E728-4761-88CE-AA0600093209}.Release|Any CPU.Build.0 = Release|Any CPU
+		{89CA64A3-98C3-4BF9-87EE-AB54C59F374D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{89CA64A3-98C3-4BF9-87EE-AB54C59F374D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{89CA64A3-98C3-4BF9-87EE-AB54C59F374D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{89CA64A3-98C3-4BF9-87EE-AB54C59F374D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -56,5 +62,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{FF6B8F0E-0BB7-41FF-B0C2-89D652D042AE} = {C75B5AF6-0B24-45C4-AC6F-4458FE456337}
 		{59BFC9D6-E728-4761-88CE-AA0600093209} = {DA246D61-E86C-4170-9D7D-63413DB939B4}
+		{89CA64A3-98C3-4BF9-87EE-AB54C59F374D} = {DA246D61-E86C-4170-9D7D-63413DB939B4}
 	EndGlobalSection
 EndGlobal
