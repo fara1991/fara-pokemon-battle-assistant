@@ -220,7 +220,7 @@ else if (string.IsNullOrEmpty(loadError))
             var parts = new List<string>();
             if (Has("こだわりスカーフ")) parts.Add("こだわりスカーフは 1.5 倍");
             var halves = new[] { "くろいてっきゅう", "きょうせいギプス" }.Where(Has).ToList();
-            if (items.Any(i => i.Name.StartsWith("パワー") && SpeedCalculator.IsSpeedItem(i))) halves.Add("パワー系（パワーリストなど）");
+            if (items.Any(i => i.Name.StartsWith("パワー", StringComparison.Ordinal) && SpeedCalculator.IsSpeedItem(i))) halves.Add("パワー系（パワーリストなど）");
             if (halves.Count > 0) parts.Add(string.Join("・", halves) + "は 0.5 倍");
             if (Has("スピードパウダー")) parts.Add("スピードパウダーはメタモンが持つと 2 倍");
             return parts.Count > 0 ? string.Join("、", parts) + "で計算します。" : "";

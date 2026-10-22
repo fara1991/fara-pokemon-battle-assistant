@@ -8,7 +8,7 @@
 <PageTitle>ダメージ計算機 | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>ダメージ計算機 <Help Title="ダメージ計算機">攻撃側と防御側のポケモンと技を選ぶと、乱数 16 通りのダメージと確定数を自動で出します（入力を変えるたびに計算し直します）。ポケモンを選ぶと使用率に基づく性格・持ち物・特性が既定値として入ります。ゲームとバトル形式は左のメニューで切り替えます。</Help></h3>
+    <h3>ダメージ計算機 <Help Title="ダメージ計算機">攻撃側と防御側のポケモンと技を選ぶと、乱数 16 通りのダメージと確定数を自動で出します（入力を変えるたびに計算し直します）。ポケモンを選ぶと@(HasUsage ? "使用率に基づく性格・持ち物・特性が既定値として入ります" : "性格は補正なし、持ち物はなし、特性は第 1 特性（天候などを作る特性は優先）が既定値として入ります")。ゲームとバトル形式は左のメニューで切り替えます。</Help></h3>
     <p class="text-muted mb-0">登録したポケモンは「登録から選ぶ」で、攻撃側・防御側のどちらにも呼び出せます。入力した内容は別のページへ移動しても残ります。</p>
 </div>
 
@@ -70,7 +70,7 @@ else if (data is not null && dataSet is not null)
                         <div class="poke-summary mb-2"><PokemonLabel Build="s.Attacker" /> <span class="small text-muted text-nowrap">種族値 @FormatStats(s.Attacker.Pokemon.BaseStats)</span></div>
                     }
                     <div class="form-group mb-3">
-                        <label>技 <Help Title="技">攻撃側のポケモンが覚える技を、いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）に表示します。防御側を選んでいないときは、タイプなし・種族値すべて 100 の相手で計算します。同じダメージなら使用率の高い順です。選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
+                        <label>技 <Help Title="技">攻撃側のポケモンが覚える技を、いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）に表示します。防御側を選んでいないときは、タイプなし・種族値すべて 100 の相手で計算します。@(HasUsage ? "同じダメージなら使用率の高い順です。" : "同じダメージなら、もとの技の並び順です。")選んだ技の分類（物理 / 特殊）に合わせて、下の努力値・ランクの項目が切り替わります。</Help></label>
                         <SearchableSelect TItem="Move"
                             Items="MoveChoices"
                             DisplayText="@(m => m.Name)"
@@ -361,6 +361,8 @@ else if (string.IsNullOrEmpty(loadError))
     private DataSetInfo? dataSet;
     private PokemonDataSet? data;
     private UsageData? usage;
+    /// <summary>このゲームに使用率があるか（ないゲーム＝ Champions は、使用率の表示も使わない）。</summary>
+    private bool HasUsage => usage is { IsEmpty: false };
     private string loadError = "";
     private string rosterError = "";
     private string errorMessage = "";
@@ -1080,7 +1082,7 @@ else if (string.IsNullOrEmpty(loadError))
     private string sortedMovesKey = "";
 
     /// <summary>
-    /// 技の候補。いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）。同じなら使用率順。
+    /// 技の候補。いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）。同じなら使用率順（使用率が無いゲームでは、もとの技の並び順）。
     /// 描画のたびに全部の技を計算しないよう、条件が変わったときだけ並べ直す。
     /// </summary>
     private IReadOnlyList<Move> MoveChoices
@@ -1113,7 +1115,7 @@ else if (string.IsNullOrEmpty(loadError))
             b.TeraType, b.Status, b.IsDynamax, b.CurrentHp);
     }
 
-    // 既定の技は使用率 1 位（代用した使用率でもよい）。努力値の既定もこの技に合わせるので、並び順の先頭とは限らない
+    // 既定の技は使用率 1 位（使用率が無いゲームは、火力順の先頭の攻撃技）。努力値の既定もこの技に合わせるので、並び順の先頭とは限らない
     private Move? DefaultMove(int pokemonId) =>
         usage?.TopMove(pokemonId) ?? MoveChoices.FirstOrDefault(m => m.IsDamaging);
 
@@ -1121,7 +1123,7 @@ else if (string.IsNullOrEmpty(loadError))
     {
         if (data is null || s.Attacker is null) { attackerMoves = Array.Empty<Move>(); return; }
         var moves = data.LearnableMoves(s.Attacker.Pokemon.Id).Where(m => m.Category != MoveCategory.Status).ToList();
-        attackerMoves = usage is null ? moves : usage.SortByUsage(moves, m => m.Id, usage.MoveOrder(s.Attacker.Pokemon.Id));
+        attackerMoves = usage is { IsEmpty: false } u ? u.SortByUsage(moves, m => m.Id, u.MoveOrder(s.Attacker.Pokemon.Id)) : moves;
         attackerItems = ItemChoices(s.Attacker, i => i.IsOffensive);
     }
 
@@ -1138,7 +1140,7 @@ else if (string.IsNullOrEmpty(loadError))
         if (build.Item is not null && !all.Contains(build.Item)) all.Insert(0, build.Item);
         var first = all.Where(relevant).ToList();
         var rest = all.Where(i => !first.Contains(i));
-        var ordered = usage is null ? first : usage.SortByUsage(first, i => i.Id, usage.ItemOrder(build.Pokemon.Id));
+        var ordered = usage is { IsEmpty: false } u ? u.SortByUsage(first, i => i.Id, u.ItemOrder(build.Pokemon.Id)) : first;
         return ordered.Concat(rest).ToList();
     }
 
@@ -1462,7 +1464,7 @@ else if (string.IsNullOrEmpty(loadError))
 
     /// <summary>技の下に出す「タイプ一致」の補正（結果の補正の一覧にあるものを、攻撃側の技のところに出す）。</summary>
     private string StabText() =>
-        s.Result?.Modifiers.FirstOrDefault(m => m.StartsWith("タイプ一致")) is { } stab ? $"　{stab}" : "";
+        s.Result?.Modifiers.FirstOrDefault(m => m.StartsWith("タイプ一致", StringComparison.Ordinal)) is { } stab ? $"　{stab}" : "";
 
     private static string Inv(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 

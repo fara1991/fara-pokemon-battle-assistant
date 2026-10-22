@@ -16,7 +16,7 @@ public class HistoricalDataTests
     {
         var sets = await TestData.Catalog().GetDataSetsAsync();
         Assert.Equal("Gen1", sets[0].Key);
-        Assert.Equal(Enumerable.Range(1, 9), sets.Where(s => s.Key.StartsWith("Gen")).Select(s => s.Generation));
+        Assert.Equal(Enumerable.Range(1, 9), sets.Where(s => s.Key.StartsWith("Gen", StringComparison.Ordinal)).Select(s => s.Generation));
         // 計算は今のゲームだけ（昔の世代は順に対応していく）
         Assert.False(sets.Single(s => s.Key == "Gen1").CalcSupported);
         Assert.False(sets.Single(s => s.Key == "Gen2").CalcSupported);

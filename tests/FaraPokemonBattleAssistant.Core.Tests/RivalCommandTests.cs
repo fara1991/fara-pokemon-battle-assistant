@@ -295,9 +295,8 @@ public class RivalCommandTests
         Assert.Matches(@"→ リザードン\([^)]*\)", plain.Message);
         // 使用率の持ち物（その名前）も、防御側の表記に出さない
         var catalogData = await TestData.Catalog().GetDataSetAsync(Ds);
-        var usageItem = (await catalogData.GetUsageAsync(Models.BattleFormat.Singles)).TopItem(catalogData.Pokemon.First(p => p.Name == "リザードン").Id);
-        Assert.NotNull(usageItem);   // 使用率の持ち物があることが前提（無いと、下の「出さない」が何も確かめない）
-        Assert.DoesNotContain(usageItem!.Name, plain.Message.Split('\n')[0].Split('→')[1]);
+        // Champions は使用率が無いので、既定の持ち物は入らない（使用率の持ち物が出ないことは、下の「持ち物なし」の確認と同じ）
+        Assert.True((await catalogData.GetUsageAsync(Models.BattleFormat.Singles)).IsEmpty);
         // 書いた持ち物は、計算にも返信にも反映する
         var held = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:たべのこし");
         Assert.True(held.Success, held.Message);
@@ -306,6 +305,24 @@ public class RivalCommandTests
         var noItem = await command.ExecuteAsync("!pokech dmg マニューラ つららおとし リザードン 防:持ち物なし");
         Assert.Null(noItem.Request!.Defender.Item);
         Assert.DoesNotMatch(@"→ リザードン\([^)]*たべのこし", noItem.Message);
+    }
+
+    [Fact]
+    public async Task Gen9_defender_without_written_item_does_not_show_the_usage_item()
+    {
+        // 使用率のあるゲーム（Gen9）では、既定の持ち物（使用率 1 位）を防御側に入れず、返信にも出さない
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var usage = await data.GetUsageAsync(Models.BattleFormat.Singles);
+        var zard = data.Pokemon.First(p => p.Name == "リザードン");
+        var usageItem = usage.TopItem(zard.Id);
+        Assert.NotNull(usageItem);   // 使用率の持ち物があることが前提
+        var repo = new RosterRepository(new MemoryRosterStore());
+        await repo.AddPokemonAsync("Gen9", data.Pokemon.First(p => p.Name == "ガブリアス"), new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
+        var command = new PokeCommand(TestData.Catalog(), repo);
+        var dmg = await command.ExecuteAsync("!pokesv dmg ガブリアス じしん リザードン");
+        Assert.True(dmg.Success, dmg.Message);
+        Assert.Null(dmg.Request!.Defender.Item);
+        Assert.DoesNotContain(usageItem!.Name, dmg.Message.Split('\n')[0].Split('→')[1]);
     }
 
     [Fact]

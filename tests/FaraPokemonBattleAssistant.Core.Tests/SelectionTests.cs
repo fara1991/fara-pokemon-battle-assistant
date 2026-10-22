@@ -728,7 +728,7 @@ public class AbilityMatchupTests
         Assert.False(grass.ChangedByAbility);
 
         var changed = AbilityMatchup.ChangedByDefensiveAbility(Chart, new[] { "Grass", "Poison" }, thickFat);
-        Assert.Equal(new[] { "Fire", "Ice" }, changed.Select(c => c.AttackType).OrderBy(t => t));
+        Assert.Equal(new[] { "Fire", "Ice" }, changed.Select(c => c.AttackType).OrderBy(t => t, StringComparer.Ordinal));
     }
 
     [Theory]

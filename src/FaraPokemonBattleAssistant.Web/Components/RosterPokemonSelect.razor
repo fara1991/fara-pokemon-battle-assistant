@@ -29,7 +29,7 @@
 
     protected override void OnParametersSet() =>
         options = Groups.SelectMany(g => g.Choices.Select(c =>
-            new Option(c, Data.FindPokemon(c.Entry.PokemonId), g.Label.Replace("（使用中）", "") is var l && l.StartsWith("チームに入っていない") ? "チーム外" : g.Label.Replace("（使用中）", "")))).ToList();
+            new Option(c, Data.FindPokemon(c.Entry.PokemonId), g.Label.Replace("（使用中）", "") is var l && l.StartsWith("チームに入っていない", StringComparison.Ordinal) ? "チーム外" : g.Label.Replace("（使用中）", "")))).ToList();
 
     private async Task OnChanged(string key)
     {
