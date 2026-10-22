@@ -4310,6 +4310,8 @@ a.site-footer-social:hover { color: #fff; box-shadow: 0 3px 10px -3px var(--bran
 a.site-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed); outline-offset: 2px; }
 
 /* 問い合わせ・プライバシーポリシー */
+/* 内容の列（見出し・説明・カード）。読みやすい幅で、横の中央に置く。Copyright など、ほかのページには効かせない */
+.page-column { width: 100%; max-width: 46rem; margin-left: auto; margin-right: auto; }
 .report-card, .policy-card { max-width: 46rem; }
 .policy-card h5 { margin-top: 1.1rem; font-size: 1rem; }
 .policy-card h5:first-child { margin-top: 0; }
