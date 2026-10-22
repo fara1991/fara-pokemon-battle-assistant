@@ -1313,6 +1313,35 @@ public class UsageFallbackTests
         var gen9 = await TestData.Catalog().GetDataSetAsync("Gen9");
         Assert.Equal("Gen9", (await gen9.GetUsageAsync(BattleFormat.Singles)).SourceKey);
     }
+
+    [Fact]
+    public async Task Game_without_usage_files_reads_only_the_rank_file_per_format()
+    {
+        // Gen8 には使用率のファイルが無い（sync_data.py が出すのは Gen9・Champions だけ）。
+        // 無いファイルを 4 つずつ読みに行かず、usage_pokemon_* の 1 つだけを形式ごとに読む
+        var real = new FileDataSource(TestData.DataDirectory);
+        var read = new List<string>();
+        var inner = new RecordingSource(real, read);
+        var gen8 = await new DataCatalog(inner).GetDataSetAsync("Gen8");
+        read.Clear();
+
+        var singles = await gen8.GetUsageAsync(BattleFormat.Singles);
+        var doubles = await gen8.GetUsageAsync(BattleFormat.Doubles);
+
+        Assert.True(singles.IsEmpty);
+        Assert.True(doubles.IsEmpty);
+        Assert.Equal(new[] { "Gen8/usage_pokemon_doubles.csv", "Gen8/usage_pokemon_singles.csv" }, read.OrderBy(p => p, StringComparer.Ordinal).ToArray());
+    }
+
+    /// <summary>読んだパスを記録するデータソース。</summary>
+    private sealed class RecordingSource(IDataSource inner, List<string> read) : IDataSource
+    {
+        public Task<string?> ReadTextAsync(string relativePath, CancellationToken cancellationToken = default)
+        {
+            lock (read) read.Add(relativePath);
+            return inner.ReadTextAsync(relativePath, cancellationToken);
+        }
+    }
 }
 
 public class SortByDamageTests
