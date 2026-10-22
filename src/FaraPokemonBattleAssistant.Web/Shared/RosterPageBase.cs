@@ -22,6 +22,8 @@ public abstract class RosterPageBase : AppPageBase
     protected DataSetInfo? dataSet;
     protected PokemonDataSet? data;
     protected DataSetRoster? roster;
+    /// <summary>ゲームのデータの読み込みに失敗したか（画面に、読み込み中ではなく失敗だと出すため）。</summary>
+    protected bool LoadFailed { get; private set; }
 
     /// <summary>ページの入力状態を置くキー（PageStateStore）。</summary>
     protected abstract string StateKey { get; }
@@ -57,12 +59,15 @@ public abstract class RosterPageBase : AppPageBase
         {
             var key = App.DataSetKey;
             var info = App.DataSet;
+            // ゲームが変わった直後は、読み込みが終わるまで前のゲームのデータを出さない（そのまま操作すると、別のゲームのデータに書いてしまうため）
+            if (!IsCurrentGame(data)) { data = null; roster = null; dataSet = null; }
             var loaded = await Catalog.GetDataSetAsync(key);
             var loadedRoster = (await Repo.GetAsync()).For(key);
             if (version != loadVersion || IsDisposed) return;
             dataSet = info;
             data = loaded;
             roster = loadedRoster;
+            LoadFailed = false;
             OnDataLoaded();
             await OnRosterReadAsync();
         }
@@ -72,6 +77,7 @@ public abstract class RosterPageBase : AppPageBase
             // 前のゲームのデータで描画（と、削除などの操作）が続かないようにする
             data = null;
             roster = null;
+            LoadFailed = true;
             Show($"読み込みに失敗しました: {CloudSync.Describe(ex)}", true);
         }
     }

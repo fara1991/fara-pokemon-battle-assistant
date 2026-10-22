@@ -49,6 +49,10 @@ public abstract class AppPageBase : ComponentBase, IDisposable
         }
     }
 
+    /// <summary>読み込んだデータが、いま選んでいるゲームのものか。ゲームを切り替えた直後は、読み込みが終わるまで違う（前のゲームのデータを操作・表示させないために使う）。</summary>
+    protected bool IsCurrentGame(FaraPokemonBattleAssistant.Core.Data.PokemonDataSet? loaded) =>
+        loaded is null || loaded.Info.Key == App.DataSetKey;
+
     /// <summary>AppState の初期化後に 1 回呼ばれる。</summary>
     protected virtual Task OnAppReadyAsync() => Task.CompletedTask;
 
