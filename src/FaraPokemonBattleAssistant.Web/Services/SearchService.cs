@@ -204,7 +204,11 @@ public sealed class SearchService
         return 0;
     }
 
-    /// <summary>読み（ひらがな）に、語（ひらがな）が含まれるかの点数。語が 1 文字（の・と など）のときは見ない。</summary>
+    /// <summary>
+    /// 読みの比べ方（ひらがなの語）。読みの一致は、完全一致・前方一致（2 文字以上）、3 文字以上のときだけ途中の一致も見る。
+    /// 途中の一致を 2 文字で見ると、読みの途中に偶然現れて不自然なヒットが増えるため（「あい」が API の「えーぴーあい」に当たる、など）。
+    /// 読みの前方一致は、3 文字以上なら見出しの前方一致と同じ点数、2 文字なら低い点数にする（見出しより弱く、本文よりは強く）。
+    /// </summary>
     private static double ReadingScore(string reading, string t)
     {
         if (reading.Length == 0) return 0;
@@ -212,16 +216,17 @@ public sealed class SearchService
         if (key.Length < 2) return 0;
         var readingKey = LooseKana(reading);
         if (readingKey == key) return 30;
-        if (readingKey.StartsWith(key, StringComparison.Ordinal)) return 15;
-        return readingKey.Contains(key, StringComparison.Ordinal) ? 10 : 0;
+        if (readingKey.StartsWith(key, StringComparison.Ordinal)) return key.Length >= 3 ? 15 : 5;
+        return key.Length >= 3 && readingKey.Contains(key, StringComparison.Ordinal) ? 10 : 0;
     }
 
-    private const string LongOSound = "おこそとのほもよろごぞどぼぽょぉうお";
-    private const string LongESound = "えけせてねへめれげぜでべぺぇいぃえ";
+    /// <summary>長音として、直前の文字の後に「う」が続くと、その「う」を読まない段（お段・ょ・ぉ）。ほうき・ひょうき・とうきょう など。</summary>
+    private const string LongOSound = "おこそとのほもよろごぞどぼぽょぉ";
 
     /// <summary>
-    /// 読みの比べ方: 長音の「ー」を除き、おう・おお（ほうき → ほき）、えい・ええ（せいじん → せじん）の、長音の書き方を 1 つにそろえる。
+    /// 読みの比べ方: 長音の「ー」を除き、おう（ほうき → ほき、ひょうき → ひょき）・おお（おおきい → おきい）の、長音の書き方を 1 つにそろえる。
     /// 「ひょうき」と「ひょき」は、どちらで打っても同じ読みになる。
+    /// え段＋い（ていき・けいさん）は、長音（せいじん）と二重母音（ていき）の区別がつかないので、そろえない。
     /// </summary>
     public static string LooseKana(string kana)
     {
@@ -231,8 +236,8 @@ public sealed class SearchService
         {
             var c = s[i];
             var prev = i > 0 ? s[i - 1] : '\0';
-            if ((c == 'う' || c == 'お') && LongOSound.Contains(prev)) continue;
-            if ((c == 'い' || c == 'え') && LongESound.Contains(prev)) continue;
+            if (c == 'う' && LongOSound.Contains(prev)) continue;
+            if (c == 'お' && prev == 'お') continue;
             sb.Append(c);
         }
         return sb.ToString();
