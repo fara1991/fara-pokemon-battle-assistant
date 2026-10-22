@@ -23,6 +23,7 @@ C:\repos\fara-pokemon-battle-assistant\
 
 `build.yml` が `FaraPokemonBattleAssistant.Core.<version>.nupkg` を Actions の成果物として出力します。
 ローカルフォルダをパッケージソースに追加して参照してください。
+パッケージは net10.0 と net8.0 の両方を含みます（net8.0 の bot は net8.0 側が使われます。bot を net10 に上げたら、Core の net8.0 を外します）。
 
 ```powershell
 dotnet nuget add source C:\packages --name local
