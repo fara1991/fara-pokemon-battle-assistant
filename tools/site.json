@@ -1,0 +1,22 @@
+{
+    "name": "Pokémon Battle Assistant",
+    "origin": "https://pokemon.fara-labs.com",
+    "devOrigin": "https://pokemon-dev.fara-labs.com",
+    "lang": "ja",
+    "locale": "ja_JP",
+    "bodyRootClass": "entry-static",
+    "homeFile": "home.html",
+    "spaFallback": {},
+    "notFoundPage": false,
+    "robotsDisallow": ["/my-", "/data-share", "/api/my/"],
+    "developRobots": "allow",
+    "maxDescription": 150,
+    "csp": {
+        "scriptSrc": ["https://static.cloudflareinsights.com", "https://challenges.cloudflare.com"],
+        "styleSrc": ["https://fonts.googleapis.com"],
+        "fontSrc": ["https://fonts.gstatic.com"],
+        "imgSrc": ["https://raw.githubusercontent.com"],
+        "connectSrc": ["https://cloudflareinsights.com", "https://challenges.cloudflare.com"],
+        "frameSrc": ["https://challenges.cloudflare.com"]
+    }
+}

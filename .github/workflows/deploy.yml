@@ -53,7 +53,7 @@ jobs:
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
 
-      # 検索の入口ページ（/battle-terms など）の静的 HTML・robots.txt・sitemap.xml を作る（tools/build-entry-pages.mjs）
+      # 検索の入口ページ（/battle-terms など）の静的 HTML・robots.txt・sitemap.xml・_headers を作る（tools/build-entry-pages.mjs。kit の build を使う）
       - name: Build entry pages (production)
         run: node tools/build-entry-pages.mjs --env production
 
