@@ -23,6 +23,9 @@
             case DamageScene d:
                 @RenderDamage(d)
                 break;
+            case DamagePairScene dp:
+                @RenderDamagePair(dp)
+                break;
             case SpeedScene sp:
                 @RenderSpeed(sp)
                 break;
@@ -55,6 +58,65 @@
     private static string Inv(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string Pct(double v) => Inv(Math.Clamp(v, 0, 100)) + "%";
+
+    /// <summary>
+    /// ダブルバトルのダメージ計算機：右上に防御側（相手側）、左下に攻撃側（自分側）の HP、下にそろっている組み合わせごとの
+    /// 「〜の 技！」とダメージ。同じポケモンが複数の組み合わせに出ても、HP の枠は 1 つだけ。
+    /// </summary>
+    private RenderFragment RenderDamagePair(DamagePairScene pair) => __builder =>
+    {
+        // HP の枠は体ごとに 1 つ（同じ種族が 2 体いても、別々に出す）
+        var defenders = pair.Scenes.GroupBy(d => d.DefenderSlot).OrderBy(g => g.Key).Select(g => g.First()).ToList();
+        var attackers = pair.Scenes.GroupBy(d => d.AttackerSlot).OrderBy(g => g.Key).Select(g => g.First()).ToList();
+        <div class="bv-box bv-foe">
+            @foreach (var d in defenders)
+            {
+                // 同じ防御側が複数の組み合わせに出るときは、いちばん大きいダメージで HP を減らして見せる
+                var worst = pair.Scenes.Where(x => x.DefenderSlot == d.DefenderSlot).OrderByDescending(x => x.MaxDamage).First();
+                var start = worst.DefenderStartHp;
+                var minD = worst.Immune ? 0 : Math.Min(worst.MinDamage, start);
+                var maxD = worst.Immune ? 0 : Math.Min(worst.MaxDamage, start);
+                double P(int hp) => hp * 100.0 / worst.DefenderMaxHp;
+                var keep = P(start - maxD);
+                <div class="bv-name">@d.DefenderName</div>
+                <div class="hp-calc-bar bv-bar" role="img" aria-label="@(worst.Immune ? $"{d.DefenderName} の HP は減りません" : $"{d.DefenderName} の HP は残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)}（最大 {worst.DefenderMaxHp}）")">
+                    <div class="hp-calc-gone" style="left:@Pct(P(start - minD));width:@Pct(P(minD))"></div>
+                    <div class="hp-calc-fill" data-level="@(keep > 50 ? "high" : keep > 20 ? "mid" : "low")" style="left:0%;width:@Pct(keep)"></div>
+                    <div class="hp-calc-range" style="left:@Pct(keep);width:@Pct(P(maxD - minD));@(worst.Immune ? "display:none" : "")"></div>
+                </div>
+                <div class="bv-hp">@(worst.Immune ? $"{start} / {worst.DefenderMaxHp}（減らない）" : $"残り {Math.Max(0, start - maxD)}〜{Math.Max(0, start - minD)} / {worst.DefenderMaxHp}")</div>
+            }
+        </div>
+        <div class="bv-bottom">
+        <div class="bv-box bv-mine">
+            @foreach (var d in attackers)
+            {
+                var ratio = d.AttackerHp * 100.0 / d.AttackerMaxHp;
+                <div class="bv-name">@d.AttackerName</div>
+                <div class="hp-calc-bar bv-bar" role="img" aria-label="@d.AttackerName の HP @d.AttackerHp / @d.AttackerMaxHp">
+                    <div class="hp-calc-fill" data-level="@(ratio > 50 ? "high" : ratio > 20 ? "mid" : "low")" style="left:0%;width:@Pct(ratio)"></div>
+                </div>
+                <div class="bv-hp">@d.AttackerHp / @d.AttackerMaxHp</div>
+            }
+        </div>
+        <div class="bv-msg">
+            @foreach (var d in pair.Scenes)
+            {
+                <div class="bv-msg-move"><strong>@d.AttackerName</strong> の <TypeIcon Type="@d.MoveType" Small="true" /> <strong>@d.MoveName</strong> → @d.DefenderName</div>
+                <div class="bv-msg-dmg">
+                    <span class="bv-msg-kind">通常</span>
+                    <span class="bv-msg-range">@d.RangeText</span>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@(d.KnockOutGuaranteed ? Color.Error : Color.Warning)" Class="app-badge">@d.KnockOut</MudChip>
+                    @if (d.CritRangeText is not null)
+                    {
+                        <span class="bv-msg-kind bv-msg-kind-crit">急所</span>
+                        <span class="bv-msg-range">@d.CritRangeText</span>
+                    }
+                </div>
+            }
+        </div>
+        </div>
+    };
 
     /// <summary>ダメージ計算機：右上に防御側の HP（減る幅つき）、左下に攻撃側の HP、下に「〜の 技！」とダメージ。</summary>
     private RenderFragment RenderDamage(DamageScene d) => __builder =>
