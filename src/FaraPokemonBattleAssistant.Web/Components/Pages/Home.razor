@@ -11,9 +11,9 @@
 
 @* PC: 見出しは固定にして、カードの並びの中だけがスクロールする *@
 <div class="pane-scroll">
-@* 上に対応ゲームと更新履歴、下に機能の一覧（どの機能も同じ大きさで並べる） *@
+@* 上に対応ゲーム、中に機能の一覧、一番下に更新履歴（どの機能も同じ大きさで並べる） *@
 <div class="row g-3">
-    <div class="col-lg-7">
+    <div class="col-12">
         <MudCard Elevation="0" Class="card h-100">
             <MudCardContent Class="card-body">
                 <h6 class="card-title">対応しているゲーム <Help Title="ゲームの切り替え">左のメニューの「ゲーム」で切り替えます。選んだゲームは全ページとチャットコマンドの接頭辞に反映されます。</Help></h6>
@@ -22,27 +22,6 @@
                     <li>第3世代以降: その世代の計算式と補正でダメージを計算します<br /><span class="text-muted">※メガシンカ、Z 技、ダイマックス、テラスタルに対応しています（それぞれ登場した世代のみ）</span></li>
                     <li>ポケモンチャンピオンズ: 収録ポケモンのダメージ計算、努力値のポイント制に対応しています</li>
                 </ul>
-            </MudCardContent>
-        </MudCard>
-    </div>
-    <div class="col-lg-5">
-        <MudCard Elevation="0" Class="card h-100">
-            <MudCardContent Class="card-body">
-                <h6 class="card-title">更新履歴</h6>
-                @if (recent is null)
-                {
-                    <p class="small text-muted mb-0">@(failed ? "読み込めませんでした" : "読み込み中…")</p>
-                }
-                else
-                {
-                    <ul class="changelog-recent small">
-                        @foreach (var e in recent)
-                        {
-                            <li><span class="changelog-date">@e.Date.ToString("MM/dd")</span> @e.Title</li>
-                        }
-                    </ul>
-                }
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="changelog">すべて見る</MudButton>
             </MudCardContent>
         </MudCard>
     </div>
@@ -88,6 +67,26 @@
             <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="battle-terms">開く</MudButton></div>
         </li>
     </ul>
+</MudCard>
+
+<MudCard Elevation="0" Class="card mt-3">
+    <MudCardContent Class="card-body">
+        <h6 class="card-title">更新履歴</h6>
+        @if (recent is null)
+        {
+            <p class="small text-muted mb-0">@(failed ? "読み込めませんでした" : "読み込み中…")</p>
+        }
+        else
+        {
+            <ul class="changelog-recent small">
+                @foreach (var e in recent)
+                {
+                    <li><span class="changelog-date">@e.Date.ToString("MM/dd")</span> @e.Title</li>
+                }
+            </ul>
+        }
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="changelog">すべて見る</MudButton>
+    </MudCardContent>
 </MudCard>
 
 

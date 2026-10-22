@@ -300,15 +300,12 @@ else if (data is not null && dataSet is not null)
         public PokemonBuild? Defender { get => Defenders[DefenderIndex]; set => Defenders[DefenderIndex] = value; }
         public Move? Move { get => Moves[AttackerIndex]; set => Moves[AttackerIndex] = value; }
 
-        /// <summary>選んでいるポケモン・技・「登録から選ぶ」を、全部の体で空にする（ゲームを切り替えたとき）。</summary>
+        /// <summary>選んでいるポケモン・技・選んでいる登録を、全部の体で空にする（ゲームを切り替えたとき。「登録から選ぶ」・Z 技のスイッチは、これまでどおり残す）。</summary>
         public void ResetSelections()
         {
             Attackers = new PokemonBuild?[2];
             Defenders = new PokemonBuild?[2];
             Moves = new Move?[2];
-            ZMoves = new bool[2];
-            UseRosterAttackers = new bool[2];
-            UseRosterDefenders = new bool[2];
             AttackerRosterKeys = new string?[2];
             DefenderRosterKeys = new string?[2];
             AttackerMegas = new Pokemon?[2];
@@ -393,8 +390,9 @@ else if (data is not null && dataSet is not null)
     {
         if (AttackerQuery is null && DefenderQuery is null) return;
         // 数字でない・存在しない ID は無視する（保存してあった攻撃側・防御側を消さない）
-        if (QueryPokemonId(AttackerQuery) is { } a) OnAttackerChanged(a.ToString());
-        if (QueryPokemonId(DefenderQuery) is { } d) OnDefenderChanged(d.ToString());
+        // ダブルバトルでは、2 体目を上書きしないよう、1 体目の入力に切り替えてから入れる
+        if (QueryPokemonId(AttackerQuery) is { } a) { SelectAttacker(0); OnAttackerChanged(a.ToString()); }
+        if (QueryPokemonId(DefenderQuery) is { } d) { SelectDefender(0); OnDefenderChanged(d.ToString()); }
         Nav.NavigateTo("damage-calculator", replace: true);
     }
 
@@ -416,7 +414,7 @@ else if (data is not null && dataSet is not null)
         if (Doubles)
         {
             // ダブルバトル: 自分側 2 体・相手側 2 体のうち、そろっている組み合わせの結果を全部出す
-            var scenes = Combinations().Select(c => SceneOf(OutcomeOf(c.Attacker, c.Defender))).Where(x => x is not null).Select(x => x!).ToList();
+            var scenes = Combinations().Select(c => SceneOf(OutcomeOf(c.Attacker, c.Defender), c.Attacker, c.Defender)).Where(x => x is not null).Select(x => x!).ToList();
             return scenes.Count == 0
                 ? new WaitingScene("攻撃側・防御側のポケモンと技を選ぶと、ここに結果が出ます。自分側・相手側それぞれ 2 体ずつ選べます。")
                 : new DamagePairScene(scenes);
@@ -426,7 +424,8 @@ else if (data is not null && dataSet is not null)
         return SceneOf(new CalcOutcome(r, q, s.ResultCrit, s.LastRequestCrit, ""));
     }
 
-    private static DamageScene? SceneOf(CalcOutcome o)
+    /// <summary><paramref name="attackerSlot"/>・<paramref name="defenderSlot"/> は、ダブルバトルの何体目か（0 から。シングルは 0）。</summary>
+    private static DamageScene? SceneOf(CalcOutcome o, int attackerSlot = 0, int defenderSlot = 0)
     {
         if (o.Result is not { } r || o.Request is not { } q) return null;
         return new DamageScene(
@@ -435,7 +434,7 @@ else if (data is not null && dataSet is not null)
             r.MinDamage, r.MaxDamage, r.TypeEffectiveness == 0.0,
             r.Converted?.Name ?? q.Move.Name, r.MoveType, r.RangeText,
             r.KnockOut.ToString(), r.KnockOut.IsGuaranteed, r.EffectivenessText,
-            o.Crit?.RangeText, o.Crit?.KnockOut.ToString(), o.Crit?.KnockOut.IsGuaranteed ?? false);
+            o.Crit?.RangeText, o.Crit?.KnockOut.ToString(), o.Crit?.KnockOut.IsGuaranteed ?? false, attackerSlot, defenderSlot);
     }
 
     // 数字でない値（?attacker=abc）を int? で受けると、Blazor が例外を出してアプリ全体がエラー画面になるので、文字列で受ける

@@ -92,6 +92,7 @@ public class DamagePageStateTests
         s.Defenders[1] = B(3);
         s.Moves[1] = M(5);
         s.ZMoves[1] = true;
+        s.UseRosterAttackers[1] = true;
         s.AttackerRosterKeys[1] = "r1";
         s.AttackerIndex = 1;
         s.DefenderIndex = 1;
@@ -99,8 +100,10 @@ public class DamagePageStateTests
         Assert.All(s.Attackers, x => Assert.Null(x));
         Assert.All(s.Defenders, x => Assert.Null(x));
         Assert.All(s.Moves, x => Assert.Null(x));
-        Assert.All(s.ZMoves, x => Assert.False(x));
         Assert.All(s.AttackerRosterKeys, x => Assert.Null(x));
+        // 「登録から選ぶ」と Z 技のスイッチは、ゲームを切り替えても（これまでどおり）残る
+        Assert.True(s.ZMoves[1]);
+        Assert.True(s.UseRosterAttackers[1]);
         Assert.Equal(0, s.AttackerIndex);
         Assert.Equal(0, s.DefenderIndex);
     }
@@ -131,6 +134,15 @@ public class DamagePageStateTests
 
     private static DamageScene Scene(string attacker, string defender, int min, int max) =>
         new(attacker, 100, 100, defender, 100, 100, min, max, false, "わざ", "ノーマル", $"{min}-{max}", "確定2発", true, "", null, null, false);
+
+    [Fact]
+    public void DamageScene_keeps_the_slot_numbers_so_two_of_the_same_species_stay_separate()
+    {
+        var first = Scene("A", "X", 10, 20) with { AttackerSlot = 0, DefenderSlot = 0 };
+        var second = Scene("A", "X", 10, 20) with { AttackerSlot = 1, DefenderSlot = 1 };
+        Assert.NotEqual(first, second);   // 同じ名前・同じダメージでも、体が違えば別
+        Assert.Equal(new[] { 0, 1 }, new[] { first, second }.Select(x => x.DefenderSlot));
+    }
 
     [Fact]
     public void DamagePairScene_equals_by_content_so_the_stage_is_not_redrawn()

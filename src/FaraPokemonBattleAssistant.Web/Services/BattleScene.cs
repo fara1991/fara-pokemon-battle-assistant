@@ -31,7 +31,9 @@ public sealed record DamageScene(
     string Effectiveness,
     string? CritRangeText,
     string? CritKnockOut,
-    bool CritKnockOutGuaranteed) : BattleScene;
+    bool CritKnockOutGuaranteed,
+    int AttackerSlot = 0,
+    int DefenderSlot = 0) : BattleScene;
 
 /// <summary>
 /// ダブルバトルのダメージ計算機の結果。自分側 2 体・相手側 2 体のうち、攻撃側・技・防御側がそろっている組み合わせの分

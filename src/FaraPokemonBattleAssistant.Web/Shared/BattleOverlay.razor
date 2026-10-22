@@ -65,13 +65,14 @@
     /// </summary>
     private RenderFragment RenderDamagePair(DamagePairScene pair) => __builder =>
     {
-        var defenders = pair.Scenes.GroupBy(d => d.DefenderName).Select(g => g.First()).ToList();
-        var attackers = pair.Scenes.GroupBy(d => d.AttackerName).Select(g => g.First()).ToList();
+        // HP の枠は体ごとに 1 つ（同じ種族が 2 体いても、別々に出す）
+        var defenders = pair.Scenes.GroupBy(d => d.DefenderSlot).OrderBy(g => g.Key).Select(g => g.First()).ToList();
+        var attackers = pair.Scenes.GroupBy(d => d.AttackerSlot).OrderBy(g => g.Key).Select(g => g.First()).ToList();
         <div class="bv-box bv-foe">
             @foreach (var d in defenders)
             {
                 // 同じ防御側が複数の組み合わせに出るときは、いちばん大きいダメージで HP を減らして見せる
-                var worst = pair.Scenes.Where(x => x.DefenderName == d.DefenderName).OrderByDescending(x => x.MaxDamage).First();
+                var worst = pair.Scenes.Where(x => x.DefenderSlot == d.DefenderSlot).OrderByDescending(x => x.MaxDamage).First();
                 var start = worst.DefenderStartHp;
                 var minD = worst.Immune ? 0 : Math.Min(worst.MinDamage, start);
                 var maxD = worst.Immune ? 0 : Math.Min(worst.MaxDamage, start);
@@ -106,6 +107,11 @@
                     <span class="bv-msg-kind">通常</span>
                     <span class="bv-msg-range">@d.RangeText</span>
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@(d.KnockOutGuaranteed ? Color.Error : Color.Warning)" Class="app-badge">@d.KnockOut</MudChip>
+                    @if (d.CritRangeText is not null)
+                    {
+                        <span class="bv-msg-kind bv-msg-kind-crit">急所</span>
+                        <span class="bv-msg-range">@d.CritRangeText</span>
+                    }
                 </div>
             }
         </div>
