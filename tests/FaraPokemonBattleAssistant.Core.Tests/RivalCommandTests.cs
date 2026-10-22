@@ -308,6 +308,24 @@ public class RivalCommandTests
     }
 
     [Fact]
+    public async Task Gen9_defender_without_written_item_does_not_show_the_usage_item()
+    {
+        // 使用率のあるゲーム（Gen9）では、既定の持ち物（使用率 1 位）を防御側に入れず、返信にも出さない
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var usage = await data.GetUsageAsync(Models.BattleFormat.Singles);
+        var zard = data.Pokemon.First(p => p.Name == "リザードン");
+        var usageItem = usage.TopItem(zard.Id);
+        Assert.NotNull(usageItem);   // 使用率の持ち物があることが前提
+        var repo = new RosterRepository(new MemoryRosterStore());
+        await repo.AddPokemonAsync("Gen9", data.Pokemon.First(p => p.Name == "ガブリアス"), new Models.StatSet { Attack = 32 }, data.Natures.First(), null);
+        var command = new PokeCommand(TestData.Catalog(), repo);
+        var dmg = await command.ExecuteAsync("!pokesv dmg ガブリアス じしん リザードン");
+        Assert.True(dmg.Success, dmg.Message);
+        Assert.Null(dmg.Request!.Defender.Item);
+        Assert.DoesNotContain(usageItem!.Name, dmg.Message.Split('\n')[0].Split('→')[1]);
+    }
+
+    [Fact]
     public async Task Scan_uses_the_written_item_in_the_estimate_and_keeps_it_in_the_basis()
     {
         var (command, repo) = await NewAsync();

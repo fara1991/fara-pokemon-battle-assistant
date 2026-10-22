@@ -1082,7 +1082,7 @@ else if (string.IsNullOrEmpty(loadError))
     private string sortedMovesKey = "";
 
     /// <summary>
-    /// 技の候補。いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）。同じなら使用率順。
+    /// 技の候補。いまの攻撃側・防御側・天候・フィールド・壁で与える最大ダメージの多い順（火力の高い順）。同じなら使用率順（使用率が無いゲームでは、もとの技の並び順）。
     /// 描画のたびに全部の技を計算しないよう、条件が変わったときだけ並べ直す。
     /// </summary>
     private IReadOnlyList<Move> MoveChoices
@@ -1115,7 +1115,7 @@ else if (string.IsNullOrEmpty(loadError))
             b.TeraType, b.Status, b.IsDynamax, b.CurrentHp);
     }
 
-    // 既定の技は使用率 1 位（代用した使用率でもよい）。努力値の既定もこの技に合わせるので、並び順の先頭とは限らない
+    // 既定の技は使用率 1 位（使用率が無いゲームは、火力順の先頭の攻撃技）。努力値の既定もこの技に合わせるので、並び順の先頭とは限らない
     private Move? DefaultMove(int pokemonId) =>
         usage?.TopMove(pokemonId) ?? MoveChoices.FirstOrDefault(m => m.IsDamaging);
 

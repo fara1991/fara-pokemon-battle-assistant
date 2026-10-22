@@ -354,9 +354,9 @@ else if (string.IsNullOrEmpty(LoadError))
         // 未収録（他データで補完した）ポケモンは、このゲームでは出てこないので除く
         var listed = data.Pokemon.Where(p => !p.IsProvisional);
         usageSorted = !usage.IsEmpty;
-        // 使用率があれば使用率の高い順、無いゲーム（Champions）は種族値合計の高い順
-        pokemonList = usageSorted ? listed.OrderBy(p => usage.RankOf(p.Id)).ToList() : listed.OrderByDescending(p => p.BaseStats.Total).ToList();
-        counterCandidates = pokemonList;
+        // 一覧は、使用率があれば使用率の高い順、無ければ図鑑順（変更前と同じ）。相手候補の探し方は、使用率が無ければ種族値合計の高い順
+        pokemonList = usageSorted ? listed.OrderBy(p => usage.RankOf(p.Id)).ToList() : listed.ToList();
+        counterCandidates = usageSorted ? pokemonList : listed.OrderByDescending(p => p.BaseStats.Total).ToList();
         if (s.DataSetKey != App.DataSetKey)
         {
             s.DataSetKey = App.DataSetKey;

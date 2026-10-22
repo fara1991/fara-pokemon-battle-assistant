@@ -1334,7 +1334,9 @@ public class UsageFallbackTests
     {
         // 復活させる手順（datasets.csv の UsageFallback に Gen9 を入れる。tools/datasets.json の usage_fallback を戻すと、次の同期で入る）の動作確認
         var real = new FileDataSource(TestData.DataDirectory);
-        var csv = (await real.ReadTextAsync("datasets.csv"))!.Replace(",,Full", ",Gen9,Full");
+        // Champions の行だけ UsageFallback を入れる（ほかのゲームの行は変えない）
+        var csv = string.Join("\n", (await real.ReadTextAsync("datasets.csv"))!.Split('\n')
+            .Select(line => line.StartsWith("Champions,", StringComparison.Ordinal) ? line.Replace(",,Full", ",Gen9,Full") : line));
         var catalog = new DataCatalog(new ReplacingSource(real, "datasets.csv", csv));
         var champions = await catalog.GetDataSetAsync("Champions");
 

@@ -4,8 +4,8 @@ namespace FaraPokemonBattleAssistant.Web.Services;
 
 /// <summary>
 /// 使用率のファイル（<c>usage_*.csv</c>）の読み込みを、同じパスについて 1 回にまとめる（Web 専用）。
-/// Champions は使用率が公開されていないので、Gen9 の使用率を代わりに読む（<c>UsageFallback</c>）。そのため Gen9 のファイルが
-/// Gen9 自身の読み込みと二重に取られていた。読み込み中のものも含めて、同じパスの読み込みを共有する。
+/// 代用の仕組み（<c>UsageFallback</c>）で、別のゲームの使用率のファイルを読むときも、Gen9 自身の読み込みと二重に取らないように
+/// 読み込み中のものも含めて、同じパスの読み込みを共有する（いまは Champions の代用は空で、使わない）。
 /// 失敗・キャンセルしたものは残さず、次の呼び出しで取り直す。使用率以外のファイルは、そのまま内側のデータソースに渡す。
 /// Core の <see cref="HttpDataSource"/> には入れない（CLI・ボットは読み直しや <see cref="DataCatalog.Invalidate"/> で、キャッシュを捨てる必要があるため）。
 /// </summary>
