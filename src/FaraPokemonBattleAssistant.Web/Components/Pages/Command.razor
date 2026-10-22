@@ -202,7 +202,7 @@ else if (data is not null)
                 @if (Has(Field.Move))
                 {
                     <div class="cmd-f-move">
-                        <label class="form-label">技 <Help Title="技">攻撃側のポケモンが覚える技だけを使用率の高い順に表示します。「じしん+1」のように技名の後ろにランクを付けることもできます。</Help></label>
+                        <label class="form-label">技 <Help Title="技">攻撃側のポケモンが覚える技だけを@(HasUsage ? "使用率の高い順に" : "")表示します。「じしん+1」のように技名の後ろにランクを付けることもできます。</Help></label>
                         <SearchableSelect TItem="Move" Items="attackerMoves" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
                             SelectedValue="@(s.Move?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { s.Move = data.FindMove(ParseId(v)); BuildText(); })" Placeholder="例: じしん">
                             <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto">@(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
@@ -389,8 +389,8 @@ else if (string.IsNullOrEmpty(loadError))
         <ul class="small mb-0">
             <li>攻撃側は、攻撃技に合わせて A か C に全振りします。</li>
             <li>防御側は H に全振りします。</li>
-            <li>性格は使用率 1 位にします。攻撃側は登録済みのポケモンなので、持ち物も含めて、育成ポケモン・自分チームの登録で決まります（持ち物名を攻撃側に付けることはできません）。防御側（対戦中の相手）の持ち物は、書いたもの（たべのこし など。前置きなしでも防御側に付きます）・相手チームに保存した持ち物・メガストーンだけで、不明なら持ち物なしとして計算し、返信にも出しません。</li>
-            <li>特性は使用率 1 位（無ければ第 1 特性）にします。ただし天候・フィールドを作る特性やダメージが上がる特性を持っていれば、そちらを優先します。</li>
+            <li>@(HasUsage ? "性格は使用率 1 位にします。" : "性格は補正なし（まじめ）にします。")攻撃側は登録済みのポケモンなので、持ち物も含めて、育成ポケモン・自分チームの登録で決まります（持ち物名を攻撃側に付けることはできません）。防御側（対戦中の相手）の持ち物は、書いたもの（たべのこし など。前置きなしでも防御側に付きます）・相手チームに保存した持ち物・メガストーンだけで、不明なら持ち物なしとして計算し、返信にも出しません。</li>
+            <li>@(HasUsage ? "特性は使用率 1 位（無ければ第 1 特性）にします。" : "特性は第 1 特性にします。")ただし天候・フィールドを作る特性やダメージが上がる特性を持っていれば、そちらを優先します。</li>
             <li>使用チームにいるポケモンは、チームの構成が優先されます。</li>
             <li>防御側に書いた持ち物がオボンのみ・たべのこし・半減きのみなどなら、確定数に反映します。</li>
             <li>埋めた内容は結果にそのまま表示します。相手の特性で結果が変わる場合は「特性別:」が付きます。</li>
@@ -441,6 +441,8 @@ else if (string.IsNullOrEmpty(loadError))
     private State s = new();
     private PokemonDataSet? data;
     private UsageData? usage;
+    /// <summary>このゲームに使用率があるか（ないゲーム＝ Champions は、使用率の表示も使わない）。</summary>
+    private bool HasUsage => usage is { IsEmpty: false };
     private IReadOnlyList<Move> attackerMoves = Array.Empty<Move>();
     /// <summary>登録済みのポケモン（dmg・calc・faster の攻撃側／育成ポケモンに選べるのは、これだけ）。</summary>
     private IReadOnlyList<Pokemon> registeredPokemon = Array.Empty<Pokemon>();
@@ -551,7 +553,7 @@ else if (string.IsNullOrEmpty(loadError))
     {
         if (data is null || s.Attacker is null) { attackerMoves = data?.Moves ?? Array.Empty<Move>(); return; }
         var moves = data.LearnableMoves(s.Attacker.Id).Where(m => m.Category != MoveCategory.Status).ToList();
-        attackerMoves = usage is null ? moves : usage.SortByUsage(moves, m => m.Id, usage.MoveOrder(s.Attacker.Id));
+        attackerMoves = usage is { IsEmpty: false } u ? u.SortByUsage(moves, m => m.Id, u.MoveOrder(s.Attacker.Id)) : moves;
     }
 
     // ---- 種類ごとの入力欄 ----
@@ -1114,7 +1116,7 @@ else if (string.IsNullOrEmpty(loadError))
         yield return new($"{p} set -t <チーム番号> <シングル|ダブル>", "自分チーム", "チームのバトル形式（シングル・ダブル）を変える", new[] { $"{p} set -t 1 ダブル", $"{p} set --team 1 シングル" });
         yield return new($"{p} rm -t <チーム番号> [<名前>]", "自分チーム", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）", new[] { $"{p} rm -t 1 ガブリアス", $"{p} rm --team 1 ガブリアス", $"{p} rm -t 1" });
         yield return new($"{p} use -t <チーム番号>", "自分チーム", "使用チームにする。以降の dmg / scan / faster はこのチームの構成で計算", new[] { $"{p} use -t 1", $"{p} use --team 1" });
-        yield return new($"{p} unuse -t", "自分チーム", "使用チームを解除（以降は使用率に基づく既定値で計算）", new[] { $"{p} unuse -t", $"{p} unuse --team" });
+        yield return new($"{p} unuse -t", "自分チーム", (usage is { IsEmpty: false } ? "使用チームを解除（以降は使用率に基づく既定値で計算）" : "使用チームを解除（以降は既定値で計算）"), new[] { $"{p} unuse -t", $"{p} unuse --team" });
         yield return new($"{p} ls -t", "自分チーム", "チーム一覧", new[] { $"{p} ls -t", $"{p} ls --team" });
         yield return new($"{p} detail -t <チーム番号>", "自分チーム", "チームの詳細", new[] { $"{p} detail -t 1", $"{p} detail --team 1" });
         yield return new($"{p} dmg <攻撃側> <技>[<±ランク>] <防御側> [<オプション>]", "対戦", "【攻撃側は登録済みのポケモンが必須】通常と急所のダメージと確定数。使用チームにいればその構成、いなければ登録の構成（持ち物は括弧内に表示）。同じポケモンを複数登録しているときは #登録ID で指定する（名前だけだと一覧を出して案内する）。特性でダメージが変わるときは、特性ごとの結果も出す。オプションは下の表",

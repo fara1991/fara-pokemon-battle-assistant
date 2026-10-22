@@ -1295,13 +1295,53 @@ public class TypeMatchupTests
 public class UsageFallbackTests
 {
     [Fact]
-    public async Task Champions_uses_gen9_usage_for_ordering()
+    public async Task Champions_has_no_usage_and_no_fallback()
     {
-        var catalog = TestData.Catalog();
+        // ポケモンチャンピオンズは使用率が公開されていないので、使用率の表示と並び替えはしない（datasets.json の usage_fallback は空）
+        var champions = await TestData.Catalog().GetDataSetAsync("Champions");
+
+        Assert.Equal("", champions.Info.UsageFallback);
+        foreach (var format in new[] { BattleFormat.Singles, BattleFormat.Doubles })
+        {
+            var usage = await champions.GetUsageAsync(format);
+            Assert.True(usage.IsEmpty);
+            Assert.Empty(usage.PokemonRank);
+            Assert.Equal(int.MaxValue, usage.RankOf(876)); // イエッサン(♂)
+            Assert.Empty(usage.MoveOrder(876));
+            Assert.Null(usage.TopMove(876));
+            Assert.Null(usage.TopItem(876));
+            Assert.Null(usage.TopNature(876));
+        }
+    }
+
+    [Fact]
+    public async Task Champions_reads_no_usage_files()
+    {
+        // 使用率のファイルが無いので、形式ごとに usage_pokemon_* の 1 つだけを読む（Gen8 と同じ）
+        var read = new List<string>();
+        var catalog = new DataCatalog(new RecordingSource(new FileDataSource(TestData.DataDirectory), read));
         var champions = await catalog.GetDataSetAsync("Champions");
-        var usage = await champions.GetUsageAsync(BattleFormat.Doubles);
+        read.Clear();
+
+        await champions.GetUsageAsync(BattleFormat.Singles);
+        await champions.GetUsageAsync(BattleFormat.Doubles);
+
+        Assert.Equal(new[] { "Champions/usage_pokemon_doubles.csv", "Champions/usage_pokemon_singles.csv" }, read.OrderBy(p => p, StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
+    public async Task Champions_usage_fallback_can_be_turned_back_on_in_datasets_csv()
+    {
+        // 復活させる手順（datasets.csv の UsageFallback に Gen9 を入れる。tools/datasets.json の usage_fallback を戻すと、次の同期で入る）の動作確認
+        var real = new FileDataSource(TestData.DataDirectory);
+        // Champions の行だけ UsageFallback を入れる（ほかのゲームの行は変えない）
+        var csv = string.Join("\n", (await real.ReadTextAsync("datasets.csv"))!.Split('\n')
+            .Select(line => line.StartsWith("Champions,", StringComparison.Ordinal) ? line.Replace(",,Full", ",Gen9,Full") : line));
+        var catalog = new DataCatalog(new ReplacingSource(real, "datasets.csv", csv));
+        var champions = await catalog.GetDataSetAsync("Champions");
 
         Assert.Equal("Gen9", champions.Info.UsageFallback);
+        var usage = await champions.GetUsageAsync(BattleFormat.Doubles);
         Assert.False(usage.IsEmpty);
         Assert.Equal("Gen9", usage.SourceKey);
         Assert.NotEmpty(usage.MoveOrder(876)); // イエッサン(♂)
@@ -1341,6 +1381,13 @@ public class UsageFallbackTests
             lock (read) read.Add(relativePath);
             return inner.ReadTextAsync(relativePath, cancellationToken);
         }
+    }
+
+    /// <summary>1 つのファイルの中身だけ差し替えるデータソース。</summary>
+    private sealed class ReplacingSource(IDataSource inner, string path, string text) : IDataSource
+    {
+        public async Task<string?> ReadTextAsync(string relativePath, CancellationToken cancellationToken = default) =>
+            relativePath == path ? text : await inner.ReadTextAsync(relativePath, cancellationToken);
     }
 }
 
