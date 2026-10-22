@@ -78,6 +78,8 @@ test("本文に要約の段落と、主なページへのリンクが入る（Ja
     assert.match(body, /<h1>用語・略語<\/h1>/);
     for (const p of pages) assert.ok(body.includes(`href="${p.route === "" ? "/" : `/${p.route}`}"`), p.route);
     assert.match(body, /<noscript>/);
+    // list-style: none で list の意味が消えるため（Safari・VoiceOver）、ul に role="list" を付ける
+    assert.match(body, /<ul role="list">/);
 });
 
 test("テンプレートの区切りの間だけを書き換え、区切りと #app・Blazor の読み込みは残す", () => {

@@ -48,15 +48,36 @@ public class FooterAndNavTests
     [Fact]
     public void Social_icon_color_wins_over_the_generic_footer_link_rules()
     {
-        // .site-footer a（文字色 inherit・下線・hover の文字色）より詳細度の高いセレクタで、白い図形を保つ
+        // フッター（.site-footer a）と問い合わせページの両方で使うので、.site-footer の外でも効く a.site-footer-social を、
+        // .site-footer a の規則（文字色 inherit・下線・hover の文字色）より後ろに書いて、白い図形を保つ
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
-        Assert.Contains(".site-footer a.site-footer-social {", css);
-        Assert.Contains(".site-footer a.site-footer-social:hover {", css);
-        Assert.Contains(".site-footer a.site-footer-social:focus-visible {", css);
-        var baseRule = css[css.IndexOf(".site-footer a.site-footer-social {", StringComparison.Ordinal)..];
+        Assert.Contains("a.site-footer-social {", css);
+        Assert.Contains("a.site-footer-social:hover {", css);
+        Assert.Contains("a.site-footer-social:focus-visible {", css);
+        // 当たり判定は 44px（見た目の 22px は変えない）
+        Assert.Contains("a.site-footer-social::after {", css);
+        Assert.Contains("width: 44px; height: 44px;", RuleBodyAt(css, "a.site-footer-social::after {"));
+        Assert.True(css.IndexOf(".site-footer a {", StringComparison.Ordinal) < css.IndexOf("a.site-footer-social {", StringComparison.Ordinal),
+            "a.site-footer-social は .site-footer a より後ろに書く（同じ詳細度のため）");
+        var baseRule = css[css.IndexOf("a.site-footer-social {", StringComparison.Ordinal)..];
         Assert.Contains("color: #fff;", baseRule[..baseRule.IndexOf('}')]);
-        var hoverRule = css[css.IndexOf(".site-footer a.site-footer-social:hover {", StringComparison.Ordinal)..];
+        var hoverRule = css[css.IndexOf("a.site-footer-social:hover {", StringComparison.Ordinal)..];
         Assert.Contains("color: #fff;", hoverRule[..hoverRule.IndexOf('}')]);
+    }
+
+    [Fact]
+    public void Contact_page_twitter_link_is_the_footer_icon_with_a_label()
+    {
+        // 文字のボタンではなく、フッターと同じ SNS のアイコン（SocialIcon）。名前は aria-label で読む。URL は SocialLinks から取る
+        var report = Read(Path.Combine(Web, "Components", "Pages", "Report.razor"));
+        Assert.DoesNotContain("MudButton Variant=\"Variant.Filled\" Color=\"Color.Primary\" Href=\"https://twitter.com/game_fara\"", report);
+        Assert.Contains("class=\"site-footer-social service-twitter\"", report);
+        Assert.Contains("aria-label=\"@@game_fara（Twitter）\"", report);
+        Assert.Contains("<SocialIcon Name=\"@twitter.Service\"", report);
+        Assert.Contains("SocialLinks.All.FirstOrDefault(s => s.Service == \"twitter\")", report);   // 見つからないときは、リンクを出さない（null を参照しない）
+        Assert.Contains("@if (twitter is not null)", report);
+        Assert.Contains("target=\"_blank\"", report);
+        Assert.Contains("rel=\"noopener noreferrer\"", report);
     }
 
     [Fact]
@@ -136,6 +157,13 @@ public class FooterAndNavTests
         Assert.Contains("gap: 0.35rem 0.9rem;", block);
         Assert.Contains(".site-footer-line { display: flex; flex-wrap: wrap; justify-content: center;", css);   // PC の区切りは残す（規則は変えていない）
         Assert.DoesNotContain(".site-footer-sep { display: none; }", css[..start]);
+    }
+
+    private static string RuleBodyAt(string css, string selector)
+    {
+        var start = css.IndexOf(selector, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"CSS の規則が無い: {selector}");
+        return css[start..css.IndexOf('}', start)];
     }
 
     private static string Read(string path) => File.ReadAllText(path).Replace("\r\n", "\n");

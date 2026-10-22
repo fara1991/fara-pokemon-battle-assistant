@@ -20,7 +20,14 @@
     <MudCardContent Class="card-body">
         <h5 class="card-title">作者</h5>
         <p class="card-text">このサイトは Fara が作っています。フォームが使えないときや急ぎのときは、Twitter からもどうぞ。</p>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="https://twitter.com/game_fara" Target="_blank" Rel="noopener noreferrer">@@game_fara（Twitter）</MudButton>
+        @* フッターと同じ SNS のアイコン（Services/SocialLinks.cs の Twitter。文字は出さず、名前は aria-label で読む） *@
+        @{ var twitter = SocialLinks.All.FirstOrDefault(s => s.Service == "twitter"); }
+        @if (twitter is not null)
+        {
+            <a class="site-footer-social service-twitter" href="@twitter.Url" target="_blank" rel="noopener noreferrer" aria-label="@@game_fara（Twitter）" title="@@game_fara（Twitter）" style="--brand: @twitter.Color">
+                <SocialIcon Name="@twitter.Service" Size="13" />
+            </a>
+        }
         <h5 class="card-title mt-3">ほかの作品</h5>
         <p class="card-text">Fara のほかの作品は、こちらにまとめています。</p>
         <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@SiteLinks.Localize("https://fara-labs.com/")" Target="_blank" Rel="noopener noreferrer">ホームページ</MudButton>

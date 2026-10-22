@@ -109,7 +109,7 @@ export function buildBody(page, pages) {
         `                <h1>${escapeHtml(page.heading)}</h1>`,
         `                ${paragraphs}`,
         `            </div>`,
-        `            <nav class="entry-static-nav" aria-label="ページ一覧"><ul>${links}</ul></nav>`,
+        `            <nav class="entry-static-nav" aria-label="ページ一覧"><ul role="list">${links}</ul></nav>`,
         `        </div>`,
         `        <noscript><p class="entry-static-note">この画面を使うには JavaScript を有効にしてください。</p></noscript>`,
         `    </main>`,
