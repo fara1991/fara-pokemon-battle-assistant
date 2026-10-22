@@ -15,7 +15,8 @@
     "test:boot": "node --test tests/js/boot-indicator.test.mjs",
     "test:entry": "node --test tools/build-entry-pages.test.mjs",
     "test:search": "node --test tools/gen-search-index.test.mjs",
-    "test:home": "node --test worker/home.test.mjs"
+    "test:home": "node --test worker/home.test.mjs",
+    "test:search-sheet": "node --test tests/js/mobile-search.test.mjs"
   },
   "devDependencies": {
     "wrangler": "4.136.3"

@@ -1,17 +1,27 @@
-@* ヘッダーの検索欄（PC）。入力するとすぐに、一致した場所（ページ・項目・用語・コマンド・ポケモン・わざ・特性）と、その前後の文章を出す。
+@* 検索欄。入力するとすぐに、一致した場所（ページ・項目・用語・コマンド・ポケモン・わざ・特性）と、その前後の文章を出す。
    ↑↓ で結果を選び、ポケモンなど別の開き方がある結果は ←→ で選んで、Enter で開く。Esc で閉じる。Ctrl+K（Mac は ⌘K）か「/」で欄に移る（wwwroot/js/page.js）。
+   PC はヘッダーに置く。スマホは Sheet（ヘッダーの検索ボタンで、下に開く欄。× で閉じる・結果を開いたら閉じる・Esc で閉じる。MainLayout が出し入れする）。
    探す処理は Services/SearchService.cs。日本語入力の変換中の Enter は、page.js が止める（ここには届かない） *@
 @inject SearchService Search
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="site-search" role="search" @onfocusout="Close" @onfocusin="OnFocusIn">
+<div class="site-search @(Sheet ? "site-search-sheet" : null)" role="search" @onfocusout="Close" @onfocusin="OnFocusIn">
     <svg class="site-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
     <input id="site-search-input" type="search" class="site-search-input" placeholder="検索（例: ガブリアス、dmg、努力値）" autocomplete="off" spellcheck="false"
            aria-label="サイト内を検索" role="combobox" aria-expanded="@(open ? "true" : "false")" aria-controls="site-search-list" aria-autocomplete="list"
            aria-activedescendant="@ActiveId"
            value="@query" @oninput="OnInput" @onkeydown="OnKeyDown" />
-    <span class="site-search-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+    @if (Sheet)
+    {
+        <button type="button" class="site-search-close" aria-label="検索を閉じる" title="検索を閉じる" @onclick="Done">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+    }
+    else
+    {
+        <span class="site-search-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+    }
     @if (open)
     {
         @if (hits.Count == 0)
@@ -51,6 +61,12 @@
 </div>
 
 @code {
+    /// <summary>スマホの検索欄（ヘッダーの下に開く）かどうか。PC の検索欄（ヘッダーの中）とは、見た目と閉じ方が違う</summary>
+    [Parameter] public bool Sheet { get; set; }
+
+    /// <summary>スマホの検索欄を閉じるときに呼ぶ（× ・Esc・結果を開いたとき）。MainLayout が閉じる</summary>
+    [Parameter] public EventCallback OnDone { get; set; }
+
     private string query = "";
     private string[] terms = Array.Empty<string>();
     private IReadOnlyList<SearchHit> hits = Array.Empty<SearchHit>();
@@ -116,7 +132,7 @@
         if (!open && query.Trim().Length > 0 && hits.Count > 0) open = true;
     }
 
-    private void OnKeyDown(KeyboardEventArgs e)
+    private async Task OnKeyDown(KeyboardEventArgs e)
     {
         switch (e.Key)
         {
@@ -140,6 +156,9 @@
                 var url = active >= 0 && activeAction >= 0 ? hit.Actions[activeAction].Url : hit.Url;
                 Go(null, url);
                 break;
+            case "Escape" when Sheet && !open:
+                await Done();
+                break;
             case "Escape":
                 Close();
                 break;
@@ -153,6 +172,7 @@
     private void Go(MouseEventArgs? e, string url)
     {
         Close();
+        if (Sheet) _ = Done();
         if (e is { CtrlKey: true } or { MetaKey: true } or { ShiftKey: true })
         {
             _ = JS.InvokeVoidAsync("open", url, "_blank");
@@ -166,5 +186,12 @@
         open = false;
         active = -1;
         activeAction = -1;
+    }
+
+    /// <summary>スマホの欄を閉じる（MainLayout に知らせる）。PC の欄では、何もしない</summary>
+    private Task Done()
+    {
+        Close();
+        return Sheet ? OnDone.InvokeAsync() : Task.CompletedTask;
     }
 }
