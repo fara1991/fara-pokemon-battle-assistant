@@ -134,6 +134,18 @@ public class EntryPagesTests
         var reduced = html.IndexOf("@media (prefers-reduced-motion: reduce) {", StringComparison.Ordinal);
         Assert.True(reduced >= 0, "prefers-reduced-motion で回転を止める規則がありません");
         Assert.Contains("animation: none;", RuleBody(html[reduced..], ".boot-indicator-spinner {"));
+        // JS が読めないときの保険: 60 秒で隠れる（動きを減らす設定の対象外）。JS の RELEASE_MS と同じ秒数
+        Assert.Contains("animation: boot-indicator-release 0s linear 60s forwards;", overlay);
+        Assert.Contains("@keyframes boot-indicator-release { to { visibility: hidden; } }", html);
+        Assert.DoesNotContain("boot-indicator-release", html[reduced..html.IndexOf("</style>", reduced, StringComparison.Ordinal)]);
+        // 案内の「再読み込み」は押せる（オーバーレイの下の本文は inert のまま）
+        Assert.Contains("pointer-events: auto;", RuleBody(html, ".boot-indicator-label a {"));
+        // テンプレートに inert を直接書かない（JS が付けて、外す）
+        Assert.DoesNotContain("inert", html);
+        var js = File.ReadAllText(Path.Combine(Web, "wwwroot", "js", "boot-indicator.js"));
+        Assert.Contains("var RELEASE_MS = 60000;", js);
+        Assert.Contains("var SLOW_MS = 45000;", js);
+        Assert.Contains("setAttribute(\"inert\", \"\")", js);
     }
 
     [Fact]

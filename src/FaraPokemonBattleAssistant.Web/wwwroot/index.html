@@ -12,13 +12,17 @@
     <style>
         html, body { background: #f7f4fd; }
         html[data-bs-theme="dark"], html[data-bs-theme="dark"] body { background: #0c0616; }
+        /* 保険: JS が動かない（読めない・失敗した）ときも、60 秒たったら隠れて本文を読めるようにする（JS の RELEASE_MS と同じ秒数）。
+           動きを減らす設定の対象外（spinner の規則だけを止める）。visibility は隠れたあとも戻らない */
         #boot-indicator {
             position: fixed; inset: 0; z-index: 2147483000;
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.1rem;
             box-sizing: border-box; padding: 1.5rem;
             background: #f7f4fd; color: #3b2a5c;
             font-family: "Zen Kaku Gothic New", "Yu Gothic", system-ui, sans-serif;
+            animation: boot-indicator-release 0s linear 60s forwards;
         }
+        @keyframes boot-indicator-release { to { visibility: hidden; } }
         html[data-bs-theme="dark"] #boot-indicator { background: #0c0616; color: #e9e3f5; }
         .boot-indicator-spinner {
             width: 3rem; height: 3rem; box-sizing: border-box;
@@ -28,6 +32,9 @@
         html[data-bs-theme="dark"] .boot-indicator-spinner { border-color: #a855f7; border-right-color: transparent; }
         .boot-indicator-label { font-size: 0.95rem; font-weight: 700; line-height: 1.6; text-align: center; max-width: 24rem; }
         .boot-indicator-label:empty::before { content: "読み込み中…"; }
+        /* 案内（45 秒後）の「再読み込み」は押せるようにする（オーバーレイ自体は、本文の上で操作を受け止める） */
+        .boot-indicator-label a { color: #7c3aed; font-weight: 700; text-decoration: underline; pointer-events: auto; }
+        html[data-bs-theme="dark"] .boot-indicator-label a { color: #a855f7; }
         /* 時間がかかっているとき（再読み込みの案内）は、回転を止める */
         #boot-indicator[data-state="slow"] .boot-indicator-spinner { animation: none; }
         @keyframes boot-indicator-spin { to { transform: rotate(360deg); } }

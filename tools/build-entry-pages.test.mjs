@@ -113,6 +113,9 @@ test("起動前のオーバーレイのスタイルはインラインで、ど�
         assert.match(html, /html\[data-bs-theme="dark"\] #boot-indicator \{ background: #0c0616;/);
         assert.match(html, /#boot-indicator \{[^}]*background: #f7f4fd;/);
         assert.match(html, /\.boot-indicator-label:empty::before \{/);
+        // 保険: JS が動かなくても 60 秒で隠れる（CSS）。テンプレートに inert は直接書かない（JS が付けて外す）
+        assert.match(html, /animation: boot-indicator-release 0s linear 60s forwards;/);
+        assert.doesNotMatch(html, /inert/);
     }
 });
 
