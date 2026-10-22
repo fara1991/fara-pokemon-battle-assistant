@@ -1,4 +1,4 @@
-using FaraPokemonBattleAssistant.Core;
+using FaraSiteKit.Core;
 
 namespace FaraPokemonBattleAssistant.Web.Services;
 

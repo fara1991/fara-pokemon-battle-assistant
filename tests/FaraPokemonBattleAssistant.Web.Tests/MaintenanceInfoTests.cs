@@ -1,5 +1,6 @@
 using System.Net;
 using FaraPokemonBattleAssistant.Web.Services;
+using FaraSiteKit.Core;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Web.Tests;

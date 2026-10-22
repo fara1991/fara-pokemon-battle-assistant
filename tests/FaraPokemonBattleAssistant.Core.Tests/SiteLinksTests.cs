@@ -1,10 +1,12 @@
-using FaraPokemonBattleAssistant.Core;
+using FaraSiteKit.Core;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
 public class SiteLinksTests
 {
+    public SiteLinksTests() => SiteLinks.DevelopHost = "pokemon-dev.fara-labs.com";
+
     [Theory]
     [InlineData("pokemon-dev.fara-labs.com", "https://fara-labs.com/", "https://dev.fara-labs.com/")]
     [InlineData("POKEMON-DEV.fara-labs.com", "https://fara-labs.com/", "https://dev.fara-labs.com/")]
