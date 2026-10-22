@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace FaraPokemonBattleAssistant.Web.Services;
 
 /// <summary>
-/// 「作者へ報告」の入力（Components/Pages/Report.razor）。送り先は同じサイトの POST /api/report（worker/report.js）。
+/// 「作者へ問い合わせ」の入力（Components/Pages/Report.razor）。送り先は同じサイトの POST /api/report（worker/report.js）。
 /// 長さ・種類の制限は、サーバー側（worker/report.js）と同じにしておく（先にここで確かめて、無駄な通信をしない）。
 /// </summary>
 public sealed class ReportForm

@@ -13,8 +13,9 @@ option {
 /* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる。fara-labs.com と同じ紫系） ---- */
 :root,
 [data-bs-theme="light"] {
-    /* ヘッダーの上端の線（.scroll-progress）。ヘッダーは暗い地色のままなので、ライトでもダークでも同じ色 */
+    /* ヘッダーの下端の線（.scroll-progress）。ヘッダーは暗い地色のままなので、ライトでもダークでも同じ色 */
     --app-header-accent: linear-gradient(90deg, #c084fc 0%, #e879f9 100%);
+    --app-header-track: rgba(192, 132, 252, 0.22);
     --app-body-bg: #f7f4fd;
     --app-card-border: #d8cdf2;
     --app-input-border: #9d8fc4;
@@ -3543,7 +3544,6 @@ html.vt-nav .app-header {
     z-index: 1040;
     color: #fff;
     background: linear-gradient(90deg, #140a26 0%, #241243 100%);
-    border-bottom: 2px solid #c084fc;
 }
 
 .app-header .mud-toolbar {
@@ -3583,21 +3583,29 @@ html.vt-nav .app-header {
     outline-color: #e9d5ff;
 }
 
-/* ページを読んだ量を、ヘッダーの上端の線で示す（js/scroll-progress.js が html の --scroll-progress に 0〜1 を入れる）。見るだけの表示なので、押せない・読み上げない */
+/* ヘッダーの下端の線 = ページを読んだ量。下端の線（2px）の地（track）の上に、読んだ量の分だけ色（accent）を左から伸ばす。
+   js/scroll-progress.js が、この要素の --scroll-progress に 0〜1 を入れる。見るだけの表示なので、押せない・読み上げない */
 .scroll-progress {
     position: absolute;
     left: 0;
-    top: 0;
+    bottom: 0;
     width: 100%;
     height: 2px;
-    background: var(--app-header-accent);
-    transform-origin: left;
-    transform: scaleX(var(--scroll-progress, 0));
+    background: var(--app-header-track);
     pointer-events: none;
 }
 
+.scroll-progress::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--app-header-accent);
+    transform-origin: left;
+    transform: scaleX(var(--scroll-progress, 0));
+}
+
 @media (prefers-reduced-motion: no-preference) {
-    .scroll-progress {
+    .scroll-progress::before {
         transition: transform 0.12s linear;
     }
 }
@@ -4212,7 +4220,7 @@ html.vt-nav .app-header {
 .calc-summary-title { display: block; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .calc-summary-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin-top: 0.2rem; }
 
-/* フッター（3 サイト共通の形: サイト名 | 作者へ報告 | プライバシーポリシー | © 公開年 Fara）。
+/* フッター（3 サイト共通の形: サイト名 | 作者へ問い合わせ | プライバシーポリシー | © 公開年 Fara ＋ SNS のアイコン）。
    PC はページ全体をスクロールさせない作りなので、フッターは中身の下に固定の 1 行（中身だけがスクロール）、スマホはページの最後に出す */
 .site-footer { flex: none; padding: 0.45rem 1rem 0.55rem; border-top: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); font-size: 0.78rem; color: var(--bs-secondary-color, #8b80a8); text-align: center; background: var(--glass-field, transparent); }
 .site-footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
@@ -4220,8 +4228,12 @@ html.vt-nav .app-header {
 .site-footer-line { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.15rem 0.6rem; }
 .site-footer-sep { opacity: 0.5; }
 .site-footer-note { margin-top: 0.15rem; font-size: 0.72rem; opacity: 0.85; }
+.site-footer-socials { display: inline-flex; gap: 0.35rem; margin-left: 0.2rem; align-items: center; }
+.site-footer-social { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--brand, #7c3aed); color: #fff; text-decoration: none; }
+.site-footer-social:hover { color: #fff; box-shadow: 0 3px 10px -3px var(--brand, #7c3aed); }
+.site-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed); outline-offset: 2px; }
 
-/* 作者へ報告・プライバシーポリシー */
+/* 作者へ問い合わせ・プライバシーポリシー */
 .report-card, .policy-card { max-width: 46rem; }
 .policy-card h5 { margin-top: 1.1rem; font-size: 1rem; }
 .policy-card h5:first-child { margin-top: 0; }
