@@ -124,6 +124,24 @@ public class FooterAndNavTests
         Assert.DoesNotContain("登録商標です", about);                              // 文言は権利表記のページだけに置く
     }
 
+    [Fact]
+    public void Footer_is_centered_and_does_not_break_items_on_narrow_screens()
+    {
+        var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        var start = css.IndexOf("@media (max-width: 767.98px) {\n    .site-footer-line", StringComparison.Ordinal);
+        Assert.True(start >= 0, "狭い画面のフッターの規則が無い");
+        var block = css[start..css.IndexOf("\n}\n", start, StringComparison.Ordinal)];
+        Assert.Contains("justify-content: center;", block);
+        Assert.Contains("text-align: center;", block);
+        Assert.Contains(".site-footer-line > * { white-space: nowrap; }", block);   // 「プライバシーポリシー」を途中で切らない
+        Assert.Contains(".site-footer-sep { display: none; }", block);            // 折り返しても、行頭・行末に | が出ない
+        Assert.Contains(".site-footer-socials { width: 100%; justify-content: center;", block);
+        Assert.Contains(".site-footer { flex: none; padding: 0.45rem 1rem 0.55rem;", css);   // PC の規則は変えていない
+        var baseStart = css.IndexOf(".site-footer {", StringComparison.Ordinal);
+        var baseRule = css.Substring(baseStart, css.IndexOf('}', baseStart) - baseStart);
+        Assert.Contains("text-align: center;", baseRule);
+    }
+
     private static string Read(string path) => File.ReadAllText(path).Replace("\r\n", "\n");
 
     private static string FindUpDirectory(string relative)
