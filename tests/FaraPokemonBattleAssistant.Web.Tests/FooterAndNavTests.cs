@@ -74,12 +74,26 @@ public class FooterAndNavTests
         Assert.DoesNotContain("非公式", report);
         Assert.DoesNotContain("service-twitter", report);
         Assert.Contains("<div class=\"page-header page-column\">", report);
-        Assert.Contains("<div class=\"pane-scroll page-column\">", report);
+        Assert.Contains("<div class=\"pane-scroll page-pane\">", report);
+        Assert.Contains("report-card page-card", report);
         var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
         Assert.Contains("<div class=\"page-header page-column\">", privacy);
-        Assert.Contains("<div class=\"pane-scroll page-column\">", privacy);
+        Assert.Contains("<div class=\"pane-scroll page-pane\">", privacy);
+        Assert.Contains("policy-card page-card", privacy);
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
         Assert.Contains("margin-left: auto; margin-right: auto;", RuleBodyAt(css, ".page-column {"));
+        Assert.Contains("scrollbar-gutter: stable both-edges;", RuleBodyAt(css, ".page-pane {"));   // 枠の中心と見出しの中心をそろえる（左右の余白が同じ）
+    }
+
+    [Fact]
+    public void Side_menu_has_the_copyright_link_between_contact_and_privacy_order()
+    {
+        // 権利表記のページは、画面内のリンクがここにしか無い（フッターには無い）。問い合わせ・プライバシーと同じ並び
+        var nav = Read(Path.Combine(Web, "Shared", "NavMenu.razor"));
+        var report = nav.IndexOf("(\"report\", \"問い合わせ\"", StringComparison.Ordinal);
+        var privacy = nav.IndexOf("(\"privacy\", \"プライバシーポリシー\"", StringComparison.Ordinal);
+        var copyright = nav.IndexOf("(\"copyright\", \"権利表記\", Icons.Material.Filled.Copyright", StringComparison.Ordinal);
+        Assert.True(report >= 0 && privacy > report && copyright > privacy, "サイドメニューに権利表記が無い、または並びが違う");
     }
 
     [Fact]

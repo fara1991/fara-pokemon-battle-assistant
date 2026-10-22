@@ -2732,6 +2732,12 @@ html.vt-nav .app-header {
     .pane-scroll {
         scrollbar-gutter: stable;
     }
+
+    /* 問い合わせ・プライバシー: 枠は画面の幅いっぱいのまま、スクロールバーの余白を左右に同じだけ取る。
+       こうすると、枠の中心と見出し（.page-column）の中心が同じになり、左右の端がそろう */
+    .page-pane {
+        scrollbar-gutter: stable both-edges;
+    }
 }
 
 /* 計算機・素早さ比較（PC）: 攻撃側 | 防御側 | 場の状態と結果 の各列が画面内に収まり、はみ出す列の中だけがスクロールする。
@@ -4312,6 +4318,7 @@ a.site-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3ae
 /* 問い合わせ・プライバシーポリシー */
 /* 内容の列（見出し・説明・カード）。読みやすい幅で、横の中央に置く。Copyright など、ほかのページには効かせない */
 .page-column { width: 100%; max-width: 46rem; margin-left: auto; margin-right: auto; }
+.page-card { margin-left: auto; margin-right: auto; }   /* 枠（.page-pane）の中で、カードを中央に置く（幅は .report-card・.policy-card の 46rem） */
 .report-card, .policy-card { max-width: 46rem; }
 .policy-card h5 { margin-top: 1.1rem; font-size: 1rem; }
 .policy-card h5:first-child { margin-top: 0; }
