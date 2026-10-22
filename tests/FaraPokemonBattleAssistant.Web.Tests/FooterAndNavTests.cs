@@ -77,16 +77,32 @@ public class FooterAndNavTests
         Assert.Contains("<div class=\"pane-scroll page-pane\">", report);
         Assert.Contains("report-card page-card", report);
         var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
-        Assert.Contains("<div class=\"page-header page-column\">", privacy);
+        // 長文のページ（プライバシー・権利表記）は、PC で横幅を広げる（page-column--wide・policy-card--wide）
+        Assert.Contains("<div class=\"page-header page-column page-column--wide\">", privacy);
         Assert.Contains("<div class=\"pane-scroll page-pane\">", privacy);
-        Assert.Contains("policy-card page-card", privacy);
+        Assert.Contains("policy-card policy-card--wide page-card", privacy);
         var copyright = Read(Path.Combine(Web, "Components", "Pages", "Copyright.razor"));
-        Assert.Contains("<div class=\"page-header page-column\">", copyright);
+        Assert.Contains("<div class=\"page-header page-column page-column--wide\">", copyright);
         Assert.Contains("<div class=\"pane-scroll page-pane\">", copyright);
-        Assert.Contains("policy-card page-card", copyright);
+        Assert.Contains("policy-card policy-card--wide page-card", copyright);
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
         Assert.Contains("margin-left: auto; margin-right: auto;", RuleBodyAt(css, ".page-column {"));
         Assert.Contains("scrollbar-gutter: stable both-edges;", RuleBodyAt(css, ".page-pane {"));   // 枠の中心と見出しの中心をそろえる（左右の余白が同じ）
+    }
+
+    [Fact]
+    public void Unknown_urls_show_the_shared_not_found_view_with_noindex()
+    {
+        // 存在しない URL は、ポートフォリオの 404 と同じ形（Shared/NotFoundView.razor）。検索に載せないよう noindex を付ける
+        var app = Read(Path.Combine(Web, "App.razor"));
+        Assert.Contains("<NotFoundView HomeHref=\"/\" />", app);
+        Assert.DoesNotContain("Sorry, there's nothing at this address.", app);
+        var view = Read(Path.Combine(Web, "Shared", "NotFoundView.razor"));
+        Assert.Contains("<meta name=\"robots\" content=\"noindex\" />", view);
+        Assert.Contains("ページが見つかりません", view);
+        Assert.Contains("URL が間違っているか、ページが移動した可能性があります。", view);
+        Assert.Contains("ホームへ戻る", view);
+        Assert.Contains("class=\"not-found-code\"", view);
     }
 
     [Fact]

@@ -1,0 +1,36 @@
+@* 存在しない URL（404）の表示。ポートフォリオ（fara-portfolio-site の 404）と同じ形。
+   今は、このサイト専用の部品。共通の部品（fara-site-kit）に置き換えるときは、呼び出し（App.razor）の組み方を変えるだけにする。
+   存在しない URL は Worker が index.html を 200 で返すので、noindex は、ブラウザで JS が動いてから付く（検索エンジンが JS を実行するときだけ効く）。 *@
+
+@if (NoIndex)
+{
+    <HeadContent>
+        <meta name="robots" content="noindex" />
+    </HeadContent>
+}
+<PageTitle>@Title | Pokémon Battle Assistant</PageTitle>
+
+<section class="not-found" aria-labelledby="not-found-title">
+    <p class="not-found-code" aria-hidden="true">@Code</p>
+    <h1 id="not-found-title">@Title</h1>
+    <p class="not-found-text">@Description</p>
+    <MudButton Href="@HomeHref" Variant="Variant.Filled" Color="Color.Primary" Class="not-found-button"
+               EndIcon="@Icons.Material.Filled.ArrowForward">@ButtonText</MudButton>
+</section>
+
+@code {
+    /// <summary>ホームへ戻るボタンのリンク先（このサイトでは "/"）</summary>
+    [Parameter] public string HomeHref { get; set; } = "/";
+
+    /// <summary>大きく出す番号（既定は 404）</summary>
+    [Parameter] public string Code { get; set; } = "404";
+
+    [Parameter] public string Title { get; set; } = "ページが見つかりません";
+
+    [Parameter] public string Description { get; set; } = "URL が間違っているか、ページが移動した可能性があります。";
+
+    [Parameter] public string ButtonText { get; set; } = "ホームへ戻る";
+
+    /// <summary>検索エンジンに載せないための noindex を付けるか</summary>
+    [Parameter] public bool NoIndex { get; set; } = true;
+}

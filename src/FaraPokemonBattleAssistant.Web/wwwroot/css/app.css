@@ -4434,3 +4434,34 @@ a.site-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3ae
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* ---------- 404（存在しない URL）: ポートフォリオの 404 と同じ形（Shared/NotFoundView.razor） ---------- */
+.not-found { text-align: center; display: grid; justify-items: center; gap: 4px; padding: clamp(40px, 12vh, 120px) 16px 48px; }
+.not-found-code {
+    margin: 0;
+    font: 800 clamp(96px, 20vw, 180px)/1 "Outfit", "Zen Kaku Gothic New", system-ui, sans-serif;
+    background-image: linear-gradient(120deg, #7c3aed 0%, #a855f7 60%, #6366f1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+html[data-bs-theme="dark"] .not-found-code { background-image: linear-gradient(120deg, #c084fc 0%, #a855f7 60%, #818cf8 100%); }
+/* 短いページでも、フッターが画面の下に来るよう、スマホでは中身の高さを確保する（ヘッダー・フッターの分を引く） */
+@media (max-width: 720px) { .not-found { min-height: calc(100dvh - 132px); align-content: center; } }
+.not-found h1 { font-size: clamp(24px, 3.6vw, 32px); margin: 8px 0 0; }
+.not-found-text { margin: 0 0 20px; color: var(--bs-secondary-color, #6b6485); }
+html[data-bs-theme="dark"] .not-found-text { color: #b4a7d1; }
+.not-found-button { border-radius: 999px !important; padding: 10px 24px !important; text-transform: none !important; font-weight: 700 !important; }
+
+/* ---------- 日本語の改行（本文だけ。フォームの入力欄やコマンドの表には当てない） ---------- */
+.page-column p, .page-column h3, .policy-card p, .policy-card li, .policy-card h5 {
+    word-break: normal;
+    word-break: auto-phrase;
+    line-break: strict;
+    overflow-wrap: break-word;
+    text-wrap: pretty;
+}
+.nowrap { white-space: nowrap; }
+/* 長文のページ（プライバシー・権利表記）: PC では横幅を広く使う。スマホは今のまま（46rem の上限は、画面が狭いときは効かない） */
+.page-column--wide { max-width: 72rem; }
+.policy-card--wide { max-width: 72rem; }
