@@ -68,5 +68,8 @@ jobs:
       - name: Report endpoint test
         run: npm run test:report
 
+      - name: Maintenance test
+        run: npm run test:maintenance
+
       - name: API test
         run: npm run test:worker
