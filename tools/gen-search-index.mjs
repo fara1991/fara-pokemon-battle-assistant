@@ -6,7 +6,7 @@
 // 入力欄の値や計算結果など、実行時に決まる文字（@(…) など）は含めない。ポケモン・わざの名前などのデータは、実行時にアプリが足す。
 // 抜き出した文字に C# のコードの断片が混ざっていたら、索引を作らずに失敗する（検索結果にコードが出ないようにするため）。
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -126,6 +126,12 @@ function sectionsOf(html, page, url) {
     return out.filter((e) => e.type !== "intro" || e.text);
 }
 
+/** ページの説明（見出しの下の <div class="page-header …"> の中の最初の段落）。page-header に他のクラス（page-column など）が付いていても取る */
+export function pageDescription(body) {
+    const lead = /<div class="page-header(?:\s[^"]*)?">[\s\S]*?<\/div>/.exec(body);
+    return lead ? plain((/<p\b[^>]*>([\s\S]*?)<\/p>/.exec(lead[0]) ?? [, ""])[1]) : "";
+}
+
 function build() {
     const entries = [];
     for (const file of readdirSync(pagesDir).filter((f) => f.endsWith(".razor")).sort()) {
@@ -134,8 +140,7 @@ function build() {
         if (!url || file === "LegacyUrlRedirect.razor") continue;
         const title = pageTitle(raw) ?? file.replace(".razor", "");
         const body = stripRazor(raw, file);
-        const lead = /<div class="page-header">[\s\S]*?<\/div>/.exec(body);
-        const description = lead ? plain((/<p\b[^>]*>([\s\S]*?)<\/p>/.exec(lead[0]) ?? [, ""])[1]) : "";
+        const description = pageDescription(body);
         entries.push({ type: "page", title, page: title, url, text: description });
         for (const e of sectionsOf(body, title, url)) {
             // 見出しの前の導入の文章は、ページの説明と同じなら重複するので入れない
@@ -183,22 +188,26 @@ function build() {
     return result;
 }
 
-let json;
-try {
-    json = JSON.stringify(build(), null, 1) + "\n";
-} catch (e) {
-    console.error(String(e.message ?? e));
-    process.exit(1);
-}
-if (process.argv.includes("--check")) {
-    const current = existsSync(outFile) ? readFileSync(outFile, "utf8") : "";
-    if (current.replace(/\r\n/g, "\n") !== json) {
-        console.error("search-index.json が、ページの内容と合っていません。`npm run gen:search` で作り直してください。");
+function main() {
+    let json;
+    try {
+        json = JSON.stringify(build(), null, 1) + "\n";
+    } catch (e) {
+        console.error(String(e.message ?? e));
         process.exit(1);
     }
-    console.log("search-index.json は最新です");
-} else {
-    writeFileSync(outFile, json, "utf8");
-    const n = JSON.parse(json);
-    console.log(`search-index.json を書き出しました（${n.length} 件、${(json.length / 1024).toFixed(0)} KB）`);
+    if (process.argv.includes("--check")) {
+        const current = existsSync(outFile) ? readFileSync(outFile, "utf8") : "";
+        if (current.replace(/\r\n/g, "\n") !== json) {
+            console.error("search-index.json が、ページの内容と合っていません。`npm run gen:search` で作り直してください。");
+            process.exit(1);
+        }
+        console.log("search-index.json は最新です");
+    } else {
+        writeFileSync(outFile, json, "utf8");
+        const n = JSON.parse(json);
+        console.log(`search-index.json を書き出しました（${n.length} 件、${(json.length / 1024).toFixed(0)} KB）`);
+    }
 }
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) main();
