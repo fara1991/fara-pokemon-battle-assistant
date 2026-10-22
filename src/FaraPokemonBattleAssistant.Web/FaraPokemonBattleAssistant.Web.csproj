@@ -6,7 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>FaraPokemonBattleAssistant.Web</RootNamespace>
     <BlazorEnableCompression>true</BlazorEnableCompression>
-    <InvariantGlobalization>false</InvariantGlobalization>
+    <!--
+      ICU（文化依存の比較・書式）を載せない（約 240 KiB・Brotli を配らずに済む）。
+      日本語の並び・検索は Ordinal / InvariantCulture で書いてある。tests/.../OrderSnapshotTests.cs が、
+      ICU あり・なしの両方で同じ結果になることを確かめる（CI は DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 でも実行する）。
+    -->
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
