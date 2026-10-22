@@ -105,18 +105,30 @@
         catch { /* JS が使えないときは、反映しない */ }
     }
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>
+    /// 最初の描画の前に、保存された PC の開閉と、スマホかどうかを決める。非同期（await）で取ると、描画が先に行われ、
+    /// 開いた状態（PC の既定・保存なし）で一度描かれてから、スマホの判定で閉じる（スマホでメニューが開いて見える）。
+    /// WebAssembly の JS 呼び出しは同期でもできるので、ここで同期に読む。
+    /// </summary>
+    protected override void OnInitialized()
     {
         Stage.Changed += OnStageChanged;
-        try { desktopOpen = await JS.InvokeAsync<string?>("localStorage.getItem", SidebarKey) != "1"; } catch { }
-        try
+        if (JS is IJSInProcessRuntime sync)
         {
-            self = DotNetObjectReference.Create(this);
-            mobile = await JS.InvokeAsync<bool>("faraWatchMobile", self);
+            try { desktopOpen = sync.Invoke<string?>("localStorage.getItem", SidebarKey) != "1"; } catch { }
+            try
+            {
+                self = DotNetObjectReference.Create(this);
+                mobile = sync.Invoke<bool>("faraWatchMobile", self);
+            }
+            catch { /* JS が使えないときは PC として扱う */ }
         }
-        catch { /* JS が使えないときは PC として扱う */ }
         currentGroup = GroupOf(Nav.ToBaseRelativePath(Nav.Uri));
         Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
         await Stage.InitializeAsync();
     }
 
