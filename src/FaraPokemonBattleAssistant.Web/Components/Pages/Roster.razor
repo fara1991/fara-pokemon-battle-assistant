@@ -330,11 +330,12 @@ else
 
     private async Task AddPokemonAsync()
     {
+        var key = App.DataSetKey;
         if (data is null || dataSet is null || s.NewPokemon is null || s.NewNature is null) return;
         if (EvRules.Validate(dataSet.EvSystem, s.NewEvs) is { } error) { Show(error, true); return; }
         await MutateAsync(async () =>
         {
-            var entry = await Repo.AddPokemonAsync(App.DataSetKey, s.NewPokemon, s.NewEvs.Clone(), s.NewNature, s.NewAbility, s.NewMoves.OfType<Move>().Select(m => m.Id).ToList());
+            var entry = await Repo.AddPokemonAsync(key, s.NewPokemon, s.NewEvs.Clone(), s.NewNature, s.NewAbility, s.NewMoves.OfType<Move>().Select(m => m.Id).ToList());
             Show($"#{entry.Id} {entry.PokemonName} を登録しました", false);
             // 続けて別のポケモンを登録しやすいよう、選択中のポケモンと特性は空に戻す（振り分けは 0 に戻す。性格は残す）
             s.NewPokemon = null;
@@ -371,11 +372,12 @@ else
 
     private async Task UpdatePokemonAsync()
     {
+        var key = App.DataSetKey;
         if (data is null || dataSet is null || s.EditingId is not { } id || s.NewNature is null) return;
         if (EvRules.Validate(dataSet.EvSystem, s.NewEvs) is { } error) { Show(error, true); return; }
         await MutateAsync(async () =>
         {
-            var entry = await Repo.UpdatePokemonAsync(App.DataSetKey, id, s.NewEvs.Clone(), s.NewNature, s.NewAbility, s.NewMoves.OfType<Move>().Select(m => m.Id).ToList());
+            var entry = await Repo.UpdatePokemonAsync(key, id, s.NewEvs.Clone(), s.NewNature, s.NewAbility, s.NewMoves.OfType<Move>().Select(m => m.Id).ToList());
             if (entry is null) { Show($"#{id} は登録にありません（削除された可能性があります）", true); }
             else Show($"#{entry.Id} {entry.PokemonName} を更新しました", false);
             ClearForm();
@@ -384,6 +386,7 @@ else
 
     private async Task RemovePokemonAsync(int id)
     {
+        var key = App.DataSetKey;
         if (Mutating) return;   // 実行中の操作があるあいだは、押されても何もしない（成功の表示だけが出ないように）
         var name = roster?.Pokemon.FirstOrDefault(p => p.Id == id)?.PokemonName ?? "";
         if (!await ConfirmAsync($"#{id} {name} を削除します。チームからも外れ、元に戻せません。よろしいですか？")) return;
@@ -391,8 +394,8 @@ else
         var before = roster?.Teams.Select(t => t.Number).ToList() ?? new List<int>();
         await MutateAsync(async () =>
         {
-            await Repo.RemovePokemonAsync(App.DataSetKey, id);
-            var after = (await Repo.GetAsync()).For(App.DataSetKey).Teams.Select(t => t.Number);
+            await Repo.RemovePokemonAsync(key, id);
+            var after = (await Repo.GetAsync()).For(key).Teams.Select(t => t.Number);
             var deleted = before.Except(after).ToList();
             Show($"#{id} を削除しました" + (deleted.Count > 0 ? $"（0 体になった{string.Join("・", deleted.Select(n => $"チーム{n}"))}も削除しました）" : ""), false);
         });

@@ -460,21 +460,25 @@ else if (string.IsNullOrEmpty(loadError))
     private string loadError = "";
 
     /// <summary>データの読み込みに失敗したら、画面全体をエラー画面にせず、メッセージを出す。</summary>
+    private int loadVersion;
+
     private async Task LoadAsync()
     {
+        var version = ++loadVersion;
         try
         {
             loadError = "";
-            await LoadCoreAsync();
+            await LoadCoreAsync(version);
         }
         catch (Exception ex)
         {
+            if (version != loadVersion) return;   // 古い読み込みの失敗は、最新の読み込みに任せる
             data = null;   // 前のゲームのデータのまま描画しない
             loadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
     }
 
-    private async Task LoadCoreAsync()
+    private async Task LoadCoreAsync(int version)
     {
         var switched = s.DataSetKey != App.DataSetKey;
         if (switched)
@@ -492,9 +496,14 @@ else if (string.IsNullOrEmpty(loadError))
         }
         // ゲームが変わった直後は、読み込みが終わるまで前のゲームのデータを出さない（操作・計算にも使わせない）
         if (!IsCurrentGame(data)) { data = null; usage = null; }
-        data = await Catalog.GetDataSetAsync(App.DataSetKey);
-        usage = await data.GetUsageAsync(App.Format);
-        if (!await RefreshRegisteredAsync() && switched) registeredPokemon = Array.Empty<Pokemon>();   // 別のゲームの候補は残さない
+        var loaded = await Catalog.GetDataSetAsync(App.DataSetKey);
+        var loadedUsage = await loaded.GetUsageAsync(App.Format);
+        if (version != loadVersion) return;   // 読み込みの間にゲームが変わったら、古いゲームのデータを入れない
+        data = loaded;
+        usage = loadedUsage;
+        var refreshed = await RefreshRegisteredAsync();
+        if (version != loadVersion) return;
+        if (!refreshed && switched) registeredPokemon = Array.Empty<Pokemon>();   // 別のゲームの候補は残さない
         if (s.Attacker is not null && registeredPokemon.All(p => p.Id != s.Attacker.Id)) { s.Attacker = null; s.Move = null; }
         if (switched) ParseText();
         RefreshMoves();
@@ -504,10 +513,15 @@ else if (string.IsNullOrEmpty(loadError))
     /// <returns>読み込めたか。読み込めなかったときは候補を今のまま残す（一時的な失敗で、選んでいた攻撃側を外さないため）。</returns>
     private async Task<bool> RefreshRegisteredAsync()
     {
+        // 待っているあいだにゲームが変わっても、古いゲームの登録で候補を作らないよう、呼んだ時点のゲームとデータで組み立てる
+        var key = App.DataSetKey;
+        var loaded = data;
+        if (loaded is null || loaded.Info.Key != key) return false;
         try
         {
-            var entries = (await Repo.GetAsync()).For(App.DataSetKey).Pokemon;
-            registeredPokemon = entries.Select(e => data!.FindPokemon(e.PokemonId)).OfType<Pokemon>().DistinctBy(p => p.Id).ToList();
+            var entries = (await Repo.GetAsync()).For(key).Pokemon;
+            if (data != loaded || App.DataSetKey != key) return false;
+            registeredPokemon = entries.Select(e => loaded.FindPokemon(e.PokemonId)).OfType<Pokemon>().DistinctBy(p => p.Id).ToList();
             return true;
         }
         catch (Exception ex)

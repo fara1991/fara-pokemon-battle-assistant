@@ -28,6 +28,9 @@ public sealed class AppState
     /// <summary>"light" / "dark"。</summary>
     public string Theme { get; private set; } = "light";
 
+    /// <summary>読み込んだゲームのキーが、いま選んでいるゲームか（まだ読んでいなければ「同じ」とみなす）。ゲームを切り替えた直後は、読み込みが終わるまで違う。</summary>
+    public static bool IsSameGame(string? loadedKey, string currentKey) => loadedKey is null || loadedKey == currentKey;
+
     /// <summary>データセット・バトル形式が変わったときに発火する。</summary>
     public event Func<Task>? Changed;
 

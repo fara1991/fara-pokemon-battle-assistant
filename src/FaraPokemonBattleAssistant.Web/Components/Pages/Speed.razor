@@ -259,6 +259,8 @@ else if (string.IsNullOrEmpty(loadError))
     private void ApplyQuery()
     {
         if (P1Query is null) return;
+        // ゲームの読み込み中（データが無い）は、ID を捨てず URL も消さずに待つ。読み込みが終わったら LoadCoreAsync から、もう一度ここで反映する
+        if (data is null) return;
         // 数字でない・存在しない ID は無視する
         if (QueryPokemonId(P1Query) is { } id) OnPokemonChanged(0, id.ToString());
         Nav.NavigateTo("speed-comparison", replace: true);
@@ -331,6 +333,8 @@ else if (string.IsNullOrEmpty(loadError))
         if (dataSet is { HasTerrain: false } || s.Terrain == Terrain.Psychic && dataSet is { HasPsychicTerrain: false }) s.Terrain = Terrain.None;
         // もう一方のページ（ダメージ計算機）で選んだポケモン・性格・「登録から選ぶ」を入れる
         ImportFromStage(key);
+        // 読み込みの間に届いた ?p1= を、読み込み後に反映する
+        if (stageReady && !IsDisposed) ApplyQuery();
     }
 
     // 選んでいるポケモン1（手前）・ポケモン2（奥）を、背景のバトルフィールドに立たせる

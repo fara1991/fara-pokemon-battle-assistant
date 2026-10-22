@@ -180,9 +180,10 @@ else
 
     private async Task SetFormatAsync(int teamNo, BattleFormat format)
     {
+        var key = App.DataSetKey;
         await MutateAsync(async () =>
         {
-            if (await Repo.SetTeamFormatAsync(App.DataSetKey, teamNo, format))
+            if (await Repo.SetTeamFormatAsync(key, teamNo, format))
                 Show($"チーム{teamNo} を{TeamFormats.Label(format)}用にしました", false);
             else
                 Toast.Warning($"チーム{teamNo} はありません（他の場所で削除された可能性があります）");
@@ -207,48 +208,53 @@ else
 
     private async Task AddToTeamAsync()
     {
+        var key = App.DataSetKey;
         await MutateAsync(async () =>
         {
-            var (team, _, replaced) = await Repo.AddToTeamAsync(App.DataSetKey, s.TeamNumber, s.TeamEntryId, s.TeamItem, s.TeamFormatChosen ? s.TeamFormat : null);
+            var (team, _, replaced) = await Repo.AddToTeamAsync(key, s.TeamNumber, s.TeamEntryId, s.TeamItem, s.TeamFormatChosen ? s.TeamFormat : null);
             Show($"チーム{team.Number} に{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）", false);
         });
     }
 
     private async Task RemoveFromTeamAsync(int teamNo, int entryId)
     {
+        var key = App.DataSetKey;
         await MutateAsync(async () =>
         {
-            await Repo.RemoveFromTeamAsync(App.DataSetKey, teamNo, e => e.Id == entryId);
-            if ((await Repo.GetAsync()).For(App.DataSetKey).Teams.All(t => t.Number != teamNo))
+            await Repo.RemoveFromTeamAsync(key, teamNo, e => e.Id == entryId);
+            if ((await Repo.GetAsync()).For(key).Teams.All(t => t.Number != teamNo))
                 Show($"チーム{teamNo} は 0 体になったので削除しました", false);
         });
     }
 
     private async Task RemoveTeamAsync(int teamNo)
     {
+        var key = App.DataSetKey;
         if (Mutating) return;   // 実行中の操作があるあいだは、確認も出さない
         if (!await ConfirmAsync($"チーム{teamNo} を削除します（登録したポケモンは残ります）。よろしいですか？")) return;
         await MutateAsync(async () =>
         {
-            await Repo.RemoveTeamAsync(App.DataSetKey, teamNo);
+            await Repo.RemoveTeamAsync(key, teamNo);
             Show($"チーム{teamNo} を削除しました", false);
         });
     }
 
     private async Task UnuseTeamAsync()
     {
+        var key = App.DataSetKey;
         await MutateAsync(async () =>
         {
-            await Repo.ClearActiveTeamAsync(App.DataSetKey);
+            await Repo.ClearActiveTeamAsync(key);
             Show("使用チームを解除しました", false);
         });
     }
 
     private async Task UseTeamAsync(int teamNo)
     {
+        var key = App.DataSetKey;
         await MutateAsync(async () =>
         {
-            if (await Repo.UseTeamAsync(App.DataSetKey, teamNo))
+            if (await Repo.UseTeamAsync(key, teamNo))
                 Show($"チーム{teamNo} を使用します", false);
             else
                 Toast.Warning($"チーム{teamNo} はありません（他の場所で削除された可能性があります）");

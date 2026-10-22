@@ -93,8 +93,11 @@
     {
         try
         {
-            var data = await Catalog.GetDataSetAsync(App.DataSetKey);
-            Stage.EnsureDefaults(App.DataSetKey, data, App.Format == BattleFormat.Doubles);
+            var key = App.DataSetKey;
+            var data = await Catalog.GetDataSetAsync(key);
+            // 読み込みの間にゲームが変わっていたら、古いゲームのポケモンで選び直さない（新しいゲームの読み込みが、あとで選び直す）
+            if (key != App.DataSetKey) return;
+            Stage.EnsureDefaults(key, data, App.Format == BattleFormat.Doubles);
         }
         catch
         {

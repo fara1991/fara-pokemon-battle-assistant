@@ -393,6 +393,8 @@ else if (string.IsNullOrEmpty(loadError))
     private void ApplyQuery()
     {
         if (AttackerQuery is null && DefenderQuery is null) return;
+        // ゲームの読み込み中（データが無い）は、ID を捨てず URL も消さずに待つ。読み込みが終わったら LoadDataSet から、もう一度ここで反映する
+        if (data is null) return;
         // 数字でない・存在しない ID は無視する（保存してあった攻撃側・防御側を消さない）
         // ダブルバトルでは、2 体目を上書きしないよう、1 体目の入力に切り替えてから入れる
         if (QueryPokemonId(AttackerQuery) is { } a) { SelectAttacker(0); OnAttackerChanged(a.ToString()); }
@@ -552,6 +554,8 @@ else if (string.IsNullOrEmpty(loadError))
             RefreshDefenderLists();
             // もう一方のページ（素早さ比較）で選んだポケモン・性格・「登録から選ぶ」を入れる
             ImportFromStage(key);
+            // 読み込みの間に届いた ?attacker= ・ ?defender= を、読み込み後に反映する
+            if (stageReady && !IsDisposed) ApplyQuery();
         }
         catch (Exception ex)
         {
@@ -932,18 +936,21 @@ else if (string.IsNullOrEmpty(loadError))
     /// <returns>反映の処理まで進んだか（入力がそろっていないときは false）。</returns>
     private async Task<bool> RegisterRivalCoreAsync(EvEstimator.Estimate e)
     {
-        if (data is null || s.Defender is null || s.Attacker is null || s.Move is null) return false;
+        // 登録は、呼んだ時点のゲームのデータ・キーで行う（待っているあいだにゲームが変わっても、別のゲームのデータで照合しない）
+        var key = App.DataSetKey;
+        var loaded = data;
+        if (loaded is null || loaded.Info.Key != key || s.Defender is null || s.Attacker is null || s.Move is null) return false;
         var pokemon = s.Defender.Pokemon;
         var note = $"{s.Attacker.Pokemon.Name} {s.Move.Name} {(e.ObservedAsPercent ? $"{e.ObservedDamage}%" : e.ObservedDamage.ToString())}";
         (bool Applied, string? Problem) applied = (false, null);
         string? tooMany = null;
         try
         {
-            await Repo.ChangeRivalsAsync(App.DataSetKey, roster =>
+            await Repo.ChangeRivalsAsync(key, roster =>
             {
                 tooMany = null;
-                var rival = PokeCommand.FindRival(roster.Rivals, pokemon, data!);
-                if (rival is not null) PokeCommand.ChangeRivalForm(rival, pokemon, data!);
+                var rival = PokeCommand.FindRival(roster.Rivals, pokemon, loaded);
+                if (rival is not null) PokeCommand.ChangeRivalForm(rival, pokemon, loaded);
                 var created = rival is null;
                 if (rival is null)
                 {
@@ -973,9 +980,10 @@ else if (string.IsNullOrEmpty(loadError))
     private async Task RemoveRivalAsync(RivalPokemon rival)
     {
         registeredEstimateKey = null;   // 外したあとは、同じ推定をもう一度反映できる
+        var key = App.DataSetKey;
         try
         {
-            await Repo.ChangeRivalsAsync(App.DataSetKey, roster => { var n = roster.Rivals.RemoveAll(r => r.Id == rival.Id); return (n > 0, n > 0); });
+            await Repo.ChangeRivalsAsync(key, roster => { var n = roster.Rivals.RemoveAll(r => r.Id == rival.Id); return (n > 0, n > 0); });
         }
         catch (Exception ex)
         {

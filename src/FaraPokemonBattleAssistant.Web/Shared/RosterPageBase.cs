@@ -55,6 +55,8 @@ public abstract class RosterPageBase : AppPageBase
         // ゲームを素早く切り替えたとき、古い読み込みが後から終わって別のゲームのデータで上書きしないよう、
         // 読み込み中の値は変数に持ち、最新の読み込みのときだけ、まとめて画面の値にする
         var version = ++loadVersion;
+        // 読み直しを始めたら、前の失敗の表示は消す（読み込みの間に「読めませんでした」が出続けないように）
+        LoadFailed = false;
         try
         {
             var key = App.DataSetKey;
@@ -87,7 +89,11 @@ public abstract class RosterPageBase : AppPageBase
     {
         try
         {
-            roster = (await Repo.GetAsync()).For(App.DataSetKey);
+            var key = App.DataSetKey;
+            var read = (await Repo.GetAsync()).For(key);
+            // 待っているあいだにゲームが変わったら、古いゲームの登録を入れない（新しいゲームの読み込みが、あとで入れ直す）
+            if (key != App.DataSetKey) return;
+            roster = read;
             await OnRosterReadAsync();
         }
         catch (Exception ex)

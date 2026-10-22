@@ -167,11 +167,13 @@ else if (string.IsNullOrEmpty(LoadError))
 
     private Task LoadAsync() => LoadSafelyAsync(LoadCoreAsync, () => { data = null; allMoves = Array.Empty<Move>(); results = new(); });
 
-    private async Task LoadCoreAsync()
+    private async Task LoadCoreAsync(int version)
     {
         // ゲームが変わった直後は、読み込みが終わるまで前のゲームのデータを出さない（操作・計算にも使わせない）
         if (!IsCurrentGame(data)) data = null;
-        data = await Catalog.GetDataSetAsync(App.DataSetKey);
+        var loaded = await Catalog.GetDataSetAsync(App.DataSetKey);
+        if (!IsLatestLoad(version)) return;   // 読み込みの間にゲームが変わったら、古いゲームのデータを入れない
+        data = loaded;
         if (s.DataSetKey != App.DataSetKey)
         {
             // 技の ID・タイプはゲームごとに違うことがあるので、並び順以外は戻す
