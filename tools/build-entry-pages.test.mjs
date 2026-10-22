@@ -103,6 +103,22 @@ test("読み込み表示は、JavaScript が無いとき隠れる（noscript の
     assert.match(html, /role="status" aria-live="polite"/);
 });
 
+test("起動前のオーバーレイのスタイルはインラインで、どの出力でも最初の stylesheet より前にある（CSS の読み込み前にも本文を隠す）", () => {
+    const outputs = [...pages.map((p) => renderPage(TEMPLATE, p, pages, origin)), TEMPLATE];
+    for (const html of outputs) {
+        const style = html.indexOf("<style>");
+        assert.ok(style >= 0, "インラインの style がある");
+        assert.ok(html.indexOf("#boot-indicator {") > style);
+        assert.ok(style < html.indexOf('<link href="_content/MudBlazor/MudBlazor.min.css"'), "最初の stylesheet より前");
+        assert.match(html, /html\[data-bs-theme="dark"\] #boot-indicator \{ background: #0c0616;/);
+        assert.match(html, /#boot-indicator \{[^}]*background: #f7f4fd;/);
+        assert.match(html, /\.boot-indicator-label:empty::before \{/);
+        // 保険: JS が動かなくても 60 秒で隠れる（CSS）。テンプレートに inert は直接書かない（JS が付けて外す）
+        assert.match(html, /animation: boot-indicator-release 0s linear 60s forwards;/);
+        assert.doesNotMatch(html, /inert/);
+    }
+});
+
 test("同じテンプレートから何度作っても同じ結果（区切りが残るので、作り直しても崩れない）", () => {
     const once = renderPage(TEMPLATE, battleTerms, pages, origin);
     const twice = renderPage(once, battleTerms, pages, origin);
