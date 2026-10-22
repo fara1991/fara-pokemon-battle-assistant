@@ -1361,7 +1361,12 @@ body {
     margin-bottom: 0.25rem;
 }
 
-.card {
+/* kit の報告フォームのカード（.fsk-card・.fsk-card-body）の構造。base.css の .card・.card-body と同じ。枠線・影・背景は、次の .card の規則を共有する */
+.fsk-card {--bs-card-spacer-y:1rem;--bs-card-spacer-x:1rem;--bs-card-title-spacer-y:0.5rem;--bs-card-title-color: ;--bs-card-subtitle-color: ;--bs-card-border-width:var(--bs-border-width);--bs-card-border-color:var(--bs-border-color-translucent);--bs-card-border-radius:var(--bs-border-radius);--bs-card-box-shadow: ;--bs-card-inner-border-radius:calc(var(--bs-border-radius) - (var(--bs-border-width)));--bs-card-cap-padding-y:0.5rem;--bs-card-cap-padding-x:1rem;--bs-card-cap-bg:rgba(var(--bs-body-color-rgb), 0.03);--bs-card-cap-color: ;--bs-card-height: ;--bs-card-color: ;--bs-card-bg:var(--bs-body-bg);--bs-card-img-overlay-padding:1rem;--bs-card-group-margin:0.75rem;position:relative;display:flex;flex-direction:column;min-width:0;height:var(--bs-card-height);color:var(--bs-body-color);word-wrap:break-word;background-color:var(--bs-card-bg);background-clip:border-box;border:var(--bs-card-border-width) solid var(--bs-card-border-color);border-radius:var(--bs-card-border-radius)}
+.fsk-card-body {flex:1 1 auto;padding:var(--bs-card-spacer-y) var(--bs-card-spacer-x);color:var(--bs-card-color)}
+
+.card,
+.fsk-card {
     border: 1px solid var(--app-card-border);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
@@ -1380,6 +1385,7 @@ body {
 
 .form-group label,
 .form-label,
+.fsk-form-label,
 .side-label {
     font-size: 0.85rem;
     font-weight: 600;
@@ -1387,7 +1393,8 @@ body {
     margin-bottom: 0.2rem;
 }
 
-.form-group {
+.form-group,
+.fsk-form-group {
     margin-bottom: 0.75rem !important;
 }
 
@@ -1614,7 +1621,8 @@ body {
     }
 }
 
-.text-muted {
+.text-muted,
+.fsk-muted {
     color: var(--app-muted) !important;
 }
 
@@ -3299,7 +3307,8 @@ html.vt-nav .fsk-header {
 /* 半透明のカード（中の表も背景を透かす）。
    backdrop-filter（ぼかし）は使わない: 付けた要素が position: fixed の基準になり、
    画面基準で置く候補リスト（faraPlaceDropdown）やヘルプの吹き出しがずれたり、カードの外で切れたりする */
-.card {
+.card,
+.fsk-card {
     --bs-card-bg: var(--glass);
 }
 
@@ -3864,6 +3873,17 @@ body {
         padding-bottom: 0;
     }
 
+    /* 枠の中だけがスクロールするのは PC だけ（問い合わせなど。kit の .fsk-pane-scroll は全幅に効く） */
+    .fsk-pane-scroll {
+        flex: none;
+        overflow: visible;
+        scrollbar-gutter: auto;
+    }
+
+    .fsk-page-pane {
+        scrollbar-gutter: auto;
+    }
+
     /* 細い列に隠す設定（PC）は、スマホでは使わない（スマホは一時的なメニュー） */
     html.fsk-sidebar-hidden .fsk-page .mud-main-content {
         margin-left: 0 !important;
@@ -4354,12 +4374,16 @@ body {
 
 /* MudBlazor の入力欄・セレクト: 余白を 0 にして（ラベルと同じ高さにそろう）、背景も半透明にする */
 .app-select.mud-input-control,
-.app-field.mud-input-control {
+.app-field.mud-input-control,
+.fsk-select.mud-input-control,
+.fsk-field.mud-input-control {
     margin: 0 !important;
 }
 
 .app-select .mud-input.mud-input-outlined,
-.app-field .mud-input.mud-input-outlined {
+.app-field .mud-input.mud-input-outlined,
+.fsk-select .mud-input.mud-input-outlined,
+.fsk-field .mud-input.mud-input-outlined {
     background: var(--glass-field);
 }
 
@@ -4517,3 +4541,13 @@ html[data-bs-theme="dark"] .not-found-text { color: #b4a7d1; }
 /* 長文のページ（プライバシー・権利表記）: PC では横幅を広く使う。スマホは今のまま（46rem の上限は、画面が狭いときは効かない） */
 .page-column--wide { max-width: 72rem; }
 .policy-card--wide { max-width: 72rem; }
+
+/* ---- kit の報告フォーム（ReportFormView）が使うクラス（fsk-）を、このサイトのこれまでの同じ意味のクラス（Bootstrap 由来の card・mb-3 など。base.css）に合わせる ----
+   （kit の CSS には、これらのユーティリティが無い。.fsk-card の枠線・影・背景は、上の .card の規則に名前を足して共有している。ここは base.css の .card・.card-body と同じ構造の部分） */
+.fsk-mb-0 { margin-bottom: 0 !important; }
+.fsk-mb-1 { margin-bottom: 0.25rem !important; }
+.fsk-mb-3 { margin-bottom: 1rem !important; }
+.fsk-mt-3 { margin-top: 1rem !important; }
+.fsk-small { font-size: 0.875em; }
+/* 入力欄のまとまりは、これまで .form-group（0.75rem）が .mb-3（1rem）に勝っていた（どちらも !important で、.form-group が後ろ） */
+.fsk-form-group.fsk-mb-3 { margin-bottom: 0.75rem !important; }

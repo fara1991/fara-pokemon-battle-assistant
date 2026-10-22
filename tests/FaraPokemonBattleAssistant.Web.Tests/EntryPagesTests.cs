@@ -28,6 +28,12 @@ public class EntryPagesTests
             var text = File.ReadAllText(file);
             var route = PageRoute.Match(text);
             var title = PageTitle.Match(text);
+            // 問い合わせは、kit の ReportFormView が題名を出す（Title の既定は「問い合わせ」。ページの題名は「題名 | サイト名」）
+            if (route.Success && !title.Success && text.Contains("<ReportFormView") && !text.Contains("Title=\""))
+            {
+                result[route.Groups[1].Value] = $"問い合わせ | {FaraPokemonBattleAssistant.Web.Services.SiteInfo.Name}";
+                continue;
+            }
             if (!route.Success || !title.Success) continue;
             result[route.Groups[1].Value] = title.Groups[1].Value;
         }

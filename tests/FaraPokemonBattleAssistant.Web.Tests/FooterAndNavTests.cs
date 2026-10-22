@@ -42,8 +42,12 @@ public class FooterAndNavTests
         Assert.Equal("privacy", options.PrivacyPath);
         var report = Read(Path.Combine(Web, "Components", "Pages", "Report.razor"));
         Assert.Contains("@page \"/report\"", report);                          // ルートは維持
-        Assert.Contains("<PageTitle>問い合わせ | Pokémon Battle Assistant</PageTitle>", report);
-        Assert.Contains("<h3>問い合わせ</h3>", report);
+        // 画面の本体は kit の ReportFormView（題名の既定は「問い合わせ」。ページの題名は「題名 | サイト名」）
+        Assert.Contains("<ReportFormView From=\"@From\"", report);
+        var view = Read(Path.Combine(Kit, "Components", "ReportFormView.razor"));
+        Assert.Contains("[Parameter] public string Title { get; set; } = \"問い合わせ\";", view);
+        Assert.Contains("<PageTitle>@Title | @Site.Name</PageTitle>", view);
+        Assert.Contains("<h3>@Title</h3>", view);
     }
 
     [Fact]
@@ -87,9 +91,11 @@ public class FooterAndNavTests
         Assert.DoesNotContain("ほかの作品", report);
         Assert.DoesNotContain("非公式", report);
         Assert.DoesNotContain("service-twitter", report);
-        Assert.Contains("<div class=\"page-header page-column\">", report);
-        Assert.Contains("<div class=\"pane-scroll page-pane\">", report);
-        Assert.Contains("report-card page-card", report);
+        var view = Read(Path.Combine(Kit, "Components", "ReportFormView.razor"));
+        Assert.Contains("<div class=\"fsk-page-header fsk-page-column\">", view);
+        Assert.Contains("<div class=\"fsk-pane-scroll fsk-page-pane\">", view);
+        Assert.Contains("fsk-report-card fsk-page-card", view);
+        Assert.DoesNotContain("service-twitter", view);
         var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
         // 長文のページ（プライバシー・権利表記）は、PC で横幅を広げる（page-column--wide・policy-card--wide）
         Assert.Contains("<div class=\"page-header page-column page-column--wide\">", privacy);
