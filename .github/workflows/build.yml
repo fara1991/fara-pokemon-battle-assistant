@@ -92,8 +92,8 @@ jobs:
       - name: API test
         run: npm run test:worker
 
-      - name: Scroll progress test
-        run: npm run test:scroll
+      - name: Kit JS test (スクロール量の線・読み込み表示・スマホの検索欄・報告の部品)
+        run: npm run test:kit-js
 
       - name: Entry pages test
         run: npm run test:entry
@@ -104,11 +104,6 @@ jobs:
       - name: Search index test
         run: npm run test:search
 
-      - name: Boot indicator test
-        run: npm run test:boot
-
       - name: Home page (Worker) test
         run: npm run test:home
 
-      - name: Mobile search sheet test
-        run: npm run test:search-sheet

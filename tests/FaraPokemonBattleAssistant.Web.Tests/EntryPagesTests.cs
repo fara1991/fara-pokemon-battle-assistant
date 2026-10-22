@@ -12,6 +12,8 @@ public class EntryPagesTests
 {
     private static readonly string Tools = FindUpDirectory("tools");
     private static readonly string Web = Path.Combine(FindUpDirectory("src"), "FaraPokemonBattleAssistant.Web");
+    /// <summary>共通部品（fara-site-kit の Razor）の静的ファイル。index.html からは _content/FaraSiteKit.Razor/... で読む。</summary>
+    private static readonly string KitJs = FindUpDirectory(Path.Combine("external", "fara-site-kit", "src", "FaraSiteKit.Razor", "wwwroot", "js"));
 
     private static readonly Regex PageRoute = new("^@page \"/([^\"]*)\"", RegexOptions.Multiline);
     private static readonly Regex PageTitle = new("<PageTitle>(.*?)</PageTitle>");
@@ -98,7 +100,7 @@ public class EntryPagesTests
     [Fact]
     public void Boot_indicator_is_outside_app_so_it_is_not_part_of_the_body_text()
     {
-        // 「読み込み中…」は #app の外・本文の前に 1 つだけ。Blazor が #app を描いても残るので、js/boot-indicator.js が外す
+        // 「読み込み中…」は #app の外・本文の前に 1 つだけ。Blazor が #app を描いても残るので、boot-indicator.js（kit）が外す
         var html = File.ReadAllText(Path.Combine(Web, "wwwroot", "index.html"));
         Assert.Equal(1, CountOccurrences(html, "id=\"boot-indicator\""));
         var indicator = html.IndexOf("id=\"boot-indicator\"", StringComparison.Ordinal);
@@ -109,8 +111,8 @@ public class EntryPagesTests
         Assert.DoesNotMatch(">[^<]*読み込み中", html[html.IndexOf("<body>", StringComparison.Ordinal)..]);
         Assert.Contains(".boot-indicator-label:empty::before", html);
         // 外部の js ファイルで外す（インライン script は CSP で使えない）。Blazor の起動より前に読む
-        Assert.True(html.IndexOf("js/boot-indicator.js", StringComparison.Ordinal) < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
-        Assert.True(File.Exists(Path.Combine(Web, "wwwroot", "js", "boot-indicator.js")));
+        Assert.True(html.IndexOf("_content/FaraSiteKit.Razor/js/boot-indicator.js", StringComparison.Ordinal) < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
+        Assert.True(File.Exists(Path.Combine(KitJs, "boot-indicator.js")));
         // JavaScript が無いときは隠す（noscript の style は _headers の style-src 'unsafe-inline' で許可）
         Assert.Contains("<noscript><style>#boot-indicator { display: none; }</style></noscript>", html);
     }
@@ -142,7 +144,7 @@ public class EntryPagesTests
         Assert.Contains("pointer-events: auto;", RuleBody(html, ".boot-indicator-label a {"));
         // テンプレートに inert を直接書かない（JS が付けて、外す）
         Assert.DoesNotContain("inert", html);
-        var js = File.ReadAllText(Path.Combine(Web, "wwwroot", "js", "boot-indicator.js"));
+        var js = File.ReadAllText(Path.Combine(KitJs, "boot-indicator.js"));
         Assert.Contains("var RELEASE_MS = 60000;", js);
         Assert.Contains("var SLOW_MS = 45000;", js);
         Assert.Contains("setAttribute(\"inert\", \"\")", js);
@@ -174,7 +176,7 @@ public class EntryPagesTests
     {
         var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
         Assert.Contains("height: 3.5rem;", RuleBody(css, ".entry-static-bar {"));
-        Assert.Contains("height: 3.5rem;", RuleBody(css, ".app-header.mud-appbar {"));
+        Assert.Contains("height: 3.5rem;", RuleBody(css, ".fsk-header.mud-appbar {"));
     }
 
     [Fact]

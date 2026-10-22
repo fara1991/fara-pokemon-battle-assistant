@@ -128,19 +128,19 @@ public class ReportFormTests
     [Fact]
     public void The_author_link_goes_to_the_dev_homepage_on_the_dev_site()
     {
-        var before = SiteLinks.CurrentHost;
+        // フッターの作者のリンクは、kit の SiteFooter が、開いているホスト名（NavigationManager.BaseUri）と DevelopHost を比べて切り替える
         var beforeDevelop = SiteLinks.DevelopHost;
         try
         {
-            SiteLinks.DevelopHost = "pokemon-dev.fara-labs.com";
-            SiteLinks.CurrentHost = "pokemon.fara-labs.com";
-            Assert.Equal("https://fara-labs.com/", SiteInfo.AuthorHomeUrl);
-            SiteLinks.CurrentHost = "pokemon-dev.fara-labs.com";
-            Assert.Equal("https://dev.fara-labs.com/", SiteInfo.AuthorHomeUrl);
+            var options = new SiteOptions();
+            SiteInfo.Configure(options);
+            SiteLinks.DevelopHost = options.DevelopHost;
+            Assert.Equal("pokemon-dev.fara-labs.com", options.DevelopHost);
+            Assert.Equal("https://fara-labs.com/", SiteLinks.Localize(options.AuthorHomeUrl, "pokemon.fara-labs.com"));
+            Assert.Equal("https://dev.fara-labs.com/", SiteLinks.Localize(options.AuthorHomeUrl, "pokemon-dev.fara-labs.com"));
         }
         finally
         {
-            SiteLinks.CurrentHost = before;
             SiteLinks.DevelopHost = beforeDevelop;
         }
     }

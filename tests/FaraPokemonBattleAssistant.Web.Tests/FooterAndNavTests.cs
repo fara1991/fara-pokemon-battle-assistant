@@ -1,4 +1,7 @@
 using FaraPokemonBattleAssistant.Web.Services;
+using FaraSiteKit.Core;
+using FaraSiteKit.Razor;
+using FaraSiteKit.Razor.Components;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Web.Tests;
@@ -7,13 +10,14 @@ namespace FaraPokemonBattleAssistant.Web.Tests;
 public class FooterAndNavTests
 {
     private static readonly string Web = FindUpDirectory("src/FaraPokemonBattleAssistant.Web");
+    /// <summary>共通部品（fara-site-kit の Razor）のソース。フッターなどの中身は、ここにある。</summary>
+    private static readonly string Kit = FindUpDirectory("external/fara-site-kit/src/FaraSiteKit.Razor");
 
     [Fact]
     public void Footer_and_pages_use_the_contact_label_not_the_old_one()
     {
         foreach (var file in new[]
         {
-            Path.Combine("Shared", "SiteFooter.razor"),
             Path.Combine("Shared", "NavMenu.razor"),
             Path.Combine("Components", "Pages", "Report.razor"),
             Path.Combine("Components", "Pages", "Privacy.razor"),
@@ -21,13 +25,21 @@ public class FooterAndNavTests
         {
             Assert.DoesNotContain("作者へ報告", Read(Path.Combine(Web, file)));
         }
+        Assert.DoesNotContain("作者へ報告", Read(Path.Combine(Kit, "Components", "SiteFooter.razor")));   // フッターは kit の部品
     }
 
     [Fact]
     public void Footer_links_to_the_contact_page_under_the_same_route()
     {
-        var footer = Read(Path.Combine(Web, "Shared", "SiteFooter.razor"));
+        // フッターは kit の SiteFooter（SiteOptions.ReportPath の既定 "report"・PrivacyPath の既定 "privacy"。このサイトは変えない）
+        var footer = Read(Path.Combine(Kit, "Components", "SiteFooter.razor"));
         Assert.Contains("問い合わせ</a>", footer);
+        Assert.Equal("report", new SiteOptions().ReportPath);
+        Assert.Equal("privacy", new SiteOptions().PrivacyPath);
+        var options = new SiteOptions();
+        SiteInfo.Configure(options);
+        Assert.Equal("report", options.ReportPath);
+        Assert.Equal("privacy", options.PrivacyPath);
         var report = Read(Path.Combine(Web, "Components", "Pages", "Report.razor"));
         Assert.Contains("@page \"/report\"", report);                          // ルートは維持
         Assert.Contains("<PageTitle>問い合わせ | Pokémon Battle Assistant</PageTitle>", report);
@@ -37,30 +49,32 @@ public class FooterAndNavTests
     [Fact]
     public void Footer_social_icons_open_in_a_new_tab_safely_with_a_label()
     {
-        var footer = Read(Path.Combine(Web, "Shared", "SiteFooter.razor"));
-        Assert.Contains("target=\"_blank\"", footer);
-        Assert.Contains("rel=\"noopener noreferrer\"", footer);
-        Assert.Contains("aria-label=\"@s.Label\"", footer);
-        Assert.Contains("<SocialIcon Name=\"@s.Service\"", footer);
-        Assert.Contains("SocialLinks.All", footer);
+        // フッターの SNS は kit の SocialLinks（SiteOptions.Social の URL が https:// のものだけを描く）
+        var links = Read(Path.Combine(Kit, "Components", "SocialLinks.razor"));
+        Assert.Contains("target=\"_blank\"", links);
+        Assert.Contains("rel=\"noopener noreferrer\"", links);
+        Assert.Contains("aria-label=\"@service.Label\"", links);
+        Assert.Contains("<SocialIcon Name=\"@social.Service\"", links);
+        Assert.Contains("Site.VisibleSocial", links);
+        Assert.All(SiteInfo.Social, social => Assert.True(SocialLinks.IsSafeUrl(social.Url), $"https の URL ではない: {social.Url}"));
     }
 
     [Fact]
     public void Social_icon_color_wins_over_the_generic_footer_link_rules()
     {
-        // フッターの SNS のアイコン。.site-footer a の規則（文字色 inherit・下線・hover の文字色）より後ろに書いて、白い図形を保つ
+        // フッターの SNS のアイコン。.fsk-footer a の規則（文字色 inherit・下線・hover の文字色）より後ろに書いて、白い図形を保つ
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
-        Assert.Contains("a.site-footer-social {", css);
-        Assert.Contains("a.site-footer-social:hover {", css);
-        Assert.Contains("a.site-footer-social:focus-visible {", css);
+        Assert.Contains("a.fsk-footer-social {", css);
+        Assert.Contains("a.fsk-footer-social:hover {", css);
+        Assert.Contains("a.fsk-footer-social:focus-visible {", css);
         // 当たり判定は 44px（見た目の 22px は変えない）
-        Assert.Contains("a.site-footer-social::after {", css);
-        Assert.Contains("width: 44px; height: 44px;", RuleBodyAt(css, "a.site-footer-social::after {"));
-        Assert.True(css.IndexOf(".site-footer a {", StringComparison.Ordinal) < css.IndexOf("a.site-footer-social {", StringComparison.Ordinal),
-            "a.site-footer-social は .site-footer a より後ろに書く（同じ詳細度のため）");
-        var baseRule = css[css.IndexOf("a.site-footer-social {", StringComparison.Ordinal)..];
+        Assert.Contains("a.fsk-footer-social::after {", css);
+        Assert.Contains("width: 44px; height: 44px;", RuleBodyAt(css, "a.fsk-footer-social::after {"));
+        Assert.True(css.IndexOf(".fsk-footer a {", StringComparison.Ordinal) < css.IndexOf("a.fsk-footer-social {", StringComparison.Ordinal),
+            "a.fsk-footer-social は .fsk-footer a より後ろに書く（同じ詳細度のため）");
+        var baseRule = css[css.IndexOf("a.fsk-footer-social {", StringComparison.Ordinal)..];
         Assert.Contains("color: #fff;", baseRule[..baseRule.IndexOf('}')]);
-        var hoverRule = css[css.IndexOf("a.site-footer-social:hover {", StringComparison.Ordinal)..];
+        var hoverRule = css[css.IndexOf("a.fsk-footer-social:hover {", StringComparison.Ordinal)..];
         Assert.Contains("color: #fff;", hoverRule[..hoverRule.IndexOf('}')]);
     }
 
@@ -120,6 +134,7 @@ public class FooterAndNavTests
     public void Social_links_match_the_portfolio_urls_and_brand_colors()
     {
         // ポートフォリオ（fara-labs.com）の wwwroot/data/profile.json と、Components/Icon.razor・app.css の .service-* に合わせる
+        // URL はこのサイト（SiteInfo.Social）、名前と色は kit の SocialServices
         var expected = new[]
         {
             ("github", "GitHub", "https://github.com/fara1991", "#6e40c9"),
@@ -127,13 +142,15 @@ public class FooterAndNavTests
             ("twitch", "Twitch", "https://twitch.tv/game_fara", "#9146ff"),
             ("discord", "Discord", "https://discord.com/invite/B38eCSYyk5", "#5865f2"),
         };
-        Assert.Equal(expected, SocialLinks.All.Select(s => (s.Service, s.Label, s.Url, s.Color)));
+        var options = new SiteOptions();
+        SiteInfo.Configure(options);
+        Assert.Equal(expected, options.VisibleSocial.Select(s => (s.Service, SocialServices.Find(s.Service).Label, s.Url, SocialServices.Find(s.Service).Color)));
     }
 
     [Fact]
     public void Social_icons_are_the_portfolio_brand_paths()
     {
-        var icon = Read(Path.Combine(Web, "Components", "SocialIcon.razor"));
+        var icon = Read(Path.Combine(Kit, "Components", "SocialIcon.razor"));
         // 各 path の先頭（ポートフォリオの Icon.razor と同じ）
         Assert.Contains("M12 .3a12 12 0 0 0-3.8 23.38", icon);                 // GitHub
         Assert.Contains("M23.95 4.57a10 10 0 0 1-2.82.77", icon);             // Twitter
@@ -154,11 +171,11 @@ public class FooterAndNavTests
     [Fact]
     public void Footer_has_no_copyright_note()
     {
-        var footer = Read(Path.Combine(Web, "Shared", "SiteFooter.razor"));
+        var footer = Read(Path.Combine(Kit, "Components", "SiteFooter.razor"));
         Assert.DoesNotContain("非公式", footer);
         Assert.DoesNotContain("各権利者", footer);
-        Assert.DoesNotContain("site-footer-note", footer);
-        Assert.DoesNotContain(".site-footer-note", Read(Path.Combine(Web, "wwwroot", "css", "app.css")));   // 未使用の CSS も残さない
+        Assert.DoesNotContain("footer-note", footer);
+        Assert.DoesNotContain("footer-note", Read(Path.Combine(Web, "wwwroot", "css", "app.css")));   // 未使用の CSS も残さない
     }
 
     [Fact]
@@ -177,14 +194,14 @@ public class FooterAndNavTests
     public void Footer_hides_the_separators_on_narrow_screens_and_spaces_the_items_with_gap()
     {
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
-        var start = css.IndexOf("@media (max-width: 767.98px) {\n    .site-footer-line", StringComparison.Ordinal);
+        var start = css.IndexOf("@media (max-width: 767.98px) {\n    .fsk-footer-line", StringComparison.Ordinal);
         Assert.True(start >= 0, "狭い画面のフッターの規則が無い");
         var block = css[start..css.IndexOf("\n}\n", start, StringComparison.Ordinal)];
-        Assert.Contains(".site-footer-sep { display: none; }", block);            // 折り返しても、行頭・行末に | が出ない
-        Assert.Contains(".site-footer-line > * { white-space: nowrap; }", block);   // 「プライバシーポリシー」などを途中で改行しない（折り返しは項目の間だけ）
+        Assert.Contains(".fsk-footer-sep { display: none; }", block);            // 折り返しても、行頭・行末に | が出ない
+        Assert.Contains(".fsk-footer-line > * { white-space: nowrap; }", block);   // 「プライバシーポリシー」などを途中で改行しない（折り返しは項目の間だけ）
         Assert.Contains("gap: 0.35rem 0.9rem;", block);
-        Assert.Contains(".site-footer-line { display: flex; flex-wrap: wrap; justify-content: center;", css);   // PC の区切りは残す（規則は変えていない）
-        Assert.DoesNotContain(".site-footer-sep { display: none; }", css[..start]);
+        Assert.Contains(".fsk-footer-line { display: flex; flex-wrap: wrap; justify-content: center;", css);   // PC の区切りは残す（規則は変えていない）
+        Assert.DoesNotContain(".fsk-footer-sep { display: none; }", css[..start]);
     }
 
     private static string RuleBodyAt(string css, string selector)

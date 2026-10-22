@@ -17,8 +17,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FaraPokemonBattleAssistant.Core\FaraPokemonBattleAssistant.Core.csproj" />
-    <!-- 共通部品（SiteLinks・MaintenanceInfo・ReportForm）。名前空間は FaraPokemonBattleAssistant.* のまま -->
+    <!-- 共通部品（Core: SiteLinks・MaintenanceInfo・ReportForm・SiteOptions。Razor: レイアウト・フッター・報告フォームなど） -->
     <ProjectReference Include="..\..\external\fara-site-kit\src\FaraSiteKit.Core\FaraSiteKit.Core.csproj" />
+    <ProjectReference Include="..\..\external\fara-site-kit\src\FaraSiteKit.Razor\FaraSiteKit.Razor.csproj" />
   </ItemGroup>
 
 </Project>

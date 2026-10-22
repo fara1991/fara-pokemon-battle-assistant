@@ -1,7 +1,9 @@
-@* サイドバーの中身（MudBlazor の MudNavMenu / MudNavLink）。PC は Shared/MainLayout.razor の Mini ドロワーに入り、隠すとアイコンだけの細い列になる。
+@using FaraSiteKit.Razor.Components
+@* サイドバーの中身（MudBlazor の MudNavMenu / MudNavLink）。PC は Shared/MainLayout.razor（fara-site-kit の SiteLayout）の Mini ドロワーに入り、隠すとアイコンだけの細い列になる。
    スマホは、ハンバーガーで開く一時的なメニューで、上のほうに、全ページ共通の設定（ゲーム・バトル形式・ライト／ダーク・対戦画面で表示）を置く *@
 @using MudBlazor
 @inject AppState App
+@inject IJSRuntime JS
 @implements IDisposable
 
 @if (Mobile)
@@ -23,20 +25,19 @@
             <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Singles))">シングル</MudSelectItem>
             <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Doubles))">ダブル</MudSelectItem>
         </MudSelect>
-        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Size="Size.Small" FullWidth="true" Class="mt-2" OnClick="App.ToggleThemeAsync">
-            @(App.Theme == "dark" ? "☀ ライトモード" : "🌙 ダークモード")
-        </MudButton>
+        @* ライト／ダーク（文字のボタン。値は kit の SiteThemeState が持つので、ヘッダーのスイッチと同じになる） *@
+        <ThemeSwitch AsButton="true" Class="mt-2" />
         @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使え、全ページ共通のスイッチ *@
         <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="OnNavigate" />
     </div>
 }
 
-<MudNavMenu Class="side-nav">
+<MudNavMenu Class="fsk-nav">
     @foreach (var group in Groups)
     {
         @if (group.Title is not null)
         {
-            <div class="nav-section">@group.Title</div>
+            <div class="fsk-nav-section">@group.Title</div>
         }
         @foreach (var (href, label, icon, needsCalc) in group.Items)
         {
@@ -54,8 +55,10 @@
 </MudNavMenu>
 
 @code {
-    /// <summary>スマホのメニュー（上のほうに共通の設定を出す）かどうか。</summary>
-    [Parameter] public bool Mobile { get; set; }
+    /// <summary>スマホのメニュー（上のほうに共通の設定を出す）かどうか（768px 未満。kit の faraSiteKit.watchMobile が知らせる。SiteLayout の判定と同じ）。</summary>
+    private bool Mobile { get; set; }
+
+    private DotNetObjectReference<NavMenu>? self;
 
     /// <summary>項目を選んだとき・スイッチを切り替えたときに呼ぶ（スマホでメニューを閉じる）。</summary>
     [Parameter] public EventCallback OnNavigate { get; set; }
@@ -110,6 +113,26 @@
         ? "読み込み中です"
         : $"{App.DataSet.Name}は未対応です（ポケモン一覧とタイプ相性表のみ）";
 
+    protected override void OnInitialized()
+    {
+        // 最初の描画の前に、スマホかどうかを同期で決める（WebAssembly の JS 呼び出しは同期でもできる。非同期だと、PC の表示で一度描かれる）
+        if (JS is not IJSInProcessRuntime sync) return;
+        try
+        {
+            self = DotNetObjectReference.Create(this);
+            Mobile = sync.Invoke<bool>("faraSiteKit.watchMobile", self);
+        }
+        catch { /* JS が使えないときは PC として扱う */ }
+    }
+
+    [JSInvokable]
+    public void OnMobileChanged(bool matches)
+    {
+        if (Mobile == matches) return;
+        Mobile = matches;
+        StateHasChanged();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await App.InitializeAsync();
@@ -118,7 +141,11 @@
 
     private Task OnChanged() => InvokeAsync(StateHasChanged);
 
-    public void Dispose() => App.Changed -= OnChanged;
+    public void Dispose()
+    {
+        App.Changed -= OnChanged;
+        self?.Dispose();
+    }
 
     // 使用率データの無いゲームでは、代わりに使っているゲームの名前（並び順の根拠を示す）
     private string? UsageFallbackName =>

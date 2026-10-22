@@ -1,15 +1,18 @@
 using FaraPokemonBattleAssistant.Core.Data;
 using FaraPokemonBattleAssistant.Core.Models;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.JSInterop;
 
 namespace FaraPokemonBattleAssistant.Web.Services;
 
 /// <summary>
-/// 全ページで共有する設定（データセット・バトル形式・テーマ）。サイドバーで変更し、各ページが購読する。
+/// 全ページで共有する設定（データセット・バトル形式）。サイドバーで変更し、各ページが購読する。
+/// ライト／ダークは、共通部品（fara-site-kit の SiteThemeState）が同じ保存先の Theme に持つ。ここでは Theme を読み書きせず、保存のときは Theme を含む他の項目を残す。
 /// </summary>
 public sealed class AppState
 {
-    private const string StorageKey = "fara-pokemon-battle-assistant.settings";
+    private const string StorageKey = SiteInfo.StorageKey;
     private readonly DataCatalog _catalog;
     private readonly IJSRuntime _js;
     private Task? _init;
@@ -25,8 +28,6 @@ public sealed class AppState
     public DataSetInfo? DataSet => DataSets.FirstOrDefault(d => d.Key == DataSetKey);
     public string CommandPrefix => DataSet?.CommandPrefix ?? "pokech";
     public BattleFormat Format { get; private set; } = BattleFormat.Singles;
-    /// <summary>"light" / "dark"。</summary>
-    public string Theme { get; private set; } = "light";
 
     /// <summary>読み込んだゲームのキーが、いま選んでいるゲームか（まだ読んでいなければ「同じ」とみなす）。ゲームを切り替えた直後は、読み込みが終わるまで違う。</summary>
     public static bool IsSameGame(string? loadedKey, string currentKey) => loadedKey is null || loadedKey == currentKey;
@@ -56,7 +57,6 @@ public sealed class AppState
                 {
                     if (DataSets.Any(d => d.Key == saved.DataSetKey)) DataSetKey = saved.DataSetKey!;
                     if (Enum.TryParse<BattleFormat>(saved.Format, out var f)) Format = f;
-                    if (saved.Theme is "light" or "dark") Theme = saved.Theme;
                 }
             }
         }
@@ -64,7 +64,6 @@ public sealed class AppState
         {
             // localStorage が使えない環境（プライベートモード等）では既定値のまま
         }
-        await ApplyThemeAsync();
         // 起動直後は、選んでいるゲームのデータだけを読む（他のゲームは、選んだとき・使うページを開いたときに読む）
         _ = PreloadOtherFormatAsync();
     }
@@ -107,37 +106,36 @@ public sealed class AppState
         await RaiseChangedAsync();
     }
 
-    public async Task SetThemeAsync(string theme)
-    {
-        Theme = theme == "dark" ? "dark" : "light";
-        await SaveAsync();
-        await ApplyThemeAsync();
-        await RaiseChangedAsync();   // MudBlazor のテーマ（Shared/MudProviders.razor）・スイッチの表示を合わせる
-    }
-
-    public Task ToggleThemeAsync() => SetThemeAsync(Theme == "dark" ? "light" : "dark");
-
-    private async Task ApplyThemeAsync()
-    {
-        try
-        {
-            await _js.InvokeVoidAsync("document.documentElement.setAttribute", "data-bs-theme", Theme);
-        }
-        catch
-        {
-        }
-    }
-
     private async Task SaveAsync()
     {
         try
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(new Saved { DataSetKey = DataSetKey, Format = Format.ToString(), Theme = Theme });
-            await _js.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+            var existing = await _js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            await _js.InvokeVoidAsync("localStorage.setItem", StorageKey, WriteSaved(existing, DataSetKey, Format));
         }
         catch
         {
         }
+    }
+
+    /// <summary>
+    /// 保存する JSON を作る。いまの保存の内容を読み、ゲームとバトル形式だけを書き換える（Theme など、ほかの項目は残す。
+    /// テーマは共通部品が同じ JSON に持つので、ここで消す・古い値で上書きすると、ライト／ダークが戻ってしまう）。保存が壊れていれば、ゲームとバトル形式だけの JSON。
+    /// </summary>
+    public static string WriteSaved(string? existingJson, string dataSetKey, BattleFormat format)
+    {
+        JsonObject root;
+        try
+        {
+            root = (string.IsNullOrWhiteSpace(existingJson) ? null : JsonNode.Parse(existingJson) as JsonObject) ?? new JsonObject();
+        }
+        catch (JsonException)
+        {
+            root = new JsonObject();
+        }
+        root[nameof(Saved.DataSetKey)] = dataSetKey;
+        root[nameof(Saved.Format)] = format.ToString();
+        return root.ToJsonString();
     }
 
     private async Task RaiseChangedAsync()
@@ -163,7 +161,6 @@ public sealed class AppState
     {
         public string? DataSetKey { get; set; }
         public string? Format { get; set; }
-        public string? Theme { get; set; }
     }
 }
 

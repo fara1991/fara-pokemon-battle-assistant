@@ -4,13 +4,17 @@ using FaraPokemonBattleAssistant.Core.Text;
 using FaraPokemonBattleAssistant.Web;
 using FaraPokemonBattleAssistant.Web.Services;
 using FaraSiteKit.Core;
+using FaraSiteKit.Razor;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
-using MudBlazor.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 var baseAddress = builder.HostEnvironment.BaseAddress;
+
+// 共通部品（fara-site-kit の Razor。ヘッダー・フッター・テーマ・報告フォームなど）の設定・テーマの状態・MudBlazor（通知の位置など）。
+// メンテナンス画面（下）も SiteOptions を読むので、メンテナンスの分岐より前に登録する。値は Services/SiteInfo.cs
+builder.Services.AddFaraSiteKit(SiteInfo.Configure);
 
 // メンテナンスの状態（Worker の変数 MAINTENANCE。external/fara-site-kit/worker/maintenance.js）。読めなければ通常。
 // メンテナンス中（MAINTENANCE=true）は、アプリの代わりに、メンテナンス画面だけを動かす
@@ -26,10 +30,6 @@ if (maintenance.State == MaintenanceState.On)
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// 確認用サイトで開いているときだけ fara-labs.com へのリンクを確認用に切り替える（ホスト名は実行時に決まる）
-// 確認用のホスト名はこのサイトの値（kit の SiteLinks は既定では切り替えない）
-SiteLinks.DevelopHost = "pokemon-dev.fara-labs.com";
-SiteLinks.CurrentHost = new Uri(baseAddress).Host;
 // シングルトンの DataCatalog から使うので、HttpClient もシングルトンにする
 // （Scoped だと Development 環境のスコープ検証で起動時に例外になる）
 builder.Services.AddSingleton(_ => new HttpClient { BaseAddress = new Uri(baseAddress) });
@@ -49,15 +49,5 @@ builder.Services.AddSingleton<BattleStage>();
 // MudBlazor の ISnackbar（スコープ付き）を使うので、ToastService もスコープ付き（WebAssembly では、アプリの間ずっと 1 つ）
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton(sp => new SearchService(sp.GetRequiredService<HttpClient>(), sp.GetRequiredService<DataCatalog>(), sp.GetRequiredService<AppState>()));
-
-builder.Services.AddMudServices(config =>
-{
-    // 通知（ToastService）: 画面の右上に、同時に 5 つまで。閉じるボタン付き
-    config.SnackbarConfiguration.PositionClass = MudBlazor.Defaults.Classes.Position.TopRight;
-    config.SnackbarConfiguration.MaxDisplayedSnackbars = 5;
-    config.SnackbarConfiguration.ShowCloseIcon = true;
-    config.SnackbarConfiguration.PreventDuplicates = false;
-    config.SnackbarConfiguration.SnackbarVariant = MudBlazor.Variant.Filled;
-});
 
 await builder.Build().RunAsync();
