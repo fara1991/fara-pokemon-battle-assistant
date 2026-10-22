@@ -50,8 +50,9 @@
 // 1 年間アクセスが無い置き場は、Durable Object のアラームで自動的に消す（アクセスすると延長。延長の書き込みは 1 日に 1 回まで）。
 
 import { DurableObject } from "cloudflare:workers";
-import { handleReport } from "./report.js";
-import { getMaintenance, maintenanceResponse } from "./maintenance.js";
+// Worker の共有 JS（報告の受け口・メンテナンス表示）は kit（external/fara-site-kit。CLAUDE.md・docs/usage.md）
+import { handleReport } from "../external/fara-site-kit/worker/report.js";
+import { getMaintenance, maintenanceResponse } from "../external/fara-site-kit/worker/maintenance.js";
 import { serveHome } from "./home.js";
 
 /** パス → 使えるメソッド。 */
