@@ -38,6 +38,9 @@ jobs:
       - name: Publish web (sanity check)
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --no-build --output artifacts/web
 
+      - name: Build entry pages (sanity check)
+        run: node tools/build-entry-pages.mjs --env production --dir artifacts/web
+
       - name: Pack Core
         run: dotnet pack src/FaraPokemonBattleAssistant.Core --configuration Release --no-build --output artifacts/nuget
 
@@ -79,3 +82,6 @@ jobs:
 
       - name: Scroll progress test
         run: npm run test:scroll
+
+      - name: Entry pages test
+        run: npm run test:entry

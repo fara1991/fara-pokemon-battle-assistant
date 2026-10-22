@@ -51,6 +51,10 @@ jobs:
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
 
+      # 検索の入口ページ（/battle-terms など）の静的 HTML・robots.txt・sitemap.xml を作る（tools/build-entry-pages.mjs）
+      - name: Build entry pages (production)
+        run: node tools/build-entry-pages.mjs --env production
+
       # 本番の公開は、Cloudflare の Worker の変数 MAINTENANCE が notice（更新予定のお知らせを出している）のときだけ行う。
       # 確認できないとき・notice でないときは、ここで止める（手動実行の skip_maintenance_check で飛ばせる）
       - name: Require MAINTENANCE=notice

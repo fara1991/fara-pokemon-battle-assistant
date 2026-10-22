@@ -1,0 +1,112 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using FaraPokemonBattleAssistant.Core;
+using Xunit;
+
+namespace FaraPokemonBattleAssistant.Web.Tests;
+
+/// <summary>
+/// 検索の入口ページ（tools/entry-pages.json。静的 HTML は tools/build-entry-pages.mjs が作る）と、Blazor のページ・旧 URL の対応表がずれていないか確かめる。
+/// </summary>
+public class EntryPagesTests
+{
+    private static readonly string Tools = FindUpDirectory("tools");
+    private static readonly string Web = Path.Combine(FindUpDirectory("src"), "FaraPokemonBattleAssistant.Web");
+
+    private static readonly Regex PageRoute = new("^@page \"/([^\"]*)\"", RegexOptions.Multiline);
+    private static readonly Regex PageTitle = new("<PageTitle>(.*?)</PageTitle>");
+
+    /// <summary>ルート（先頭の / なし。ホームは空）→ 同じルートのページの &lt;PageTitle&gt;。</summary>
+    private static Dictionary<string, string> RazorTitles()
+    {
+        var result = new Dictionary<string, string>();
+        var pagesDir = Path.Combine(Web, "Components", "Pages");
+        foreach (var file in Directory.GetFiles(pagesDir, "*.razor"))
+        {
+            var text = File.ReadAllText(file);
+            var route = PageRoute.Match(text);
+            var title = PageTitle.Match(text);
+            if (!route.Success || !title.Success) continue;
+            result[route.Groups[1].Value] = title.Groups[1].Value;
+        }
+        return result;
+    }
+
+    private static List<(string Route, string Title)> EntryPages()
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(Tools, "entry-pages.json")));
+        return doc.RootElement.EnumerateArray()
+            .Select(p => (Route: p.GetProperty("route").GetString()!, Title: p.GetProperty("title").GetString()!))
+            .ToList();
+    }
+
+    [Fact]
+    public void Every_entry_page_is_a_razor_page_with_the_same_title()
+    {
+        // 静的 HTML の title は、起動後に Blazor が PageTitle で置き換える。違うとタブの表示が一瞬ずれるので、同じ文字にしておく
+        var razor = RazorTitles();
+        foreach (var (route, title) in EntryPages())
+        {
+            Assert.True(razor.ContainsKey(route), $"@page \"/{route}\" のページがありません");
+            Assert.Equal(razor[route], title);
+        }
+    }
+
+    [Fact]
+    public void Entry_pages_are_not_old_urls_and_not_personal_pages()
+    {
+        foreach (var (route, _) in EntryPages())
+        {
+            Assert.DoesNotContain(route, SitePaths.Legacy.Keys);   // 旧 URL は転送のまま（静的ファイルを作ると転送が効かなくなる）
+            Assert.False(route.StartsWith("my-", StringComparison.Ordinal), route);
+            Assert.NotEqual("data-share", route);
+        }
+    }
+
+    [Fact]
+    public void Entry_pages_include_the_home_page_and_the_static_content_pages()
+    {
+        var routes = EntryPages().Select(p => p.Route).ToHashSet();
+        foreach (var required in new[] { "", "battle-terms", "chat-commands", "privacy", "copyright", "report", "about-author" })
+        {
+            Assert.Contains(required, routes);
+        }
+    }
+
+    [Fact]
+    public void Template_has_each_marker_exactly_once()
+    {
+        // 公開用ビルドは、この 2 組の区切りの間だけを書き換える
+        var html = File.ReadAllText(Path.Combine(Web, "wwwroot", "index.html"));
+        foreach (var marker in new[] { "<!-- SEO-HEAD:START -->", "<!-- SEO-HEAD:END -->", "<!-- SEO-BODY:START -->", "<!-- SEO-BODY:END -->" })
+        {
+            Assert.Equal(1, CountOccurrences(html, marker));
+        }
+        Assert.True(html.IndexOf("<!-- SEO-BODY:START -->", StringComparison.Ordinal) > html.IndexOf("<div id=\"app\">", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Entry_pages_css_is_defined_for_the_static_body()
+    {
+        var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        Assert.Contains(".entry-static {", css);
+        Assert.Contains(".entry-static h1 {", css);
+    }
+
+    private static int CountOccurrences(string text, string part)
+    {
+        var count = 0;
+        for (var i = text.IndexOf(part, StringComparison.Ordinal); i >= 0; i = text.IndexOf(part, i + part.Length, StringComparison.Ordinal)) count++;
+        return count;
+    }
+
+    private static string FindUpDirectory(string relative)
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, relative);
+            if (Directory.Exists(candidate)) return candidate;
+        }
+        throw new DirectoryNotFoundException($"{relative} が見つかりません");
+    }
+}
