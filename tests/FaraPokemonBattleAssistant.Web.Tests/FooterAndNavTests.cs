@@ -46,6 +46,20 @@ public class FooterAndNavTests
     }
 
     [Fact]
+    public void Social_icon_color_wins_over_the_generic_footer_link_rules()
+    {
+        // .site-footer a（文字色 inherit・下線・hover の文字色）より詳細度の高いセレクタで、白い図形を保つ
+        var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        Assert.Contains(".site-footer a.site-footer-social {", css);
+        Assert.Contains(".site-footer a.site-footer-social:hover {", css);
+        Assert.Contains(".site-footer a.site-footer-social:focus-visible {", css);
+        var baseRule = css[css.IndexOf(".site-footer a.site-footer-social {", StringComparison.Ordinal)..];
+        Assert.Contains("color: #fff;", baseRule[..baseRule.IndexOf('}')]);
+        var hoverRule = css[css.IndexOf(".site-footer a.site-footer-social:hover {", StringComparison.Ordinal)..];
+        Assert.Contains("color: #fff;", hoverRule[..hoverRule.IndexOf('}')]);
+    }
+
+    [Fact]
     public void Social_links_match_the_portfolio_urls_and_brand_colors()
     {
         // ポートフォリオ（fara-labs.com）の wwwroot/data/profile.json と、Components/Icon.razor・app.css の .service-* に合わせる
