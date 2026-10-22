@@ -132,6 +132,7 @@ public class FooterAndNavTests
         Assert.True(start >= 0, "狭い画面のフッターの規則が無い");
         var block = css[start..css.IndexOf("\n}\n", start, StringComparison.Ordinal)];
         Assert.Contains(".site-footer-sep { display: none; }", block);            // 折り返しても、行頭・行末に | が出ない
+        Assert.Contains(".site-footer-line > * { white-space: nowrap; }", block);   // 「プライバシーポリシー」などを途中で改行しない（折り返しは項目の間だけ）
         Assert.Contains("gap: 0.35rem 0.9rem;", block);
         Assert.Contains(".site-footer-line { display: flex; flex-wrap: wrap; justify-content: center;", css);   // PC の区切りは残す（規則は変えていない）
         Assert.DoesNotContain(".site-footer-sep { display: none; }", css[..start]);
