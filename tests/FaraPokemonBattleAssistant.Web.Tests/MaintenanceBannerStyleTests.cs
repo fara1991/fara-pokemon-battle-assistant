@@ -42,6 +42,23 @@ public class MaintenanceBannerStyleTests
         Assert.True(banner < 1200, $"帯の z-index（{banner}）は MudBlazor のドロワー（1200 以上）より下");
     }
 
+    [Fact]
+    public void The_notice_heading_is_on_its_own_line_and_the_text_follows()
+    {
+        // 1 行目に見出し「【お知らせ】」、本文は次の行（見出しを block にする）。太字は帯のまま
+        Assert.Matches(@"\.maintenance-notice-title\s*\{\s*display:\s*block;\s*\}", Css);
+        Assert.Matches(@"\.maintenance-notice\s*\{[^}]*font-weight:\s*700;", Css);
+    }
+
+    [Fact]
+    public void The_Blazor_banner_renders_the_same_heading_and_text_structure_as_the_worker()
+    {
+        var razor = File.ReadAllText(FindUp("src/FaraPokemonBattleAssistant.Web/Shared/MaintenanceBanner.razor"));
+        Assert.Contains("<strong class=\"maintenance-notice-title\">【お知らせ】</strong>", razor);
+        Assert.Contains("<span class=\"maintenance-notice-text\">@Info.NoticeText</span>", razor);
+        Assert.DoesNotContain("<strong>お知らせ</strong>", razor);
+    }
+
     private static string Rule(string selector)
     {
         var match = Regex.Match(Css, Regex.Escape(selector) + @"\s*\{[^}]*\}");

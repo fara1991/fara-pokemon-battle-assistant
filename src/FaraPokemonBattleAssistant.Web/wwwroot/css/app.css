@@ -4254,6 +4254,8 @@ html.vt-nav .app-header {
     flex: none; padding: 0.5rem 1rem; background: #f59e0b; color: #1a0b33; font-size: 0.9rem; font-weight: 700; text-align: center;
     position: sticky; top: var(--mud-appbar-height, 3.5rem); z-index: 1030;
 }
+/* 見出し（【お知らせ】）は 1 行目に、本文はその次の行に出す。太字は .maintenance-notice のまま */
+.maintenance-notice-title { display: block; }
 @media (max-width: 599.98px) {
     .maintenance-notice { margin-top: calc(var(--mud-appbar-height, 3.5rem) / 8); }
 }
