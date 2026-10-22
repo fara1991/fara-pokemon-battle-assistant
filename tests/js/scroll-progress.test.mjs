@@ -25,16 +25,21 @@ function node({ sel = [], scrollTop = 0, scrollHeight, clientHeight, children = 
 // 画面（PC: 本文の中の .content か .pane-scroll が動く / スマホ: window が動く / 対戦画面）を組み立てる
 function makeEnv({ main = null, windowPage = null, battle = false } = {}) {
     const styles = {};
-    const root = { style: { setProperty: (k, v) => { styles[k] = v; } } };
+    let writes = 0;
+    const bar = {
+        isConnected: true,
+        style: { setProperty: (k, v) => { styles[k] = v; writes += 1; } },
+    };
     const listeners = {}, docListeners = {};
     let mutationCb = null;
     const doc = {
-        documentElement: root,
+        documentElement: {},
         scrollingElement: windowPage || { scrollTop: 0, scrollHeight: 0, clientHeight: 800 },
         readyState: "complete",
         hidden: false,
         getElementById: (id) => (id === "app" ? { id: "app" } : null),
         querySelector: (sel) => {
+            if (sel === ".scroll-progress") return bar;
             if (sel === MAIN) return main;
             if (sel === ".page.battle-active") return battle ? {} : null;
             return null;
@@ -62,6 +67,7 @@ function makeEnv({ main = null, windowPage = null, battle = false } = {}) {
     return {
         styles,
         doc,
+        writes: () => writes,
         flush() { const f = frames; frames = []; f.forEach((fn) => fn(0)); },
         // target: 本文の中の要素、または document（window のスクロール）
         scroll(target) { (docListeners.scroll || []).forEach((fn) => fn({ target })); },
@@ -199,4 +205,24 @@ test("画面の大きさが変わったら、測り直す", () => {
     env.resize();
     env.flush();
     assert.equal(env.styles["--scroll-progress"], "0.3333");
+});
+
+test("同じ値なら、線の style には書かない（スクロールしていない間は書き込まない）", () => {
+    const main = node({ sel: [MAIN], scrollHeight: 2000, clientHeight: 1000, scrollTop: 500 });
+    const env = makeEnv({ main });
+    env.flush();
+    const after = env.writes();
+    env.scroll(main);                // 位置が変わっていないイベント
+    env.flush();
+    env.resize();
+    env.flush();
+    assert.equal(env.writes(), after);
+});
+
+test("html（文書全体）には書かない。値は線自身の style に入る", () => {
+    const main = node({ sel: [MAIN], scrollHeight: 2000, clientHeight: 1000, scrollTop: 500 });
+    const env = makeEnv({ main });
+    env.flush();
+    assert.equal(env.styles["--scroll-progress"], "0.5000");
+    assert.equal(env.doc.documentElement.style, undefined);
 });

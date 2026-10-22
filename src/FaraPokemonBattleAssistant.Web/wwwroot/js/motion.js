@@ -242,10 +242,11 @@
         var root = document.getElementById("app") || document.body;
         new MutationObserver(function (records) {
             // 選んでいる印を動かしたこと自体では、もう一度見ない
+            // ヘッダーの上端の線（.scroll-progress）は、スクロールのたびに style が変わるので、それも見直さない（js/scroll-progress.js）
             // 背景のコートは毎フレーム style が変わるので、それも見直さない（見直すと、毎フレーム画面全体を測って、電池と CPU を使い続ける）
             var own = records.every(function (r) {
                 var t = r.target;
-                return t.closest && t.closest(".bg-scene");
+                return t.closest && (t.closest(".bg-scene") || t.closest(".scroll-progress"));
             });
             if (!own) scheduleScan();
         }).observe(root, {

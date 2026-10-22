@@ -6,11 +6,12 @@ namespace FaraPokemonBattleAssistant.Web.Tests;
 public class ScrollProgressTests
 {
     private static readonly string Web = FindUpDirectory("src/FaraPokemonBattleAssistant.Web");
+    private static readonly string Css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
 
     [Fact]
     public void Header_has_the_progress_line_as_a_hidden_decoration_inside_the_app_bar()
     {
-        var layout = File.ReadAllText(Path.Combine(Web, "Shared", "MainLayout.razor"));
+        var layout = Read(Path.Combine(Web, "Shared", "MainLayout.razor"));
         var start = layout.IndexOf("<MudAppBar", StringComparison.Ordinal);
         var end = layout.IndexOf("</MudAppBar>", StringComparison.Ordinal);
         Assert.True(start >= 0 && end > start, "MudAppBar が見つからない");
@@ -23,29 +24,30 @@ public class ScrollProgressTests
     [Fact]
     public void Progress_line_is_a_2px_scaleX_bar_on_the_header_edge_that_ignores_the_pointer()
     {
-        var css = ReadRule(".scroll-progress");
-        Assert.Contains("position: absolute;", css);
-        Assert.Contains("top: 0;", css);
-        Assert.Contains("height: 2px;", css);
-        Assert.Contains("transform: scaleX(var(--scroll-progress, 0));", css);
-        Assert.Contains("pointer-events: none;", css);
+        var rule = ReadRule(".scroll-progress");
+        Assert.Contains("position: absolute;", rule);
+        Assert.Contains("top: 0;", rule);
+        Assert.Contains("height: 2px;", rule);
+        Assert.Contains("transform: scaleX(var(--scroll-progress, 0));", rule);   // 値は線自身の --scroll-progress
+        Assert.Contains("pointer-events: none;", rule);
     }
 
     [Fact]
     public void Progress_line_uses_a_header_accent_token_defined_on_root()
     {
-        var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
         Assert.Contains("background: var(--app-header-accent);", ReadRule(".scroll-progress"));
-        Assert.Matches(@":root,\s*\[data-bs-theme=""light""\]\s*\{[^}]*--app-header-accent: linear-gradient\(", css);
+        Assert.Matches(@":root,\s*\[data-bs-theme=""light""\]\s*\{[^}]*--app-header-accent: linear-gradient\(", Css);
     }
 
     [Fact]
     public void Reduced_motion_keeps_the_line_but_only_drops_the_transition()
     {
-        var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
-        var start = css.IndexOf("@media (prefers-reduced-motion: no-preference)", StringComparison.Ordinal);
+        const string header = "@media (prefers-reduced-motion: no-preference) {";
+        var start = Css.IndexOf(header, StringComparison.Ordinal);
         Assert.True(start >= 0, "動きを許すときだけ transition を付けるメディアクエリが無い");
-        var block = css[start..css.IndexOf("}\n}", start, StringComparison.Ordinal)];
+        var end = Css.IndexOf("\n}", start, StringComparison.Ordinal);
+        Assert.True(end > start, "メディアクエリの終わりが見つからない");
+        var block = Css[start..end];
         Assert.Contains(".scroll-progress", block);
         Assert.Contains("transition: transform", block);
         Assert.DoesNotContain("display: none", ReadRule(".scroll-progress"));
@@ -54,39 +56,38 @@ public class ScrollProgressTests
     [Fact]
     public void Scroll_progress_script_is_loaded_from_index_html()
     {
-        var index = File.ReadAllText(Path.Combine(Web, "wwwroot", "index.html"));
+        var index = Read(Path.Combine(Web, "wwwroot", "index.html"));
         Assert.Contains("<script src=\"js/scroll-progress.js\"></script>", index);
 
-        var js = File.ReadAllText(Path.Combine(Web, "wwwroot", "js", "scroll-progress.js"));
-        Assert.Contains("--scroll-progress", js);                         // 値は html に入れる（#app の style は書かない）
-        Assert.Contains("main > article.content", js);                    // PC でスクロールする要素
+        var js = Read(Path.Combine(Web, "wwwroot", "js", "scroll-progress.js"));
+        Assert.Contains("--scroll-progress", js);                         // 値は線自身の style に入れる（html の style は書かない）
+        Assert.Contains("main > article.content", js);                    // PC で動く本文の要素
         Assert.Contains("document.scrollingElement", js);                 // スマホは window
         Assert.Contains(".page.battle-active", js);                       // 対戦画面は 0
     }
 
     [Fact]
+    public void Motion_script_does_not_rescan_when_only_the_progress_line_changes()
+    {
+        var motion = Read(Path.Combine(Web, "wwwroot", "js", "motion.js"));
+        Assert.Contains("closest(\".scroll-progress\")", motion);
+    }
+
+    [Fact]
     public void Scroll_progress_test_runs_in_ci()
     {
-        var workflow = File.ReadAllText(FindUpFile(".github/workflows/build.yml"));
+        var workflow = Read(FindUpFile(".github/workflows/build.yml"));
         Assert.Contains("run: npm run test:scroll", workflow);
     }
 
-    private static string FindUpFile(string relative)
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine(dir.FullName, relative);
-            if (File.Exists(candidate)) return candidate;
-        }
-        throw new FileNotFoundException(relative);
-    }
+    /// <summary>読んだ文字列の改行を \n にそろえる（app.css などは CRLF のことがあるため、検索は \n で書く）。</summary>
+    private static string Read(string path) => File.ReadAllText(path).Replace("\r\n", "\n");
 
-    private string ReadRule(string selector)
+    private static string ReadRule(string selector)
     {
-        var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
-        var start = css.IndexOf(selector + " {", StringComparison.Ordinal);
+        var start = Css.IndexOf(selector + " {", StringComparison.Ordinal);
         Assert.True(start >= 0, $"{selector} のルールが無い");
-        return css[start..css.IndexOf('}', start)];
+        return Css[start..Css.IndexOf('}', start)];
     }
 
     private static string FindUpDirectory(string relative)
@@ -97,5 +98,15 @@ public class ScrollProgressTests
             if (Directory.Exists(candidate)) return candidate;
         }
         throw new DirectoryNotFoundException(relative);
+    }
+
+    private static string FindUpFile(string relative)
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, relative);
+            if (File.Exists(candidate)) return candidate;
+        }
+        throw new FileNotFoundException(relative);
     }
 }

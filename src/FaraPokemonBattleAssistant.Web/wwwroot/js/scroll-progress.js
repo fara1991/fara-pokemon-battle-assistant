@@ -6,15 +6,16 @@
 //    ほかの動かせる要素の中に入っていない一番外側のものを測る（複数あれば一番背の高いもの）。
 //    一覧の中の小さな入れ子スクロールは、外側が動いていれば対象外。
 // 候補は、スクロールのイベント（capture で受ける）と、画面の作り直し（#app の childList）のときだけ見直す。全要素は走査しない。
-// 値は html の --scroll-progress（0〜1）に入れる。対戦画面（.page.battle-active）は 0。
-// html に入れるのは、#app の中の style を書き換えて motion.js の見直しを起こさないため。
+// 値は線（.scroll-progress）自身の --scroll-progress（0〜1）に入れる。html に書くと文書全体のスタイルを計算し直すため。
+// 前と同じ値なら書かない。対戦画面（.page.battle-active）は 0。
+// motion.js は #app の style の変化を見直すので、線の style の変化は見直さない（motion.js の own の判定）。
 (function () {
     "use strict";
-    var root = document.documentElement;
     var MAIN = "main > article.content";
     var PANES = MAIN + ", " + MAIN + " .pane-scroll";
     var active = null;          // 最後に測った PC の要素（画面が替わったら外れるので、そのつど確かめる）
     var pending = false;
+    var bar = null, shown = "";
 
     function content() { return document.querySelector(MAIN); }
 
@@ -30,7 +31,7 @@
 
     // 測る要素を決める。window が動くならスマホ、そうでなければ PC の一番背の高い候補
     function scroller() {
-        var page = document.scrollingElement || root;
+        var page = document.scrollingElement || document.documentElement;
         if (page.scrollHeight - page.clientHeight > 1) return page;
         if (scrollable(active)) return active;
         active = null;
@@ -52,7 +53,12 @@
 
     function update() {
         pending = false;
-        root.style.setProperty("--scroll-progress", progress().toFixed(4));
+        if (!bar || !bar.isConnected) bar = document.querySelector(".scroll-progress");
+        if (!bar) return;
+        var value = progress().toFixed(4);
+        if (value === shown) return;     // 前と同じなら書かない
+        shown = value;
+        bar.style.setProperty("--scroll-progress", value);
     }
 
     // 1 フレームに 1 回だけ測る
