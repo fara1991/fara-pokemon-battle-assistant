@@ -180,6 +180,7 @@ npm run test:worker                                      # データ共有 API�
 
 - ポケモン・わざ・特性は、実行時に、選んでいるゲームのデータから探します（`Services/SearchService.cs`）
 - ページ・項目・用語・コマンドは、`src/FaraPokemonBattleAssistant.Web/wwwroot/search-index.json` から探します。これは各ページの Razor から `tools/gen-search-index.mjs` が作ります。**ページの文言・見出しを変えたら、`npm run gen:search` で作り直して、一緒にコミットしてください**（CI の `node tools/gen-search-index.mjs --check` が、合っているかを確かめます）
+- ページには、ひらがなの読みを付けています（`tools/gen-search-index.mjs` の `PAGE_READINGS`。ローマ字で探すため。例: 権利表記 → けんりひょうき）。**ページを足したら、読みも足してください**（無いと生成が失敗します）
 
 ### 計算で考慮しているもの
 

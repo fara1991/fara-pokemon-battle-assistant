@@ -57,6 +57,14 @@ public static class Romaji
             var c = s[i];
             if (c == '-') { sb.Append('ー'); i++; continue; }
             if (c == '\'') { i++; continue; }
+            // 「nn」は「ん」1 つ（kennri → けんり）。後ろが母音・y なら、最初の n だけが「ん」で、2 つ目は次の音（konna → こんな）
+            if (c == 'n' && i + 1 < s.Length && s[i + 1] == 'n')
+            {
+                var after = i + 2 < s.Length ? s[i + 2] : '\0';
+                sb.Append('ん');
+                i += after is 'a' or 'i' or 'u' or 'e' or 'o' or 'y' ? 1 : 2;
+                continue;
+            }
             // 促音: 同じ子音が続く（n と母音は除く）
             if (i + 1 < s.Length && s[i + 1] == c && "aiueon".IndexOf(c) < 0) { sb.Append('っ'); i++; continue; }
             var hit = false;
