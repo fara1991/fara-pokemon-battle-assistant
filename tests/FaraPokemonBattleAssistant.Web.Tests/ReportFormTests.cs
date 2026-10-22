@@ -108,6 +108,7 @@ public class ReportFormTests
 
     [Theory]
     [InlineData(413, "", "長すぎ")]
+    [InlineData(429, "<html>Too Many Requests</html>", "何度も")]   // Cloudflare のレート制限（本文は HTML）
     [InlineData(503, "not json", "受け付けていません")]
     [InlineData(502, null, "失敗")]
     [InlineData(500, "{\"message\":\"\"}", "失敗")]            // 空の文は使わない

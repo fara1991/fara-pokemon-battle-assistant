@@ -43,6 +43,18 @@
         },
         // 確認が済んだときのトークン（まだなら空）
         token: function () { return token; },
+        // 確認のトークンが届くまで、最大 timeoutMs 待つ（読み込み直後や、送信に失敗して作り直した直後は、数秒かかることがある）。届かなければ空
+        waitToken: function (timeoutMs) {
+            return new Promise(function (resolve) {
+                var waited = 0;
+                (function check() {
+                    if (token) { resolve(token); return; }
+                    if (waited >= timeoutMs) { resolve(""); return; }
+                    waited += 200;
+                    setTimeout(check, 200);
+                })();
+            });
+        },
         // 確認は 1 回で使い切りなので、送信に失敗したあとなどに作り直す
         reset: function () {
             token = "";
