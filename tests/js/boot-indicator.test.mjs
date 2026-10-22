@@ -108,7 +108,7 @@ test("#app に Blazor の描いた画面がもう有るときに読まれたら�
     assert.equal(indicator.removed, true);
 });
 
-test("45 秒たっても描かれないと、再読み込みの案内に変わる（文字は JS で入れ、バーは止まる）", () => {
+test("45 秒たっても描かれないと、再読み込みの案内に変わる（文字は JS で入れ、スピナーは止まる）", () => {
     const { indicator, label, advance, timers } = makeEnv();
     assert.equal(timers.length, 1);
     assert.equal(timers[0].due, SLOW_MS, "45 秒で切り替える");
