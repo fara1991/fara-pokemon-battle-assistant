@@ -1462,7 +1462,7 @@ else if (string.IsNullOrEmpty(loadError))
 
     /// <summary>技の下に出す「タイプ一致」の補正（結果の補正の一覧にあるものを、攻撃側の技のところに出す）。</summary>
     private string StabText() =>
-        s.Result?.Modifiers.FirstOrDefault(m => m.StartsWith("タイプ一致")) is { } stab ? $"　{stab}" : "";
+        s.Result?.Modifiers.FirstOrDefault(m => m.StartsWith("タイプ一致", StringComparison.Ordinal)) is { } stab ? $"　{stab}" : "";
 
     private static string Inv(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 

@@ -67,7 +67,7 @@ public class SitePathsTests
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "FaraPokemonBattleAssistant.sln"))) dir = dir.Parent;
         Assert.NotNull(dir);
         var razor = File.ReadAllLines(Path.Combine(dir!.FullName, "src", "FaraPokemonBattleAssistant.Web", "Components", "Pages", "LegacyUrlRedirect.razor"));
-        var pages = razor.Where(l => l.StartsWith("@page \"")).Select(l => l.Split('"')[1].TrimStart('/')).OrderBy(x => x).ToArray();
-        Assert.Equal(SitePaths.Legacy.Keys.OrderBy(x => x).ToArray(), pages);
+        var pages = razor.Where(l => l.StartsWith("@page \"", StringComparison.Ordinal)).Select(l => l.Split('"')[1].TrimStart('/')).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+        Assert.Equal(SitePaths.Legacy.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray(), pages);
     }
 }

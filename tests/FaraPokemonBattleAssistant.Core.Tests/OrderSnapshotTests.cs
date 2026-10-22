@@ -5,10 +5,13 @@ using Xunit;
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
 /// <summary>
-/// 日本語の並び順・検索結果が変わっていないことを確かめる。
-/// ポケモン一覧・技一覧のすべての並べ替え（昇順・降順）と、検索（かな・ローマ字・漢字・記号）の結果を
-/// Data/order_snapshot.txt と比べる。グローバリゼーション（ICU）の設定を変えても同じ結果になることを確かめる
-/// （通常の実行と、環境変数 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 の実行の両方で通す）。
+/// 日本語の並び順・検索結果が変わっていないことを記録する（スナップショット）。
+/// ポケモン一覧（26 通り）・技一覧（10 通り）のすべての並べ替え（昇順・降順。図鑑番号・種族値・技名の五十音など）と、
+/// 検索（かな・ローマ字・漢字・記号）の結果を Data/order_snapshot.txt と比べる。
+/// 注意: 並びの経路は元からカルチャ非依存（Ordinal・整数・五十音のキーの比較）で書かれているので、
+/// このテストは「ICU を外しても並びが変わらない」ことの記録にとどまり、文化依存の呼び出しを検出する力はない。
+/// 文化依存の呼び出し（StartsWith など）は <see cref="CultureProbeTests"/> が検出する。
+/// 通常の実行と、環境変数 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 の実行の両方で通す。
 /// 並びを意図して変えたときだけ、環境変数 ORDER_SNAPSHOT_WRITE=1 で作り直す。
 /// </summary>
 public class OrderSnapshotTests

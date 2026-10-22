@@ -26,7 +26,7 @@ public class ItemAvailabilityTests
         var listed = File.ReadAllLines(Path.Combine(TestData.RepositoryRoot, "tools", "champions_items.txt"))
             .Where(l => l.Length > 0 && !l.StartsWith('#')).ToHashSet();
         var actual = data.Items.Where(i => !i.IsMegaStone).Select(i => i.Name).ToHashSet();
-        Assert.Equal(listed.OrderBy(x => x), actual.OrderBy(x => x));
+        Assert.Equal(listed.OrderBy(x => x, StringComparer.Ordinal), actual.OrderBy(x => x, StringComparer.Ordinal));
     }
 
     [Fact]
