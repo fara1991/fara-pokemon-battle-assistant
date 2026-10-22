@@ -163,7 +163,6 @@ git submodule update --init
 submodule が無いと、`npm run check`・`npm run test:report`・`npm run test:maintenance`・`wrangler deploy --dry-run` が失敗します（`worker/index.js` が kit の import を読むため）。
 kit のどのコミットを使うかは、このリポジトリの `external/fara-site-kit` が指すコミットで決まります（更新は PR で行う）。
 注意: 報告フォームの画面側は `external/fara-site-kit/src/FaraSiteKit.Razor/wwwroot/js/report.js`（Turnstile）と `ReportFormView`、受け口の Worker 側は `external/fara-site-kit/worker/report.js` です（別のファイル）。
-注意: `src/FaraPokemonBattleAssistant.Web/wwwroot/js/report.js`（報告フォームの画面側）と、`external/fara-site-kit/worker/report.js`（受け口の Worker 側）は別のファイルです。
 
 ## 開発
 
