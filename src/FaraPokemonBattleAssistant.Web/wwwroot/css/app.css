@@ -4228,7 +4228,20 @@ html.vt-nav .app-header {
 .report-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
 /* メンテナンスのお知らせ（MAINTENANCE=notice）と、メンテナンス画面（MAINTENANCE=true） */
-.maintenance-notice { flex: none; padding: 0.5rem 1rem; background: #f59e0b; color: #1a0b33; font-size: 0.9rem; text-align: center; }
+/* メンテナンスのお知らせの帯は、ヘッダーの真下に固定する。PC は、ページの中身（.content）だけがスクロールするので、帯は元から動かない。
+   スマホは、ページ全体（window）がスクロールするので、sticky で残す（top はヘッダーの高さ）。
+   z-index は、ヘッダー（1040）より下・ページ内の要素（数十まで）より上・ドロワーやポップアップより下。
+   MudBlazor は、ヘッダーの下に置く本体の余白を画面の幅で変えていて、600px 未満ではヘッダーに少し重なる（縦は 1/8、横は 1/4）。その分だけ帯を下にずらす */
+.maintenance-notice {
+    flex: none; padding: 0.5rem 1rem; background: #f59e0b; color: #1a0b33; font-size: 0.9rem; font-weight: 700; text-align: center;
+    position: sticky; top: var(--mud-appbar-height, 3.5rem); z-index: 1030;
+}
+@media (max-width: 599.98px) {
+    .maintenance-notice { margin-top: calc(var(--mud-appbar-height, 3.5rem) / 8); }
+}
+@media (max-width: 599.98px) and (orientation: landscape) {
+    .maintenance-notice { margin-top: calc(var(--mud-appbar-height, 3.5rem) / 4); }
+}
 .maintenance-screen { min-height: 100vh; display: grid; place-content: center; justify-items: center; padding: 24px; box-sizing: border-box; background: #0c0616; color: #f3edff; text-align: center; line-height: 1.8; }
 .maintenance-screen h1 { font-size: 1.5rem; color: #b39ddb; }
 .maintenance-screen p { color: #b4a7d1; margin: 0 0 0.5rem; }
