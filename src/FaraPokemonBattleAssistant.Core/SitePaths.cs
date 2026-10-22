@@ -17,7 +17,11 @@ public static class SitePaths
     public const string MoveList = "move-list";
     public const string BattleTerms = "battle-terms";
     public const string ChatCommands = "chat-commands";
-    public const string AboutAuthor = "about-author";
+    public const string Report = "report";
+
+    /// <summary>以前の「作者・問い合わせ」（about-author）。問い合わせ（Report）に統一したので、使わない。互換のため残す。</summary>
+    [Obsolete("問い合わせは SitePaths.Report を使う（about-author は Report へ転送される）")]
+    public const string AboutAuthor = Report;
 
     /// <summary>以前の URL → 新しい URL（どちらも先頭の / なし、小文字）。</summary>
     public static readonly IReadOnlyDictionary<string, string> Legacy = new Dictionary<string, string>
@@ -33,7 +37,8 @@ public static class SitePaths
         ["pokedex"] = PokemonList,
         ["glossary"] = BattleTerms,
         ["command"] = ChatCommands,
-        ["about"] = AboutAuthor,
+        ["about"] = Report,
+        ["about-author"] = Report,
     };
 
     /// <summary>
