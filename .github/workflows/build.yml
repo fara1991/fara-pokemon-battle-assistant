@@ -34,11 +34,13 @@ jobs:
       - name: Test
         run: dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
 
-      - name: "Test (日本語の並び・検索が、ICU なし（InvariantGlobalization）でも同じか)"
-        # Web は ICU を載せない（InvariantGlobalization=true）。同じ結果になることを、ICU なしの実行で確かめる
+      - name: "Test (ICU なし（InvariantGlobalization）でも同じ結果か: Core・Web・日本語の並び・検索)"
+        # Web は ICU を載せない（InvariantGlobalization=true）。テストも ICU なしで動かして、同じ結果になることを確かめる
         env:
           DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
-        run: dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build --filter "FullyQualifiedName~OrderSnapshotTests"
+        run: |
+          dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build
+          dotnet test tests/FaraPokemonBattleAssistant.Web.Tests --configuration Release --no-build
 
       - name: "Test (Web: データ共有・ブラウザ保存)"
         run: dotnet test tests/FaraPokemonBattleAssistant.Web.Tests --configuration Release --no-build
