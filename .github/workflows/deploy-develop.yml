@@ -26,6 +26,8 @@ jobs:
       url: https://pokemon-dev.fara-labs.com/
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: actions/setup-dotnet@v4
         with:

@@ -14,6 +14,7 @@ fara-pokemon-battle-assistant/
 │   ├── FaraPokemonBattleAssistant.Web/    Blazor WebAssembly（Cloudflare Workers に公開）
 │   │   └── wwwroot/api/game/         ★ ゲームデータ CSV。Web も配信用BOTもこのファイルを読む（公開サイトでは /api/game/... で配られる）
 │   └── FaraPokemonBattleAssistant.Cli/    コマンドをターミナルで試す / 配信用BOT組み込み前の動作確認用
+├── external/fara-site-kit/           共通部品（git submodule。Worker の共有 JS: 報告の受け口・メンテナンス表示）
 ├── tests/FaraPokemonBattleAssistant.Core.Tests/
 ├── tools/
 │   ├── sync_data.py                  公開データとポケモン HOME からデータを再生成するスクリプト
@@ -146,6 +147,21 @@ dotnet run --project src/FaraPokemonBattleAssistant.Cli -- "!pokech dmg イエ�
 1. `FaraBotModerator.csproj` から `FaraPokemonBattleAssistant.Core` を参照する（隣に clone して `ProjectReference`、または CI の成果物 `.nupkg`）。
 2. 起動時に `DataCatalog` を 1 つ作る。データ元は公開サイトの URL（`https://pokemon.fara-labs.com/api/game/`）+ ローカルキャッシュ。
 3. `OnMessageReceived` で `!pokech` / `!pokesv` / `!pokess` を見つけたら `PokeCommand.ExecuteAsync` の結果をそのまま `SendMessage`。登録・削除は配信者本人とモデレーターだけに許可する。
+
+## クローンと submodule（共通部品 fara-site-kit）
+
+Worker の共有 JS（`external/fara-site-kit/worker/`）は [fara-site-kit](https://github.com/fara1991/fara-site-kit) を git submodule で取り込んでいます。
+
+```bash
+git clone --recurse-submodules https://github.com/fara1991/fara-pokemon-battle-assistant.git
+# 取得済みのクローンでは
+git submodule update --init
+```
+
+submodule が無いと、`npm run check`・`npm run test:report`・`npm run test:maintenance`・`wrangler deploy --dry-run` が失敗します（`worker/index.js` が kit の import を読むため）。
+kit のどのコミットを使うかは、このリポジトリの `external/fara-site-kit` が指すコミットで決まります（更新は PR で行う）。
+
+注意: `src/FaraPokemonBattleAssistant.Web/wwwroot/js/report.js`（報告フォームの画面側）と、`external/fara-site-kit/worker/report.js`（受け口の Worker 側）は別のファイルです。
 
 ## 開発
 

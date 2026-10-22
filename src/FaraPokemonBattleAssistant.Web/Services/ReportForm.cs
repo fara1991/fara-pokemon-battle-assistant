@@ -3,8 +3,8 @@ using System.Text.Json;
 namespace FaraPokemonBattleAssistant.Web.Services;
 
 /// <summary>
-/// 「問い合わせ」の入力（Components/Pages/Report.razor）。送り先は同じサイトの POST /api/report（worker/report.js）。
-/// 長さ・種類の制限は、サーバー側（worker/report.js）と同じにしておく（先にここで確かめて、無駄な通信をしない）。
+/// 「問い合わせ」の入力（Components/Pages/Report.razor）。送り先は同じサイトの POST /api/report（external/fara-site-kit/worker/report.js）。
+/// 長さ・種類の制限は、サーバー側（external/fara-site-kit/worker/report.js）と同じにしておく（先にここで確かめて、無駄な通信をしない）。
 /// </summary>
 public sealed class ReportForm
 {

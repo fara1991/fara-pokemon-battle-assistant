@@ -50,8 +50,9 @@
 // 1 年間アクセスが無い置き場は、Durable Object のアラームで自動的に消す（アクセスすると延長。延長の書き込みは 1 日に 1 回まで）。
 
 import { DurableObject } from "cloudflare:workers";
-import { handleReport } from "./report.js";
-import { getMaintenance, maintenanceResponse } from "./maintenance.js";
+// Worker の共有 JS（報告の受け口・メンテナンス表示）は kit（external/fara-site-kit。CLAUDE.md・docs/usage.md）
+import { handleReport } from "../external/fara-site-kit/worker/report.js";
+import { getMaintenance, maintenanceResponse } from "../external/fara-site-kit/worker/maintenance.js";
 import { serveHome } from "./home.js";
 
 /** パス → 使えるメソッド。 */
@@ -348,7 +349,7 @@ export default {
     const url = new URL(request.url);
     // トップページ（ホームの本文入りの home.html）。SPA のフォールバック（index.html）とは別に返す（worker/home.js）
     if (url.pathname === "/") return serveHome(request, env);
-    // メンテナンスの状態（Worker の変数 MAINTENANCE。worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
+    // メンテナンスの状態（Worker の変数 MAINTENANCE。external/fara-site-kit/worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
     const maintenance = getMaintenance(env);
     if (url.pathname === "/api/maintenance") {
       return new Response(JSON.stringify({ state: maintenance.state, message: maintenance.message }), {
@@ -365,7 +366,7 @@ export default {
       passed.headers.set("X-Worker-Fallback", "assets");
       return passed;
     }
-    // 作者への報告の受け口（登録データとは別。worker/report.js）
+    // 作者への報告の受け口（登録データとは別。external/fara-site-kit/worker/report.js）
     if (url.pathname === "/api/report" || url.pathname === "/api/report/config") {
       try {
         return await handleReport(request, env, "Pokémon Battle Assistant");

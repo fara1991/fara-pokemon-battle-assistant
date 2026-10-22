@@ -13,7 +13,7 @@ public enum MaintenanceState
 }
 
 /// <summary>
-/// Cloudflare の Worker の変数 MAINTENANCE / MAINTENANCE_MESSAGE（worker/maintenance.js）の状態。
+/// Cloudflare の Worker の変数 MAINTENANCE / MAINTENANCE_MESSAGE（external/fara-site-kit/worker/maintenance.js）の状態。
 /// アプリの起動時に GET /api/maintenance で 1 回だけ読む。読めなかったとき（通信できない・Worker が無い開発中など）は通常として扱う。
 /// </summary>
 public sealed record MaintenanceInfo(MaintenanceState State, string Message)
