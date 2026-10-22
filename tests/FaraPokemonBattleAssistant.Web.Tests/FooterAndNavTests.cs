@@ -94,6 +94,36 @@ public class FooterAndNavTests
         Assert.Contains("(\"privacy\", \"プライバシーポリシー\"", nav);
     }
 
+    [Fact]
+    public void Footer_has_no_copyright_note()
+    {
+        var footer = Read(Path.Combine(Web, "Shared", "SiteFooter.razor"));
+        Assert.DoesNotContain("非公式", footer);
+        Assert.DoesNotContain("各権利者", footer);
+        Assert.DoesNotContain("site-footer-note", footer);
+        Assert.DoesNotContain(".site-footer-note", Read(Path.Combine(Web, "wwwroot", "css", "app.css")));   // 未使用の CSS も残さない
+    }
+
+    [Fact]
+    public void Copyright_page_has_the_heading_route_and_the_notice()
+    {
+        var page = Read(Path.Combine(Web, "Components", "Pages", "Copyright.razor"));
+        Assert.Contains("@page \"/copyright\"", page);
+        Assert.Contains("<h3>権利表記</h3>", page);
+        Assert.Contains("<PageTitle>権利表記 | Pokémon Battle Assistant</PageTitle>", page);
+        Assert.Contains("非公式のファンサイトです", page);
+        Assert.Contains("ポケットモンスター・ポケモンに関する名称・画像の権利は、各権利者に帰属します", page);
+        Assert.Contains("登録商標です", page);
+    }
+
+    [Fact]
+    public void About_page_links_to_the_copyright_page()
+    {
+        var about = Read(Path.Combine(Web, "Components", "Pages", "About.razor"));
+        Assert.Contains("<a href=\"copyright\">権利表記</a>", about);
+        Assert.DoesNotContain("登録商標です", about);                              // 文言は権利表記のページだけに置く
+    }
+
     private static string Read(string path) => File.ReadAllText(path).Replace("\r\n", "\n");
 
     private static string FindUpDirectory(string relative)
