@@ -256,6 +256,55 @@ public sealed class Team
 
     public int Number { get; set; }
     public List<TeamSlot> Slots { get; set; } = new();
+
+    /// <summary>
+    /// このチームで戦うバトル形式。"Singles"（シングル）か "Doubles"（ダブル）。省略（null）はシングル。
+    /// 古い版が保存したチームには無いので、省略はシングルとして読む。
+    /// </summary>
+    public string? Format { get; set; }
+
+    /// <summary>このチームのバトル形式（<see cref="Format"/> を読み替えたもの。読み取り専用）。</summary>
+    [JsonIgnore]
+    public BattleFormat BattleFormat => TeamFormats.Parse(Format);
+}
+
+/// <summary>チームのバトル形式（シングル・ダブル）の読み書き。サイト・コマンド・クラウドで同じ表記にそろえる。</summary>
+public static class TeamFormats
+{
+    /// <summary>保存する名前（"Singles" / "Doubles"）。</summary>
+    public static string Name(BattleFormat format) => format == BattleFormat.Doubles ? "Doubles" : "Singles";
+
+    /// <summary>表示する名前（シングル / ダブル）。</summary>
+    public static string Label(BattleFormat format) => format == BattleFormat.Doubles ? "ダブル" : "シングル";
+
+    /// <summary>保存してある名前を読む。null・空・知らない値は、シングル。</summary>
+    public static BattleFormat Parse(string? stored) =>
+        string.Equals(stored?.Trim(), "Doubles", StringComparison.OrdinalIgnoreCase) ? BattleFormat.Doubles : BattleFormat.Singles;
+
+    /// <summary>保存してある名前として正しいか（null か、"Singles" / "Doubles"）。クラウドへ送る前の確認に使う。</summary>
+    public static bool IsValidStored(string? stored) =>
+        stored is null || stored is "Singles" or "Doubles";
+
+    /// <summary>
+    /// コマンドの言葉（シングル / ダブル / single / singles / double / doubles。大文字小文字・全角半角・ひらがなは区別しない）を読む。
+    /// バトル形式を表す言葉でなければ false。
+    /// </summary>
+    public static bool TryParseWord(string? word, out BattleFormat format)
+    {
+        format = BattleFormat.Singles;
+        var w = (word ?? "").Trim().ToLowerInvariant();
+        switch (w)
+        {
+            case "シングル" or "しんぐる" or "single" or "singles":
+                format = BattleFormat.Singles;
+                return true;
+            case "ダブル" or "だぶる" or "double" or "doubles":
+                format = BattleFormat.Doubles;
+                return true;
+            default:
+                return false;
+        }
+    }
 }
 
 public sealed class DataSetRoster
@@ -711,7 +760,8 @@ public sealed class RosterRepository
 
     // ---- チーム
 
-    public async Task<(Team Team, TeamSlot Slot, bool Replaced)> AddToTeamAsync(string dataSetKey, int teamNumber, int entryId, Item? item, CancellationToken ct = default)
+    /// <param name="format">チームのバトル形式。null のときは今のまま（新しいチームはシングル）。</param>
+    public async Task<(Team Team, TeamSlot Slot, bool Replaced)> AddToTeamAsync(string dataSetKey, int teamNumber, int entryId, Item? item, BattleFormat? format = null, CancellationToken ct = default)
     {
         return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
@@ -734,7 +784,20 @@ public sealed class RosterRepository
                 team.Slots.Add(existing);
             }
             existing.ItemId = item?.Id;
+            if (format is { } f) team.Format = TeamFormats.Name(f);
             return ((team, existing, replaced), true);
+        }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>チームのバトル形式（シングル・ダブル）を変える。チームが無ければ false。</summary>
+    public async Task<bool> SetTeamFormatAsync(string dataSetKey, int teamNumber, BattleFormat format, CancellationToken ct = default)
+    {
+        return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
+        {
+            var team = roster.Teams.FirstOrDefault(t => t.Number == teamNumber);
+            if (team is null) return (false, false);
+            team.Format = TeamFormats.Name(format);
+            return (true, true);
         }, ct).ConfigureAwait(false);
     }
 
