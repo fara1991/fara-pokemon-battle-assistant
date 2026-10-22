@@ -88,6 +88,9 @@ test("読み込み表示（#boot-indicator）は #app の外・本文の前に 1
             const mainEnd = html.indexOf("</main>", main);
             assert.doesNotMatch(html.slice(main, mainEnd), /読み込み中|boot-indicator/, "本文の中に入らない");
         }
+        // 文言は CSS（:empty::before）で出すので、生の HTML の本文テキスト（タグの外）には「読み込み中」が無い（JS を実行しない取得でも見えない）
+        const bodyText = html.slice(html.indexOf("<body>")).replace(/<[^>]*>/g, "");
+        assert.doesNotMatch(bodyText, /読み込み中/);
     }
 });
 

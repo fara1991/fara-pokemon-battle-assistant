@@ -105,6 +105,9 @@ public class EntryPagesTests
         Assert.True(indicator < html.IndexOf("<div id=\"app\">", StringComparison.Ordinal));
         Assert.Contains("role=\"status\" aria-live=\"polite\"", html);
         Assert.DoesNotContain("loading-screen", html);
+        // 文言は CSS（:empty::before）で出す。生の HTML の本文テキストには「読み込み中」を入れない（JS を実行しない取得でも見えないように）
+        Assert.DoesNotMatch(">[^<]*読み込み中", html);
+        Assert.Contains(".boot-indicator-label:empty::before", File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css")));
         // 外部の js ファイルで外す（インライン script は CSP で使えない）。Blazor の起動より前に読む
         Assert.True(html.IndexOf("js/boot-indicator.js", StringComparison.Ordinal) < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
         Assert.True(File.Exists(Path.Combine(Web, "wwwroot", "js", "boot-indicator.js")));

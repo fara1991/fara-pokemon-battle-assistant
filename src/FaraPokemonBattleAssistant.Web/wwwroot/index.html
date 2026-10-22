@@ -18,10 +18,11 @@
     <noscript><style>#boot-indicator { display: none; }</style></noscript>
 </head>
 <body>
-    <!-- 起動までの「読み込み中…」。#app の外に置く（Blazor が #app の中身を置き換えても残るので、js/boot-indicator.js が起動後に隠す） -->
-    <div id="boot-indicator" class="boot-indicator" role="status" aria-live="polite">
+    <!-- 起動までの読み込み表示。#app の外に置く（Blazor が #app の中身を置き換えても残るので、js/boot-indicator.js が起動後に外す）。
+         文言は CSS（:empty::before）で出すので、生の HTML の本文には入らない。読み上げは aria-label -->
+    <div id="boot-indicator" class="boot-indicator">
         <span class="boot-indicator-bar" aria-hidden="true"></span>
-        <span class="boot-indicator-label">読み込み中…</span>
+        <span class="boot-indicator-label" role="status" aria-live="polite" aria-label="読み込み中"></span>
     </div>
     <button type="button" id="scroll-top" class="scroll-top" aria-label="いちばん上へ" title="いちばん上へ">↑</button>
     <div id="app">

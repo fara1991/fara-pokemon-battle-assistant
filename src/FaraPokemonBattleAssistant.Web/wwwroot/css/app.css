@@ -747,14 +747,14 @@ body {
     }
 }
 
-/* 起動までの「読み込み中…」（index.html の #boot-indicator。js/boot-indicator.js が Blazor の描画で外す）。
-   上端の細いバーと、右上の小さなラベル。#app の外に置くので、入口ページの本文（検索の対象）には入らない。
-   色はテーマによらず primary の #7c3aed（ラベルの白文字は十分なコントラスト）。動きは prefers-reduced-motion では止める */
+/* 起動までの読み込み表示（index.html の #boot-indicator。js/boot-indicator.js が Blazor の描画で外す）。
+   上端の細いバーと、画面の下中央の小さなラベル（上部のヘッダーのボタンと重ならないように下に置く）。
+   #app の外に置くので、入口ページの本文（検索の対象）には入らない。
+   色はテーマによらず primary の #7c3aed（ラベルの白文字は十分なコントラスト）。動きは prefers-reduced-motion では止める。
+   文言は生の HTML に入れず、空のラベルに CSS で出す。再読み込みの案内に変わったとき（data-state="slow"）は JS が文字を入れ、バーを止める */
 .boot-indicator {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     z-index: 2000;
     pointer-events: none;
 }
@@ -787,16 +787,38 @@ body {
 
 .boot-indicator-label {
     position: absolute;
-    top: 0.6rem;
-    right: 0.75rem;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 1.5rem);
+    box-sizing: border-box;
     padding: 0.2rem 0.65rem;
     border-radius: 99px;
     background: #7c3aed;
     color: #fff;
     font-size: 0.8rem;
     font-weight: 700;
-    line-height: 1.4;
+    line-height: 1.5;
+    text-align: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.boot-indicator-label:empty::before {
+    content: "読み込み中…";
+}
+
+/* 時間がかかっているとき（再読み込みの案内）: 文字は折り返し、バーは止める（色は変えず、動きだけ止める） */
+.boot-indicator[data-state="slow"] .boot-indicator-label {
+    border-radius: 0.75rem;
+    white-space: normal;
+}
+
+.boot-indicator[data-state="slow"] .boot-indicator-bar::after {
+    animation: none;
+    transform: none;
+    width: 100%;
+    opacity: 0.55;
 }
 
 @media (prefers-reduced-motion: reduce) {
