@@ -4059,6 +4059,8 @@ html.vt-nav .app-header {
 
 .sidebar .mud-navmenu {
     width: var(--mud-drawer-width-left, 230px);
+    /* 先頭の「ホーム」がヘッダーにくっつかないよう、少し間を空ける（アバター・Bot のサイトと同じ） */
+    padding-top: 0.75rem;
 }
 
 .sidebar .mud-nav-link,
