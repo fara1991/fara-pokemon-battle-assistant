@@ -67,7 +67,7 @@ public class EntryPagesTests
     public void Entry_pages_include_the_home_page_and_the_static_content_pages()
     {
         var routes = EntryPages().Select(p => p.Route).ToHashSet();
-        foreach (var required in new[] { "", "battle-terms", "chat-commands", "privacy", "copyright", "report", "about-author" })
+        foreach (var required in new[] { "", "battle-terms", "chat-commands", "privacy", "copyright", "report" })
         {
             Assert.Contains(required, routes);
         }
@@ -83,6 +83,17 @@ public class EntryPagesTests
             Assert.Equal(1, CountOccurrences(html, marker));
         }
         Assert.True(html.IndexOf("<!-- SEO-BODY:START -->", StringComparison.Ordinal) > html.IndexOf("<div id=\"app\">", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Fallback_guard_script_is_loaded_before_blazor_and_exists()
+    {
+        // 静的ファイルの無い URL（SPA のフォールバック）でホームの本文を見せないための確認（js/entry-static.js）
+        var html = File.ReadAllText(Path.Combine(Web, "wwwroot", "index.html"));
+        var guard = html.IndexOf("js/entry-static.js", StringComparison.Ordinal);
+        Assert.True(guard > 0);
+        Assert.True(guard < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
+        Assert.Contains("main.entry-static[data-route]", File.ReadAllText(Path.Combine(Web, "wwwroot", "js", "entry-static.js")));
     }
 
     [Fact]

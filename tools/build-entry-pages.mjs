@@ -94,18 +94,24 @@ export function buildHead(page, origin) {
 
 /** #app の中の本文（検索エンジンが読める実テキスト。Blazor が起動すると置き換わる）。主なページへのリンクを付ける。 */
 export function buildBody(page, pages) {
-    const paragraphs = page.paragraphs.map((text) => `<p>${escapeHtml(text)}</p>`).join("\n        ");
+    const paragraphs = page.paragraphs.map((text) => `<p>${escapeHtml(text)}</p>`).join("\n                ");
     const links = pages
         .map((p) => `<li><a href="${p.route === "" ? "/" : `/${p.route}`}">${escapeHtml(p.label)}</a></li>`)
         .join("");
+    // アプリのヘッダー（濃い紫の帯）と、背景・カードの色に近づける（app.css の .entry-static。見た目は起動の前後でなるべく変えない）
     return [
-        `<main class="entry-static">`,
-        `        <h1>${escapeHtml(page.heading)}</h1>`,
-        `        ${paragraphs}`,
-        `        <nav aria-label="ページ一覧"><ul>${links}</ul></nav>`,
-        `        <noscript><p>この画面を使うには JavaScript を有効にしてください。</p></noscript>`,
+        `<main class="entry-static" data-route="${page.route}">`,
+        `        <div class="entry-static-bar">${escapeHtml(SITE_NAME)}</div>`,
+        `        <div class="entry-static-body">`,
+        `            <div class="entry-static-card">`,
+        `                <h1>${escapeHtml(page.heading)}</h1>`,
+        `                ${paragraphs}`,
+        `            </div>`,
+        `            <nav class="entry-static-nav" aria-label="ページ一覧"><ul>${links}</ul></nav>`,
+        `        </div>`,
+        `        <noscript><p class="entry-static-note">この画面を使うには JavaScript を有効にしてください。</p></noscript>`,
         `    </main>`,
-    ].join("\n        ");
+    ].join("\n");
 }
 
 /** start と end の間を content に置き換える。区切りは 1 つだけあること。 */

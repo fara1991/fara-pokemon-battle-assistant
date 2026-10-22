@@ -83,7 +83,7 @@ test("本文に要約の段落と、主なページへのリンクが入る（Ja
 test("テンプレートの区切りの間だけを書き換え、区切りと #app・Blazor の読み込みは残す", () => {
     const html = renderPage(TEMPLATE, battleTerms, pages, origin);
     assert.match(html, /<title>用語・略語/);
-    assert.match(html, /<main class="entry-static">/);
+    assert.match(html, /<main class="entry-static" data-route="battle-terms">/);
     assert.doesNotMatch(html, /読み込み中/);
     assert.ok(html.includes(BODY_START) && html.includes(BODY_END));
     assert.ok(html.includes(HEAD_START) && html.includes(HEAD_END));
