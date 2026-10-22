@@ -4228,6 +4228,12 @@ html.vt-nav .app-header {
 .site-footer-line { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.15rem 0.6rem; }
 .site-footer-sep { opacity: 0.5; }
 .site-footer-socials { display: inline-flex; gap: 0.35rem; margin-left: 0.2rem; align-items: center; }
+/* スマホ・狭い画面: 折り返したとき、行頭・行末に区切りの | が出ないよう、区切りは出さず、項目の間を空ける */
+@media (max-width: 767.98px) {
+    .site-footer-line { gap: 0.35rem 0.9rem; }
+    .site-footer-sep { display: none; }
+    .site-footer-line > * { white-space: nowrap; }   /* 項目（リンク・サイト名・©）は途中で改行しない。折り返しは項目の間だけ */
+}
 /* SNS のアイコン（白い図形を、サービス色の地に置く）。.site-footer a（文字色・下線）より詳細度を上げ、色とホバーの文字色に負けないようにする */
 .site-footer a.site-footer-social { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--brand, #7c3aed); color: #fff; text-decoration: none; }
 .site-footer a.site-footer-social:hover { color: #fff; box-shadow: 0 3px 10px -3px var(--brand, #7c3aed); }
