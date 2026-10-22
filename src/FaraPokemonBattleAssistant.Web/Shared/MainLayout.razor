@@ -18,7 +18,7 @@
     @* 上に固定するヘッダー。ハンバーガーを押すたびに、サイドバーの表示・非表示を切り替える（PC は、隠すとアイコンだけの細い列、マウスを乗せると広がる）。
        検索欄と、全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク）は PC だけ。スマホは、メニューの上のほうに同じものがある（NavMenu.razor） *@
     <MudAppBar Fixed="true" Elevation="0" Gutters="false" Class="app-header">
-        @* ページを読んだ量の線（上端。js/scroll-progress.js が動かす） *@
+        @* ページを読んだ量の線（ヘッダーの下端。js/scroll-progress.js が動かす） *@
         <div class="scroll-progress" aria-hidden="true"></div>
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Class="sidebar-toggle" OnClick="ToggleDrawer"
                        aria-label="サイドバーの表示・非表示" aria-controls="site-sidebar" aria-expanded="@(DrawerOpen ? "true" : "false")" title="サイドバーの表示・非表示" />

@@ -22,20 +22,30 @@ public class ScrollProgressTests
     }
 
     [Fact]
-    public void Progress_line_is_a_2px_scaleX_bar_on_the_header_edge_that_ignores_the_pointer()
+    public void Progress_line_is_a_2px_bar_on_the_header_bottom_edge_that_ignores_the_pointer()
     {
         var rule = ReadRule(".scroll-progress");
         Assert.Contains("position: absolute;", rule);
-        Assert.Contains("top: 0;", rule);
+        Assert.Contains("bottom: 0;", rule);
         Assert.Contains("height: 2px;", rule);
-        Assert.Contains("transform: scaleX(var(--scroll-progress, 0));", rule);   // 値は線自身の --scroll-progress
         Assert.Contains("pointer-events: none;", rule);
+
+        var fill = ReadRule(".scroll-progress::before");
+        Assert.Contains("transform: scaleX(var(--scroll-progress, 0));", fill);   // 値は線自身の --scroll-progress
+        Assert.Contains("transform-origin: left;", fill);
+    }
+
+    [Fact]
+    public void Header_bottom_border_is_replaced_by_the_progress_line()
+    {
+        Assert.DoesNotContain("border-bottom", ReadRule(".app-header.mud-appbar"));
     }
 
     [Fact]
     public void Progress_line_uses_a_header_accent_token_defined_on_root()
     {
-        Assert.Contains("background: var(--app-header-accent);", ReadRule(".scroll-progress"));
+        Assert.Contains("background: var(--app-header-accent);", ReadRule(".scroll-progress::before"));
+        Assert.Contains("background: var(--app-header-track);", ReadRule(".scroll-progress"));
         Assert.Matches(@":root,\s*\[data-bs-theme=""light""\]\s*\{[^}]*--app-header-accent: linear-gradient\(", Css);
     }
 
@@ -48,9 +58,9 @@ public class ScrollProgressTests
         var end = Css.IndexOf("\n}", start, StringComparison.Ordinal);
         Assert.True(end > start, "メディアクエリの終わりが見つからない");
         var block = Css[start..end];
-        Assert.Contains(".scroll-progress", block);
+        Assert.Contains(".scroll-progress::before", block);
         Assert.Contains("transition: transform", block);
-        Assert.DoesNotContain("display: none", ReadRule(".scroll-progress"));
+        Assert.DoesNotContain("display: none", ReadRule(".scroll-progress::before"));
     }
 
     [Fact]

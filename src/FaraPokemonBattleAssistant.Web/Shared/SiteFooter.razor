@@ -1,5 +1,5 @@
-@* 3 サイト共通の形のフッター: サイト名 | 作者へ報告 | プライバシーポリシー | © 公開年 Fara（Fara は作者のホームページへ）。
-   「作者へ報告」には、いま見ているページを ?from= で付ける（報告に、どのページかが分かるように） *@
+@* 3 サイト共通の形のフッター: サイト名 | 問い合わせ | プライバシーポリシー | © 公開年 Fara（Fara は作者のホームページへ）と、SNS のアイコン（Services/SocialLinks.cs）。
+   「問い合わせ」（/report）には、いま見ているページを ?from= で付ける（報告に、どのページかが分かるように） *@
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -7,11 +7,19 @@
     <div class="site-footer-line">
         <span class="site-footer-name">@SiteInfo.Name</span>
         <span class="site-footer-sep" aria-hidden="true">|</span>
-        <a href="@ReportHref">作者へ報告</a>
+        <a href="@ReportHref">問い合わせ</a>
         <span class="site-footer-sep" aria-hidden="true">|</span>
         <a href="privacy">プライバシーポリシー</a>
         <span class="site-footer-sep" aria-hidden="true">|</span>
         <span>© @SiteInfo.PublishedYear <a href="@SiteInfo.AuthorHomeUrl">@SiteInfo.Author</a></span>
+        <span class="site-footer-socials">
+            @foreach (var s in SocialLinks.All)
+            {
+                <a class="site-footer-social" href="@s.Url" target="_blank" rel="noopener noreferrer" aria-label="@s.Label" title="@s.Label" style="--brand: @s.Color">
+                    <SocialIcon Name="@s.Service" Size="13" />
+                </a>
+            }
+        </span>
     </div>
     @* ポケモンの名前・画像の権利について（このサイトだけの 2 行目） *@
     <div class="site-footer-note">非公式のファンサイトです。ポケットモンスター・ポケモンに関する名称・画像の権利は、各権利者に帰属します。</div>
@@ -23,7 +31,7 @@
         get
         {
             var path = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0];
-            // 報告ページ・プライバシーポリシー自体からは、付けない
+            // 問い合わせページ・プライバシーポリシー自体からは、付けない
             return path is "/report" or "/privacy" || ReportForm.CleanPage(path) == ""
                 ? "report"
                 : "report?from=" + Uri.EscapeDataString(path);
