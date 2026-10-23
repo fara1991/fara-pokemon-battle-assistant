@@ -207,7 +207,7 @@ npm run test:worker                                      # データ共有 API�
 ## 公開（Cloudflare Workers）
 
 `master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/`（ホームの本文入りの `home.html`。`worker/home.js`）と `/api/*`（登録データの API `/api/my/*`・報告・メンテナンスの状態・ゲームデータ `/api/game/*`）と、`/home`・`/home.html`・`/home/`（`/` へ 301）だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/", "/home", "/home.html", "/home/", "/api/*"]`）。存在しない URL は `404.html`（404 のステータス。読み込み表示だけ）を返します（下の「存在しない URL は 404」）。入口ページの静的 HTML（`tools/build-entry-pages.mjs` が作る。`battle-terms.html` など）と `_headers`（CSP）は、`publish:web` と `deploy*.yml` の publish の後に作ります（`--dir` は publish の出力の `wwwroot`）。作り方は fara-site-kit（`external/fara-site-kit/build`・`csp`）、サイトの設定は `tools/site.json`、入口ページの本文は `tools/entry-body.mjs`、文言は `tools/entry-pages.json`。ゲームデータは、通常は静的アセットをそのまま返し、メンテナンス中（Worker の変数 `MAINTENANCE_MODE=true`）だけ `503` にします。
-手動で公開し直すときは **Actions → Deploy to Cloudflare Workers → Run workflow**。
+手動で公開し直すときは **Actions → Deploy (production) → Run workflow**。
 
 `develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-dev`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。
 確認用サイトは Cloudflare Access で自分だけが見られるようにしています（Zero Trust → Access → Applications。許可したメールアドレスに届くコードでログイン）。
@@ -215,7 +215,7 @@ npm run test:worker                                      # データ共有 API�
 ### メンテナンス表示（`MAINTENANCE_MODE`）と本番の初回公開
 
 - Worker の変数 `MAINTENANCE_MODE`（`true` = 全体メンテナンス・503 / `notice` = お知らせ帯 / `false` または未設定 = 通常）と `MAINTENANCE_MESSAGE`（文面）で切り替えます。旧名 `MAINTENANCE` は読みません（残っていても無視。ダッシュボードで削除してかまいません）。
-- 切り替えは **Actions → 対象のワークフロー（確認用は Deploy to Cloudflare Workers (develop)、本番は Deploy to Cloudflare Workers）→ Run workflow** で、`maintenance_mode`（true / notice / false / 空）と `maintenance_message`（空 = 変更しない）を入れて実行します（スマホの GitHub アプリからも可）。実行ページ下部のジョブサマリーに、設定した値と反映後の現在値が出ます。4 サイトまとめては `external/fara-site-kit/tools/maintenance.mjs`（`docs/maintenance-cli.md`）。
+- 切り替えは **Actions → 対象のワークフロー（確認用は Deploy (develop)、本番は Deploy (production)）→ Run workflow** で、`maintenance_mode`（true / notice / false / 空）と `maintenance_message`（空 = 変更しない）を入れて実行します（スマホの GitHub アプリからも可）。実行ページ下部のジョブサマリーに、設定した値と反映後の現在値が出ます。4 サイトまとめては `external/fara-site-kit/tools/maintenance.mjs`（`docs/maintenance-cli.md`）。
 - 本番の push（master）と、何も指定しない手動実行は、従来どおり、公開の前に `MAINTENANCE_MODE=notice` か `true` かをゲート（`.github/scripts/require-maintenance.mjs`）で確かめ、公開と同時に `--var MAINTENANCE_MODE:true`（メンテナンス画面）にします。`maintenance_mode` を指定した手動実行はゲートを飛ばし、その値を渡します。`maintenance_message` だけの手動実行は `MAINTENANCE_MODE` を変えません。`skip_maintenance_check` は確認を飛ばし、`MAINTENANCE_MODE` を作りも変えもしません。
 - **本番の初回公開**（Worker `fara-pokemon` がまだ無い）: ゲートは Worker の不在（Cloudflare API が 404）を「初回の公開」として通します。master への push（または `maintenance_mode` を空にした手動実行）で、`--var MAINTENANCE_MODE:true` が付くので、**全ページがメンテナンス画面（503）のまま作られます**。確認してから、Actions で `maintenance_mode` に `false` を入れて Run workflow（master）→ 通常公開になります（このとき、その時点の master の内容がすべて公開されます）。
 
