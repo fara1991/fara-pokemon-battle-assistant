@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Workers
+name: Deploy (production)
 
 # https://pokemon.fara-labs.com/ への公開。master に push（PR のマージ含む）されるたびに実行。
 # 手動で再実行したいときは Actions タブから Run workflow。
