@@ -200,7 +200,21 @@ test("wrangler.jsonc: 本番も develop も not_found_handling は 404-page（SP
     assert.equal(config.assets.not_found_handling, "404-page");
     assert.equal(config.env.develop.assets.not_found_handling, "404-page");
     assert.equal(config.keep_vars, true);
-    assert.deepEqual([...config.assets.run_worker_first].sort(), ["/", "/api/*"]);
+    const expected = ["/", "/api/*", "/home", "/home.html", "/home/"].sort();   // /home の別名は Worker が / へ 301（worker/home.js）
+    assert.deepEqual([...config.assets.run_worker_first].sort(), expected);
+    assert.deepEqual([...config.env.develop.assets.run_worker_first].sort(), expected);
+});
+
+test("home.html は内部の入口ファイルのまま: canonical は /、sitemap は / だけ（/home を載せない）、静的な _redirects は作らない", () => {
+    for (const out of [prod.out, dev.out]) {
+        assert.ok(out.has("home.html"));
+        assert.ok(!out.has("_redirects"), "_redirects があると Worker の env.ASSETS.fetch(\"/home\") まで転送され、/ が転送ループになる");
+    }
+    assert.match(prod.out.get("home.html"), /<link rel="canonical" href="https:\/\/pokemon\.fara-labs\.com\/" \/>/);
+    const sitemap = prod.out.get("sitemap.xml");
+    assert.match(sitemap, /<loc>https:\/\/pokemon\.fara-labs\.com\/<\/loc>/);
+    assert.doesNotMatch(sitemap, /\/home/);
+    assert.doesNotMatch(prod.out.get("robots.txt"), /home/);
 });
 
 test("404.html: noindex・404 用の title・読み込み表示だけ（本文なし）。本番にも develop にも作る", () => {
