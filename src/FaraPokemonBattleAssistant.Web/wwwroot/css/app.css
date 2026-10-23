@@ -4549,3 +4549,166 @@ html[data-bs-theme="dark"] .fsk-not-found-lead { color: #b4a7d1; }
 .fsk-small { font-size: 0.875em; }
 /* 入力欄のまとまりは、これまで .form-group（0.75rem）が .mb-3（1rem）に勝っていた（どちらも !important で、.form-group が後ろ） */
 .fsk-form-group.fsk-mb-3 { margin-bottom: 0.75rem !important; }
+
+/* ---- 安全領域（ノッチ・ホームバー）。index.html の viewport-fit=cover とセット ----
+   横向きのノッチ端末で、文字・ボタン・サイドバーが隠れないよう、左右の端と下端に余白を足す。背景は端まで広げる。
+   ブラウザ表示や PC では env() が 0 なので、見た目は変わらない。上は、ブラウザ表示では 0（ヘッダーの高さが固定なので、ここでは扱わない）。
+   確かめるときは、CSS の env() を固定値（47px など）に置き換えて表示する。
+   サイドバー（Mud のドロワー）は左の安全領域の分だけ広げる（幅の変数に足す）。本文の左の余白・配置は、この幅に従う。
+   このブロックは、上の規則を上書きするので、ファイルの最後に置く。 */
+:root {
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* MudBlazor がテーマから :root に出す幅を、詳細度で上書きする */
+html:root {
+    --mud-drawer-width-left: calc(230px + var(--safe-l));
+    --mud-drawer-width-mini-left: calc(56px + var(--safe-l));
+}
+
+.fsk-header .mud-toolbar {
+    padding-left: calc(12px + var(--safe-l));
+    padding-right: calc(12px + var(--safe-r));
+}
+
+.fsk-sidebar .mud-drawer-content {
+    box-sizing: border-box;
+    padding-left: var(--safe-l);
+    padding-bottom: var(--safe-b);
+}
+
+.fsk-sidebar .mud-navmenu {
+    width: calc(var(--mud-drawer-width-left, 230px) - var(--safe-l));
+}
+
+/* 本文・お知らせの帯・フッターの左右。PC は本文がサイドバーの右にあるので、左は幅の変数で足りている（右だけ足す）。スマホは左右とも足す */
+.fsk-content {
+    padding-right: calc(1.5rem + var(--safe-r));
+}
+
+.fsk-notice,
+.fsk-footer {
+    padding-right: calc(1rem + var(--safe-r));
+}
+
+.fsk-footer {
+    padding-bottom: calc(0.55rem + var(--safe-b));
+}
+
+@media (max-width: 767.98px) {
+    .fsk-content {
+        padding-left: calc(1.5rem + var(--safe-l));
+    }
+
+    .fsk-notice,
+    .fsk-footer {
+        padding-left: calc(1rem + var(--safe-l));
+    }
+
+    html.fsk-search-open .fsk-search-sheet {
+        padding-left: calc(12px + var(--safe-l));
+        padding-right: calc(56px + var(--safe-r));
+    }
+
+    .site-search-close {
+        right: calc(4px + var(--safe-r));
+    }
+}
+
+/* 起動前の静的な本文（入口ページ）。背景は端まで、文字は安全領域の内側 */
+.entry-static-bar {
+    padding-left: calc(1.25rem + var(--safe-l));
+    padding-right: calc(1.25rem + var(--safe-r));
+}
+
+.entry-static-body {
+    padding-left: calc(1rem + var(--safe-l));
+    padding-right: calc(1rem + var(--safe-r));
+}
+
+/* メンテナンス画面（アプリの代わりに全面に出す）・読み込みエラーの帯 */
+.fsk-maintenance {
+    padding-left: calc(24px + var(--safe-l));
+    padding-right: calc(24px + var(--safe-r));
+    padding-bottom: calc(24px + var(--safe-b));
+}
+
+#blazor-error-ui {
+    padding-left: calc(1.25rem + var(--safe-l));
+    padding-right: calc(1.25rem + var(--safe-r));
+    padding-bottom: calc(0.7rem + var(--safe-b));
+}
+
+#blazor-error-ui .dismiss {
+    right: calc(0.75rem + var(--safe-r));
+}
+
+/* 画面の下の結果バー・「いちばん上へ」ボタン・対戦画面 */
+@media (max-width: 1399.98px) {
+    .result-bar {
+        padding: 0 var(--safe-r) var(--safe-b) var(--safe-l);
+    }
+
+    .has-result-bar {
+        padding-bottom: calc(4rem + var(--safe-b));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .scroll-top {
+        right: calc(0.9rem + var(--safe-r));
+        bottom: calc(1rem + var(--safe-b));
+    }
+
+    .scroll-top.above-bar {
+        bottom: calc(4.8rem + var(--safe-b));
+    }
+}
+
+.battle-ui {
+    inset: 3.6rem var(--safe-r) var(--safe-b) var(--safe-l);
+}
+
+@media (min-width: 768px) {
+    .battle-ui {
+        inset: 3.5rem var(--safe-r) var(--safe-b) calc(230px + var(--safe-l));
+    }
+
+    html.fsk-sidebar-hidden .battle-ui {
+        inset: 3.5rem var(--safe-r) var(--safe-b) calc(3.5rem + var(--safe-l));
+    }
+
+    .bg-scene {
+        --stage-shift: calc(115px + var(--safe-l) / 2);
+    }
+
+    html.fsk-sidebar-hidden .bg-scene {
+        --stage-shift: calc(1.75rem + var(--safe-l) / 2);
+    }
+
+    .type-chart {
+        --tc-cell: clamp(1.5rem, min(calc((100vh - 17rem) / 19.6), calc((100vw - 230px - var(--safe-l) - var(--safe-r) - 20rem - 6rem) / 21)), 2.6rem);
+    }
+
+    .type-chart-main {
+        min-width: calc(clamp(1.5rem, min(calc((100vh - 17rem) / 19.6), calc((100vw - 230px - var(--safe-l) - var(--safe-r) - 20rem - 6rem) / 21)), 2.6rem) * 19);
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1399.98px) {
+    .result-bar {
+        left: calc(230px + var(--safe-l));
+        padding-left: 0;
+    }
+
+    html.fsk-sidebar-hidden .result-bar {
+        left: calc(3.5rem + var(--safe-l));
+    }
+
+    .calc-grid.pane-fill.has-result-bar > .calc-col,
+    .calc-grid.pane-fill.has-result-bar > .calc-right {
+        padding-bottom: calc(3.5rem + var(--safe-b));
+    }
+}

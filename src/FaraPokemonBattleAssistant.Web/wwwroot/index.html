@@ -2,7 +2,7 @@
 <html lang="ja" data-bs-theme="light">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- SEO-HEAD:START -->
     <title>Pokémon Battle Assistant</title>
     <!-- SEO-HEAD:END -->
@@ -18,6 +18,8 @@
             position: fixed; inset: 0; z-index: 2147483000;
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.1rem;
             box-sizing: border-box; padding: 1.5rem;
+            /* 横向きのノッチ・下端のバーで文字が隠れないよう、安全領域の分だけ内側に寄せる（viewport-fit=cover のとき。ブラウザ表示では 0）。背景は端まで */
+            padding: calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px));
             background: #f7f4fd; color: #3b2a5c;
             font-family: "Zen Kaku Gothic New", "Yu Gothic", system-ui, sans-serif;
             animation: boot-indicator-release 0s linear 60s forwards;
