@@ -131,7 +131,7 @@ public class FooterAndNavTests
     [Fact]
     public void Maintenance_screen_is_the_kit_screen_with_the_twitter_contact()
     {
-        // メンテナンス中（MAINTENANCE=true）は、アプリの代わりにこの画面だけを動かす（Program.cs）。画面は kit の MaintenanceScreen、連絡先だけがこのサイトのもの
+        // メンテナンス中（MAINTENANCE_MODE=true）は、アプリの代わりにこの画面だけを動かす（Program.cs）。画面は kit の MaintenanceScreen、連絡先だけがこのサイトのもの
         Assert.False(File.Exists(Path.Combine(Web, "MaintenanceScreen.razor")));
         var page = Read(Path.Combine(Web, "MaintenancePage.razor"));
         Assert.Contains("<MaintenanceScreen Info=\"Info\">", page);

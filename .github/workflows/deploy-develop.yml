@@ -9,6 +9,16 @@ on:
       - "**.md"
       - ".github/ISSUE_TEMPLATE/**"
   workflow_dispatch:
+    inputs:
+      maintenance_mode:
+        description: "メンテナンス表示の切り替え。true = 全体メンテナンス（全ページがメンテナンス画面・503）、notice = お知らせ帯、false = 通常。空 = 変更しない"
+        type: choice
+        options: ["", "true", "notice", "false"]
+        default: ""
+      maintenance_message:
+        description: "お知らせ・メンテナンス画面に出す文（200 文字まで・改行なし）。空 = 変更しない"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -61,7 +71,41 @@ jobs:
           HEADERS
 
       - name: Deploy (develop)
-        run: npx wrangler deploy --env develop
+        shell: bash
+        run: |
+          vars=()
+          if [ -n "$MAINTENANCE_MODE_INPUT" ]; then vars+=(--var "MAINTENANCE_MODE:$MAINTENANCE_MODE_INPUT"); fi
+          if [ -n "$MAINTENANCE_MESSAGE_INPUT" ]; then vars+=(--var "MAINTENANCE_MESSAGE:$MAINTENANCE_MESSAGE_INPUT"); fi
+          npx wrangler deploy --env develop "${vars[@]}"
         env:
+          MAINTENANCE_MODE_INPUT: ${{ inputs.maintenance_mode }}
+          MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Summary (maintenance)
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          msg="$(printf '%s' "$MAINTENANCE_MESSAGE_INPUT" | tr '`' '"')"
+          {
+            echo "### メンテナンス表示 (${WORKER_NAME})"
+            echo "- 設定した値: MAINTENANCE_MODE=\`${MAINTENANCE_MODE_INPUT:-(変更なし)}\` / MAINTENANCE_MESSAGE=\`${msg:-(変更なし)}\`"
+            node -e '
+              const j = (v) => JSON.stringify(v);
+              fetch(`https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${process.env.WORKER_NAME}/settings`, { headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` } })
+                .then((r) => r.json())
+                .then((b) => {
+                  const list = b?.result?.bindings ?? [];
+                  const v = (n) => { const x = list.find((y) => y.name === n); return x ? (x.type === "plain_text" ? j(x.text).replaceAll("`", "\u0027") : `(${x.type})`) : "(未設定)"; };
+                  console.log(`- 反映後の現在値: MAINTENANCE_MODE=\`${v("MAINTENANCE_MODE")}\` / MAINTENANCE_MESSAGE=\`${v("MAINTENANCE_MESSAGE")}\``);
+                })
+                .catch(() => console.log("- 反映後の現在値: 取得できませんでした"));
+            '
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          MAINTENANCE_MODE_INPUT: ${{ inputs.maintenance_mode }}
+          MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
+          WORKER_NAME: fara-pokemon-dev
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

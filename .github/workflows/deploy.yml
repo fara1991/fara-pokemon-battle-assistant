@@ -11,9 +11,18 @@ on:
   workflow_dispatch:
     inputs:
       skip_maintenance_check:
-        description: "MAINTENANCE=notice の確認を飛ばして公開する（緊急の修正用。お知らせなしで公開される）"
+        description: "MAINTENANCE_MODE=notice の確認を飛ばして公開する（緊急の修正用。お知らせなしで公開される）"
         type: boolean
         default: false
+      maintenance_mode:
+        description: "メンテナンス表示の切り替え。true = 全体メンテナンス（全ページがメンテナンス画面・503）、notice = お知らせ帯、false = 通常。空 = 変更しない"
+        type: choice
+        options: ["", "true", "notice", "false"]
+        default: ""
+      maintenance_message:
+        description: "お知らせ・メンテナンス画面に出す文（200 文字まで・改行なし）。空 = 変更しない"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -61,19 +70,61 @@ jobs:
       - name: Check routes
         run: node tools/check-routes.mjs
 
-      # 本番の公開は、Cloudflare の Worker の変数 MAINTENANCE が notice（更新予定のお知らせを出している）のときだけ行う。
-      # 確認できないとき・notice でないときは、ここで止める（手動実行の skip_maintenance_check で飛ばせる）
-      - name: Require MAINTENANCE=notice
+
+      # push（master）と、値を指定しない手動実行は、従来どおり: 公開の前に、Cloudflare の Worker の変数 MAINTENANCE_MODE が notice（更新予定のお知らせを出している）かを確かめる。
+      # 確認できないとき・notice でないときは、ここで止める（skip_maintenance_check で飛ばせる）。Worker がまだ無い（初回の公開）ときは通す。
+      # maintenance_mode に true / notice / false を指定した手動実行（maintenance-cli の set）は、操作した人の意思なので、確認を飛ばす
+      - name: Require MAINTENANCE_MODE=notice
+        if: ${{ !contains(fromJSON('["true","notice","false"]'), inputs.maintenance_mode) }}
         run: node .github/scripts/require-maintenance.mjs fara-pokemon
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           SKIP_MAINTENANCE_CHECK: ${{ inputs.skip_maintenance_check }}
 
-      # 公開と同時に MAINTENANCE=true（メンテナンス画面）にする。作業が終わったら、Cloudflare で false に戻す（お知らせも一緒に消える）。
-      # 確認を飛ばしたとき（緊急の修正）は、メンテナンス画面にしない
+      # push と、何も指定しない手動実行だけ、公開と同時に MAINTENANCE_MODE=true（メンテナンス画面）にする。作業が終わったら、false に戻す（お知らせも一緒に消える）。
+      # skip_maintenance_check（緊急の修正）のときは、メンテナンス画面にしない。maintenance_mode を指定したときはその値、maintenance_message だけのときは MAINTENANCE_MODE を渡さない（現在の値を保持）
       - name: Deploy
-        run: npx wrangler deploy --env="" ${{ inputs.skip_maintenance_check && ' ' || '--var MAINTENANCE:true' }}
+        shell: bash
+        run: |
+          vars=()
+          if [ -n "$MAINTENANCE_MODE_INPUT" ]; then
+            vars+=(--var "MAINTENANCE_MODE:$MAINTENANCE_MODE_INPUT")
+          elif [ -z "$MAINTENANCE_MESSAGE_INPUT" ] && [ "$SKIP_MAINTENANCE_CHECK" != "true" ]; then
+            vars+=(--var "MAINTENANCE_MODE:true")   # push と、何も指定しない手動実行だけ: 従来どおり、公開と同時にメンテナンス画面にする
+          fi
+          if [ -n "$MAINTENANCE_MESSAGE_INPUT" ]; then vars+=(--var "MAINTENANCE_MESSAGE:$MAINTENANCE_MESSAGE_INPUT"); fi
+          npx wrangler deploy --env="" "${vars[@]}"
         env:
+          MAINTENANCE_MODE_INPUT: ${{ inputs.maintenance_mode }}
+          MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
+          SKIP_MAINTENANCE_CHECK: ${{ inputs.skip_maintenance_check }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Summary (maintenance)
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          msg="$(printf '%s' "$MAINTENANCE_MESSAGE_INPUT" | tr '`' '"')"
+          {
+            echo "### メンテナンス表示 (${WORKER_NAME})"
+            echo "- 設定した値: MAINTENANCE_MODE=\`${MAINTENANCE_MODE_INPUT:-(変更なし)}\` / MAINTENANCE_MESSAGE=\`${msg:-(変更なし)}\`"
+            node -e '
+              const j = (v) => JSON.stringify(v);
+              fetch(`https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${process.env.WORKER_NAME}/settings`, { headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` } })
+                .then((r) => r.json())
+                .then((b) => {
+                  const list = b?.result?.bindings ?? [];
+                  const v = (n) => { const x = list.find((y) => y.name === n); return x ? (x.type === "plain_text" ? j(x.text).replaceAll("`", "\u0027") : `(${x.type})`) : "(未設定)"; };
+                  console.log(`- 反映後の現在値: MAINTENANCE_MODE=\`${v("MAINTENANCE_MODE")}\` / MAINTENANCE_MESSAGE=\`${v("MAINTENANCE_MESSAGE")}\``);
+                })
+                .catch(() => console.log("- 反映後の現在値: 取得できませんでした"));
+            '
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          MAINTENANCE_MODE_INPUT: ${{ inputs.maintenance_mode }}
+          MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
+          WORKER_NAME: fara-pokemon
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

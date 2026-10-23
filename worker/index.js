@@ -352,7 +352,7 @@ export default {
     // /home・/home.html・/home/（内部の入口ファイル home.html）は / へ 301。静的な _redirects では書けない（serveHome が env.ASSETS.fetch("/home") で取るとき、_redirects が効いて / が転送ループになるため）。メンテナンス中でも転送する
     const homeAlias = redirectHomeAlias(request);
     if (homeAlias) return homeAlias;
-    // メンテナンスの状態（Worker の変数 MAINTENANCE。external/fara-site-kit/worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
+    // メンテナンスの状態（Worker の変数 MAINTENANCE_MODE。external/fara-site-kit/worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
     const maintenance = getMaintenance(env);
     if (url.pathname === "/api/maintenance") {
       return new Response(JSON.stringify({ state: maintenance.state, message: maintenance.message }), {

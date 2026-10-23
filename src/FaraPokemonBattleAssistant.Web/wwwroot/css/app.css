@@ -4482,7 +4482,7 @@ a.fsk-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed
 .policy-card h5:first-child { margin-top: 0; }
 .report-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
-/* メンテナンスのお知らせ（MAINTENANCE=notice）と、メンテナンス画面（MAINTENANCE=true） */
+/* メンテナンスのお知らせ（MAINTENANCE_MODE=notice）と、メンテナンス画面（MAINTENANCE_MODE=true） */
 /* メンテナンスのお知らせの帯は、ヘッダーの真下に固定する。PC は、ページの中身（.fsk-content）だけがスクロールするので、帯は元から動かない。
    スマホは、ページ全体（window）がスクロールするので、sticky で残す（top はヘッダーの高さ）。
    z-index は、ヘッダー（1040）より下・ページ内の要素（数十まで）より上・ドロワーやポップアップより下。

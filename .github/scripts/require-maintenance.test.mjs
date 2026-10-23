@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluate, readMaintenanceValue, fetchSettings, run } from "./require-maintenance.mjs";
 
-const bindings = (text, type = "plain_text") => [{ name: "OTHER", type: "plain_text", text: "x" }, { name: "MAINTENANCE", type, text }];
+const bindings = (text, type = "plain_text") => [{ name: "OTHER", type: "plain_text", text: "x" }, { name: "MAINTENANCE_MODE", type, text }];
 const settingsResponse = (b, status = 200) => new Response(JSON.stringify({ success: status === 200, result: { bindings: b } }), { status });
 const ENV = { CLOUDFLARE_API_TOKEN: "tok", CLOUDFLARE_ACCOUNT_ID: "acc" };
 
@@ -12,6 +12,11 @@ test("evaluate: notice と true は通す。false・未設定・そのほかは�
   for (const v of ["notice", "NOTICE", " Notice "]) assert.equal(evaluate(v).ok, true, v);
   for (const v of ["true", "TRUE", "on", "1"]) assert.equal(evaluate(v).ok, true, v);
   for (const v of ["false", "False", "", undefined, null, "0", "off", "maintenance", "yes"]) assert.equal(evaluate(v).ok, false, String(v));
+});
+
+test("readMaintenanceValue: 旧名 MAINTENANCE は読まない（フォールバックなし）", () => {
+  assert.equal(readMaintenanceValue([{ name: "MAINTENANCE", type: "plain_text", text: "notice" }]), "");
+  assert.equal(evaluate(readMaintenanceValue([{ name: "MAINTENANCE", type: "plain_text", text: "true" }])).ok, false);
 });
 
 test("evaluate: 止めるときのメッセージは、notice にする手順を案内する。シークレットは別のメッセージ", () => {
@@ -33,7 +38,7 @@ test("readMaintenanceValue: テキストの変数の値を読む。シークレ�
   assert.equal(readMaintenanceValue([{ name: "OTHER", type: "plain_text", text: "x" }]), "");
   assert.equal(readMaintenanceValue(undefined), "");
   assert.equal(readMaintenanceValue(null), "");
-  assert.equal(readMaintenanceValue([null, { name: "MAINTENANCE", type: "plain_text", text: 5 }]), "");
+  assert.equal(readMaintenanceValue([null, { name: "MAINTENANCE_MODE", type: "plain_text", text: 5 }]), "");
 });
 
 test("fetchSettings: 正しい URL と認証で読み、404 は「無い」", async () => {

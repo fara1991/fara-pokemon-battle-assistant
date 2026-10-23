@@ -10,7 +10,7 @@
   "name": "fara-pokemon",
   "main": "worker/index.js",
   "compatibility_date": "2026-09-01",
-  // ダッシュボードで足した変数（MAINTENANCE・MAINTENANCE_MESSAGE など）を、公開（wrangler deploy）のたびに消さない
+  // ダッシュボードで足した変数（MAINTENANCE_MODE・MAINTENANCE_MESSAGE など）を、公開（wrangler deploy）のたびに消さない
   "keep_vars": true,
   "assets": {
     "directory": "./publish/wwwroot",
@@ -22,7 +22,7 @@
     // / と /api/*（登録データ・報告・メンテナンスの状態・ゲームデータ）、および /home・/home.html・/home/（内部の入口ファイル home.html。/ へ 301）だけ Worker スクリプトに渡す（それ以外のパスは今までどおり静的アセット）。
     // /home の転送を静的な _redirects にしないのは、Worker が / で env.ASSETS.fetch("/home") を呼ぶときにも _redirects が効いて、/ が / へ転送されてしまうため
     // / は、ホームの本文入りの home.html を返すため（worker/home.js）。存在しない URL は 404.html の 404（読み込み表示だけ。起動後に Blazor が 404 画面を描く）
-    // ゲームデータの /api/game/* は、通常は Worker が静的アセットをそのまま返し、メンテナンス中（MAINTENANCE=true）だけ 503 にする
+    // ゲームデータの /api/game/* は、通常は Worker が静的アセットをそのまま返し、メンテナンス中（MAINTENANCE_MODE=true）だけ 503 にする
     // （データの更新をメンテナンス中に行えるように）。Worker を通るぶん、無料枠のリクエスト数を使う
     "run_worker_first": ["/", "/home", "/home.html", "/home/", "/api/*"]
   },
