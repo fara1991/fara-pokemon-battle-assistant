@@ -318,3 +318,15 @@ test("ルート収集の取りこぼしがない: AdditionalAssemblies・@attrib
     assert.deepEqual(found, [], "@page 以外のルート定義は静的 HTML の収集（discoverPageRoutes）に入りません。収集を拡張してから使ってください");
     assert.match(readFileSync(join(web, "App.razor"), "utf8"), /<Router AppAssembly="@typeof\(App\)\.Assembly">/);
 });
+
+test("viewport に viewport-fit=cover がある（ノッチ端末で安全領域の余白を効かせる）。テンプレートと、生成した各 HTML（本番・develop）の両方", () => {
+    const VIEWPORT = /<meta name="viewport" content="[^"]*viewport-fit=cover[^"]*"/;
+    assert.match(TEMPLATE, VIEWPORT, "wwwroot/index.html の viewport");
+    for (const [label, result] of [["production", prod], ["develop", dev]]) {
+        const names = [...result.out.keys()].filter((name) => name.endsWith(".html"));
+        assert.ok(names.length > 5, `${label}: 生成した HTML が少なすぎます`);
+        for (const name of names) {
+            assert.match(result.out.get(name), VIEWPORT, `${label}/${name} の viewport に viewport-fit=cover がありません`);
+        }
+    }
+});
