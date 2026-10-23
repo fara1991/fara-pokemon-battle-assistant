@@ -105,7 +105,7 @@ try {
   check("GET my-pokemon で保存した内容と nextId が返る",
     got.json?.revision === 1 && same(got.json?.dataSets?.Champions?.pokemon, mons) && got.json?.dataSets?.Champions?.nextId === 4, got.text);
 
-  // メンテナンスの状態（変数 MAINTENANCE が無いので、通常。アプリが起動時に読む）
+  // メンテナンスの状態（変数 MAINTENANCE_MODE が無いので、通常。アプリが起動時に読む）
   const maint = await req("GET", "/api/maintenance", null);
   check("GET /api/maintenance は通常（off）を返し、キャッシュさせない", maint.status === 200 && maint.json?.state === "off" && maint.json?.message === "", maint.text);
 

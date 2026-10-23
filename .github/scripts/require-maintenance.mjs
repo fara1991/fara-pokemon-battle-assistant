@@ -1,4 +1,4 @@
-// 本番の公開（デプロイ）の前に、Cloudflare の Worker の変数 MAINTENANCE が "notice"（または "true"）になっているかを確かめる。
+// 本番の公開（デプロイ）の前に、Cloudflare の Worker の変数 MAINTENANCE_MODE が "notice"（または "true"）になっているかを確かめる。
 // 3 サイト（pokemon・avatar・bot）とポートフォリオで同じファイルを使う（各リポジトリの .github/scripts/ に同じ内容を置いている）。
 //
 //   node .github/scripts/require-maintenance.mjs <Worker 名>
@@ -13,9 +13,9 @@
 //   確認できなかった（通信・権限の問題）… 止める（確かめずに公開しない）
 // 変数は、ダッシュボードで「テキスト」にしておく（シークレットは値を読めないため、確かめられない）。
 
-/** Worker の設定（bindings）から、MAINTENANCE の値を読む。無い・文字列でないときは空。 */
+/** Worker の設定（bindings）から、MAINTENANCE_MODE の値を読む。無い・文字列でないときは空。 */
 export function readMaintenanceValue(bindings) {
-  const binding = Array.isArray(bindings) ? bindings.find((b) => b && b.name === "MAINTENANCE") : undefined;
+  const binding = Array.isArray(bindings) ? bindings.find((b) => b && b.name === "MAINTENANCE_MODE") : undefined;
   if (!binding) return "";
   if (binding.type === "plain_text" && typeof binding.text === "string") return binding.text.trim();
   return binding.type === "secret_text" ? "(secret)" : "";
@@ -28,20 +28,20 @@ function printable(value) {
 
 /**
  * 公開してよいか。
- * @param {string} value MAINTENANCE の値（readMaintenanceValue）
+ * @param {string} value MAINTENANCE_MODE の値（readMaintenanceValue）
  * @returns {{ ok: boolean, state: "notice" | "on" | "off" | "secret", message: string }}
  */
 export function evaluate(value) {
   const v = String(value ?? "").trim().toLowerCase();
-  if (v === "notice") return { ok: true, state: "notice", message: "MAINTENANCE=notice（お知らせを出しています）。公開します" };
-  if (v === "true" || v === "on" || v === "1") return { ok: true, state: "on", message: "MAINTENANCE=true（すでにメンテナンス中です）。公開します" };
+  if (v === "notice") return { ok: true, state: "notice", message: "MAINTENANCE_MODE=notice（お知らせを出しています）。公開します" };
+  if (v === "true" || v === "on" || v === "1") return { ok: true, state: "on", message: "MAINTENANCE_MODE=true（すでにメンテナンス中です）。公開します" };
   if (v === "(secret)") {
-    return { ok: false, state: "secret", message: "MAINTENANCE が「シークレット」になっていて、値を確かめられません。ダッシュボードで「テキスト」の変数にしてください" };
+    return { ok: false, state: "secret", message: "MAINTENANCE_MODE が「シークレット」になっていて、値を確かめられません。ダッシュボードで「テキスト」の変数にしてください" };
   }
   return {
     ok: false,
     state: "off",
-    message: `MAINTENANCE が notice になっていません（いまの値: ${v === "" ? "未設定" : printable(v)}）。先に Cloudflare の Worker の変数 MAINTENANCE を notice にして、更新予定のお知らせを出してから、公開してください`,
+    message: `MAINTENANCE_MODE が notice になっていません（いまの値: ${v === "" ? "未設定" : printable(v)}）。先に Cloudflare の Worker の変数 MAINTENANCE_MODE を notice にして、更新予定のお知らせを出してから、公開してください`,
   };
 }
 
@@ -60,7 +60,7 @@ export async function fetchSettings(workerName, { token, accountId, fetchImpl = 
 export async function run({ workerName, env, fetchImpl, log = console.log, error = console.error }) {
   if (!workerName) { error("使い方: node .github/scripts/require-maintenance.mjs <Worker 名>"); return 2; }
   if (String(env.SKIP_MAINTENANCE_CHECK ?? "").toLowerCase() === "true") {
-    log("::warning::MAINTENANCE の確認を飛ばしました（SKIP_MAINTENANCE_CHECK=true）");
+    log("::warning::MAINTENANCE_MODE の確認を飛ばしました（SKIP_MAINTENANCE_CHECK=true）");
     return 0;
   }
   const token = env.CLOUDFLARE_API_TOKEN;
@@ -70,7 +70,7 @@ export async function run({ workerName, env, fetchImpl, log = console.log, error
   try {
     settings = await fetchSettings(workerName, { token, accountId, fetchImpl });
   } catch (e) {
-    error(`::error::MAINTENANCE を確かめられませんでした。公開を止めます: ${e.message}`);
+    error(`::error::MAINTENANCE_MODE を確かめられませんでした。公開を止めます: ${e.message}`);
     return 1;
   }
   if (settings.missing) {

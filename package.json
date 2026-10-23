@@ -10,7 +10,7 @@
     "test:worker": "node tools/worker-api-test.mjs",
     "test:report": "node --test external/fara-site-kit/worker/report.test.mjs",
     "test:maintenance": "node --test external/fara-site-kit/worker/maintenance.test.mjs",
-    "test:gate": "node --test .github/scripts/require-maintenance.test.mjs",
+    "test:gate": "node --test .github/scripts/require-maintenance.test.mjs .github/scripts/deploy-workflow.test.mjs",
     "test:kit-js": "node --test external/fara-site-kit/tests/js/kit-js.test.mjs",
     "test:entry": "node --test tools/build-entry-pages.test.mjs",
     "test:routes": "node tools/not-found-test.mjs",

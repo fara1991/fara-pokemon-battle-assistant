@@ -16,8 +16,8 @@ var baseAddress = builder.HostEnvironment.BaseAddress;
 // メンテナンス画面（下）も SiteOptions を読むので、メンテナンスの分岐より前に登録する。値は Services/SiteInfo.cs
 builder.Services.AddFaraSiteKit(SiteInfo.Configure);
 
-// メンテナンスの状態（Worker の変数 MAINTENANCE。external/fara-site-kit/worker/maintenance.js）。読めなければ通常。
-// メンテナンス中（MAINTENANCE=true）は、アプリの代わりに、メンテナンス画面だけを動かす
+// メンテナンスの状態（Worker の変数 MAINTENANCE_MODE。external/fara-site-kit/worker/maintenance.js）。読めなければ通常。
+// メンテナンス中（MAINTENANCE_MODE=true）は、アプリの代わりに、メンテナンス画面だけを動かす
 var maintenance = await MaintenanceInfo.LoadAsync(new HttpClient { BaseAddress = new Uri(baseAddress) });
 builder.Services.AddSingleton(maintenance);
 if (maintenance.State == MaintenanceState.On)

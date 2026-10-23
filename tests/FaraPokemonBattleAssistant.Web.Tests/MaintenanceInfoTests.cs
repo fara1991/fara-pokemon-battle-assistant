@@ -5,7 +5,7 @@ using Xunit;
 
 namespace FaraPokemonBattleAssistant.Web.Tests;
 
-/// <summary>メンテナンスの状態（Worker の変数 MAINTENANCE / MAINTENANCE_MESSAGE）の読み取り。読めなければ通常として扱う。</summary>
+/// <summary>メンテナンスの状態（Worker の変数 MAINTENANCE_MODE / MAINTENANCE_MESSAGE）の読み取り。読めなければ通常として扱う。</summary>
 public class MaintenanceInfoTests
 {
     [Theory]
@@ -126,7 +126,7 @@ public class MaintenanceInfoTests
     [Fact]
     public void The_shipped_wrangler_config_keeps_dashboard_variables()
     {
-        // 公開（wrangler deploy）のたびに、ダッシュボードの MAINTENANCE が消えないように。keep_vars はトップレベルだけが有効
+        // 公開（wrangler deploy）のたびに、ダッシュボードの MAINTENANCE_MODE が消えないように。keep_vars はトップレベルだけが有効
         // （env の中に書くと、wrangler が「知らない項目」と警告する。本番・確認用の両方に、トップレベルの値が効く）
         var path = FindUp("wrangler.jsonc");
         var text = File.ReadAllText(path);
@@ -149,18 +149,31 @@ public class MaintenanceInfoTests
     }
 
     [Fact]
-    public void Production_deploy_requires_MAINTENANCE_notice_and_turns_maintenance_on()
+    public void Production_deploy_requires_MAINTENANCE_MODE_notice_and_turns_maintenance_on()
     {
-        var yml = File.ReadAllText(FindUp(".github/workflows/deploy.yml"));
+        var yml = File.ReadAllText(FindUp(".github/workflows/deploy.yml")).Replace("\r\n", "\n");
         Assert.Contains("node .github/scripts/require-maintenance.mjs fara-pokemon", yml);
         Assert.True(yml.IndexOf("require-maintenance.mjs", StringComparison.Ordinal) < yml.IndexOf("npx wrangler deploy", StringComparison.Ordinal), "確認は公開より前");
-        Assert.Contains("--var MAINTENANCE:true", yml);
+        // 公開と同時のメンテナンス化は、push と何も指定しない手動実行だけ（分岐は deploy-workflow.test.mjs が bash で実行して固定）
+        Assert.Contains("vars+=(--var \"MAINTENANCE_MODE:true\")", yml);
+        Assert.Contains("vars+=(--var \"MAINTENANCE_MODE:$MAINTENANCE_MODE_INPUT\")", yml);
+        Assert.Contains("[ -z \"$MAINTENANCE_MESSAGE_INPUT\" ] && [ \"$SKIP_MAINTENANCE_CHECK\" != \"true\" ]", yml);
         Assert.Contains("inputs.skip_maintenance_check", yml);
         Assert.Contains("skip_maintenance_check:", yml);
-        // 確認用（develop）の公開は、確認もメンテナンス化もしない
-        var develop = File.ReadAllText(FindUp(".github/workflows/deploy-develop.yml"));
+        // mode を指定した手動実行は、確認（ゲート）を飛ばす
+        Assert.Contains("if: ${{ !contains(fromJSON('[\"true\",\"notice\",\"false\"]'), inputs.maintenance_mode) }}", yml);
+        Assert.Contains("maintenance_mode:", yml);
+        Assert.Contains("maintenance_message:", yml);
+        Assert.Contains("name: Summary (maintenance)", yml);
+        // 旧名 MAINTENANCE は使わない
+        Assert.DoesNotMatch(@"(?<![_A-Za-z])MAINTENANCE(?![_A-Za-z])", yml);
+        // 確認用（develop）の公開は、確認も自動のメンテナンス化もしない（指定した入力だけを渡す）
+        var develop = File.ReadAllText(FindUp(".github/workflows/deploy-develop.yml")).Replace("\r\n", "\n");
         Assert.DoesNotContain("require-maintenance", develop);
-        Assert.DoesNotContain("MAINTENANCE:true", develop);
+        Assert.DoesNotContain("MAINTENANCE_MODE:true", develop);
+        Assert.Contains("vars+=(--var \"MAINTENANCE_MODE:$MAINTENANCE_MODE_INPUT\")", develop);
+        Assert.Contains("vars+=(--var \"MAINTENANCE_MESSAGE:$MAINTENANCE_MESSAGE_INPUT\")", develop);
+        Assert.Contains("name: Summary (maintenance)", develop);
     }
 
     [Fact]

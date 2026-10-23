@@ -160,23 +160,23 @@ async function checkNormal(base, label, dir) {
 
 async function checkMaintenance(base, label) {
   const csv = await fetch(`${base}/api/game/datasets.csv`);
-  check(`${label} MAINTENANCE=true: /api/game/* は 503`, csv.status === 503, String(csv.status));
+  check(`${label} MAINTENANCE_MODE=true: /api/game/* は 503`, csv.status === 503, String(csv.status));
   const api = await fetch(`${base}/api/my/pokemon`);
-  check(`${label} MAINTENANCE=true: /api/my/* は 503`, api.status === 503, String(api.status));
+  check(`${label} MAINTENANCE_MODE=true: /api/my/* は 503`, api.status === 503, String(api.status));
   const state = await (await fetch(`${base}/api/maintenance`)).json();
-  check(`${label} MAINTENANCE=true: /api/maintenance は state=on`, state.state === "on", JSON.stringify(state));
+  check(`${label} MAINTENANCE_MODE=true: /api/maintenance は state=on`, state.state === "on", JSON.stringify(state));
   // ページ本体は静的アセットのまま（メンテナンス画面はアプリが /api/maintenance を読んで出す）。存在しない URL は 404 のまま
-  check(`${label} MAINTENANCE=true: 存在しない URL は 404 のまま`, (await fetch(`${base}/abc`)).status === 404);
-  await checkHomeRedirect(base, "[本番] MAINTENANCE=true:");
-  check(`${label} MAINTENANCE=true: / は 200 のまま`, (await fetch(`${base}/`)).status === 200);
-  check(`${label} MAINTENANCE=true: 有効なルートは 200 のまま`, (await fetch(`${base}/speed-comparison`)).status === 200);
+  check(`${label} MAINTENANCE_MODE=true: 存在しない URL は 404 のまま`, (await fetch(`${base}/abc`)).status === 404);
+  await checkHomeRedirect(base, "[本番] MAINTENANCE_MODE=true:");
+  check(`${label} MAINTENANCE_MODE=true: / は 200 のまま`, (await fetch(`${base}/`)).status === 200);
+  check(`${label} MAINTENANCE_MODE=true: 有効なルートは 200 のまま`, (await fetch(`${base}/speed-comparison`)).status === 200);
 }
 
 const assets = prepareAssets();
 try {
   await withWrangler({ env: null, port: basePort, dir: assets.dir, body: (base) => checkNormal(base, "[本番]", assets.dir) });
   await withWrangler({ env: "develop", port: basePort + 1, dir: assets.dir, body: (base) => checkNormal(base, "[develop]", assets.dir) });
-  await withWrangler({ env: null, port: basePort + 2, vars: ["MAINTENANCE:true"], dir: assets.dir, body: (base) => checkMaintenance(base, "[本番]") });
+  await withWrangler({ env: null, port: basePort + 2, vars: ["MAINTENANCE_MODE:true"], dir: assets.dir, body: (base) => checkMaintenance(base, "[本番]") });
 } finally {
   assets.cleanup();
 }

@@ -51,7 +51,7 @@ fara-pokemon-battle-assistant/
 - `datasets.json` の `calc: "Reference"` のゲームは参照のみです（計算機などでは案内を出します）。
 - 第3〜7世代のダメージ計算（`LegacyDamageCalculator`）は、その世代の補正の順番・丸め（第3〜4世代は補正ごとの切り捨て・タイプ一致の位置、急所 2 倍 / 1.5 倍、スキン系 1.3 倍、フィールド 1.5 倍、まひ 1/4、やけど 1/8 など）で行います。公開されているダメージ計算ツール（@smogon/calc）の結果と、`tools/calc_vectors` で作った条件（`tests/.../Data/calc_vectors.json`。第3〜7世代に加え、ソード・シールド / スカーレット・バイオレット / チャンピオンズの条件も含む）で一致を確かめています（第3世代のウェザーボールは、天候があると威力ではなくダメージが 2 倍になり、変わったタイプで物理・特殊も決まります。天候がないときはツールが特殊技として計算しますが、ゲームではノーマルタイプの物理技なので、その条件だけ比較から除いています）。ちからずく・すてみの対象の技は `move_lists.js` で作る `Data/move_lists.json` で全部の技を照合します。今のゲームの計算を意図して変えたときは `Data/calc_snapshot.txt` を作り直し、変わったケースを確認します。
 - 手動で更新する場合: `python tools/sync_data.py`（HOME を飛ばすなら `--skip-home`）。
-- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイル。通常は Worker が、そのまま返します。メンテナンス中（`MAINTENANCE=true`）だけ `503`。そのとき配信用BOTは、取り直しに失敗した扱いで、古いキャッシュで続行します）。配信用BOT（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルは `404`（以前の SPA 設定では `index.html` の `200`、`text/html` でした）。`HttpDataSource` は 404 も HTML も「無い」として扱います。
+- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイル。通常は Worker が、そのまま返します。メンテナンス中（`MAINTENANCE_MODE=true`）だけ `503`。そのとき配信用BOTは、取り直しに失敗した扱いで、古いキャッシュで続行します）。配信用BOT（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルは `404`（以前の SPA 設定では `index.html` の `200`、`text/html` でした）。`HttpDataSource` は 404 も HTML も「無い」として扱います。
 
 ## チャットコマンド
 
@@ -206,11 +206,19 @@ npm run test:worker                                      # データ共有 API�
 
 ## 公開（Cloudflare Workers）
 
-`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/`（ホームの本文入りの `home.html`。`worker/home.js`）と `/api/*`（登録データの API `/api/my/*`・報告・メンテナンスの状態・ゲームデータ `/api/game/*`）と、`/home`・`/home.html`・`/home/`（`/` へ 301）だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/", "/home", "/home.html", "/home/", "/api/*"]`）。存在しない URL は `404.html`（404 のステータス。読み込み表示だけ）を返します（下の「存在しない URL は 404」）。入口ページの静的 HTML（`tools/build-entry-pages.mjs` が作る。`battle-terms.html` など）と `_headers`（CSP）は、`publish:web` と `deploy*.yml` の publish の後に作ります（`--dir` は publish の出力の `wwwroot`）。作り方は fara-site-kit（`external/fara-site-kit/build`・`csp`）、サイトの設定は `tools/site.json`、入口ページの本文は `tools/entry-body.mjs`、文言は `tools/entry-pages.json`。ゲームデータは、通常は静的アセットをそのまま返し、メンテナンス中（Worker の変数 `MAINTENANCE=true`）だけ `503` にします。
+`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/`（ホームの本文入りの `home.html`。`worker/home.js`）と `/api/*`（登録データの API `/api/my/*`・報告・メンテナンスの状態・ゲームデータ `/api/game/*`）と、`/home`・`/home.html`・`/home/`（`/` へ 301）だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/", "/home", "/home.html", "/home/", "/api/*"]`）。存在しない URL は `404.html`（404 のステータス。読み込み表示だけ）を返します（下の「存在しない URL は 404」）。入口ページの静的 HTML（`tools/build-entry-pages.mjs` が作る。`battle-terms.html` など）と `_headers`（CSP）は、`publish:web` と `deploy*.yml` の publish の後に作ります（`--dir` は publish の出力の `wwwroot`）。作り方は fara-site-kit（`external/fara-site-kit/build`・`csp`）、サイトの設定は `tools/site.json`、入口ページの本文は `tools/entry-body.mjs`、文言は `tools/entry-pages.json`。ゲームデータは、通常は静的アセットをそのまま返し、メンテナンス中（Worker の変数 `MAINTENANCE_MODE=true`）だけ `503` にします。
 手動で公開し直すときは **Actions → Deploy to Cloudflare Workers → Run workflow**。
 
 `develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-dev`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。
 確認用サイトは Cloudflare Access で自分だけが見られるようにしています（Zero Trust → Access → Applications。許可したメールアドレスに届くコードでログイン）。
+
+### メンテナンス表示（`MAINTENANCE_MODE`）と本番の初回公開
+
+- Worker の変数 `MAINTENANCE_MODE`（`true` = 全体メンテナンス・503 / `notice` = お知らせ帯 / `false` または未設定 = 通常）と `MAINTENANCE_MESSAGE`（文面）で切り替えます。旧名 `MAINTENANCE` は読みません（残っていても無視。ダッシュボードで削除してかまいません）。
+- 切り替えは **Actions → 対象のワークフロー（確認用は Deploy to Cloudflare Workers (develop)、本番は Deploy to Cloudflare Workers）→ Run workflow** で、`maintenance_mode`（true / notice / false / 空）と `maintenance_message`（空 = 変更しない）を入れて実行します（スマホの GitHub アプリからも可）。実行ページ下部のジョブサマリーに、設定した値と反映後の現在値が出ます。4 サイトまとめては `external/fara-site-kit/tools/maintenance.mjs`（`docs/maintenance-cli.md`）。
+- 本番の push（master）と、何も指定しない手動実行は、従来どおり、公開の前に `MAINTENANCE_MODE=notice` か `true` かをゲート（`.github/scripts/require-maintenance.mjs`）で確かめ、公開と同時に `--var MAINTENANCE_MODE:true`（メンテナンス画面）にします。`maintenance_mode` を指定した手動実行はゲートを飛ばし、その値を渡します。`maintenance_message` だけの手動実行は `MAINTENANCE_MODE` を変えません。`skip_maintenance_check` は確認を飛ばし、`MAINTENANCE_MODE` を作りも変えもしません。
+- **本番の初回公開**（Worker `fara-pokemon` がまだ無い）: ゲートは Worker の不在（Cloudflare API が 404）を「初回の公開」として通します。master への push（または `maintenance_mode` を空にした手動実行）で、`--var MAINTENANCE_MODE:true` が付くので、**全ページがメンテナンス画面（503）のまま作られます**。確認してから、Actions で `maintenance_mode` に `false` を入れて Run workflow（master）→ 通常公開になります（このとき、その時点の master の内容がすべて公開されます）。
+
 
 ### 存在しない URL は 404
 
@@ -218,7 +226,7 @@ npm run test:worker                                      # データ共有 API�
 
 - 有効な URL（Blazor の `@page` のルート）には、ビルドで必ず静的 HTML を作ります（`tools/build-entry-pages.mjs`）。入口ページは本文つきの `<route>.html`、それ以外（`/my-pokemon`・`/data-share`・以前の URL の転送用など）は `index.html` と同じ殻の `<route>.html`（200。起動後に Blazor がページを描く）、`/` は `home.html`（Worker が返す）。
 - ルートの一覧は **`Components/**/*.razor` の `@page` から自動で集めます**（手で更新する一覧はありません）。`@page "/item/{id}"` のような静的 HTML を作れない形（パラメータ・大文字・`index`/`home`/`404`）はビルドが失敗します（その場合は、このスクリプトと Worker の扱いを決めてから進めてください）。
-- 確認: `npm run test:entry`（`@page` の全ルートの HTML・404.html・入口ページと `@page` の対応）、`npm run check:routes`（公開物 `publish/wwwroot` の網羅。`publish:web`・CI・deploy でも実行）、`npm run test:routes`（wrangler dev で、`/abc` → 404、全ルート → 200、`/api/game/*`・`/_framework/*`・robots・sitemap、`MAINTENANCE=true` を本番・develop の設定で確認。`--dir publish/wwwroot` を付けると実際のビルド成果物で確認）。
+- 確認: `npm run test:entry`（`@page` の全ルートの HTML・404.html・入口ページと `@page` の対応）、`npm run check:routes`（公開物 `publish/wwwroot` の網羅。`publish:web`・CI・deploy でも実行）、`npm run test:routes`（wrangler dev で、`/abc` → 404、全ルート → 200、`/api/game/*`・`/_framework/*`・robots・sitemap、`MAINTENANCE_MODE=true` を本番・develop の設定で確認。`--dir publish/wwwroot` を付けると実際のビルド成果物で確認）。
 - ページ（`@page`）を追加するとき: 追加だけで `<route>.html` が自動で作られます。検索の入口にしたい場合だけ `tools/entry-pages.json` にも足します（`EntryPagesTests`・`npm run test:entry` が整合を見ます）。ルートを消す・変えるときは、以前の URL の転送（`SitePaths.Legacy` と `LegacyUrlRedirect.razor` の `@page`）を残すかも決めます。
 - 挙動のメモ: 大文字のパス（`/Speed-Comparison`）は 404 のステータス（正規の URL は小文字だけ。ページ自体は Blazor が描く）。末尾スラッシュ（`/speed-comparison/`）と `.html` 付きは Cloudflare が `/speed-comparison` へ 307 で転送。クエリ（`?a=1`）とハッシュ（`#...`）は無関係に 200。以前の URL（`/speed`・`/team` など）は 200 の殻のまま、起動後に Blazor が新しい URL へ転送します（301 にする案は未対応）。
 - 追加の挙動: `/404` は 200（noindex 付きの 404.html が返る。soft 404 だが noindex）。`/home`・`/home.html`・`/home/`（Worker が内部で使う入口ファイル home.html の別名）は、Worker（`worker/home.js` の `redirectHomeAlias`。`run_worker_first` に入れてある）が `/` へ 301 で転送する（クエリは引き継ぐ。メンテナンス中も同じ）。静的な `_redirects` にしないのは、Worker が `/` で `env.ASSETS.fetch("/home")` を呼ぶときにも `_redirects` が効いて、`/` が転送ループになるため。home.html の canonical は `/` のまま。大文字かつ末尾スラッシュ付きの旧 URL（`/Speed/`）や大文字の旧 URL（`/Speed`）は HTTP 404（ブラウザでは Blazor が転送する）。JavaScript が無いときは 404.html の `<noscript>` が「ページが見つかりません」とホームへのリンクを出します。
