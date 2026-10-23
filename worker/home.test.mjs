@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { serveHome } from "./home.js";
+import { serveHome, redirectHomeAlias, HOME_ALIASES } from "./home.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -41,10 +41,22 @@ test("/ は静的アセットの /home（home.html）に差し替えて返す。
     assert.equal(calls[0].headers.get("If-None-Match"), "abc");
 });
 
-test("Worker を通るのは / と /api/* だけ（それ以外は静的アセット。存在しない URL は 404.html の 404）", () => {
+test("Worker を通るのは / ・ /api/* ・ home の別名（/home・/home.html・/home/）だけ（それ以外は静的アセット。存在しない URL は 404.html の 404）", () => {
     const config = readWranglerConfig();
     for (const env of [config.assets, config.env.develop.assets]) {
-        assert.deepEqual([...env.run_worker_first].sort(), ["/", "/api/*"]);
+        assert.deepEqual([...env.run_worker_first].sort(), ["/", "/api/*", ...HOME_ALIASES].sort());
+    }
+});
+
+test("/home・/home.html・/home/ は / への 301（クエリは引き継ぐ）。/ やほかのパスは対象外", () => {
+    for (const path of HOME_ALIASES) {
+        const response = redirectHomeAlias(new Request(`https://pokemon.fara-labs.com${path}`));
+        assert.equal(response.status, 301);
+        assert.equal(response.headers.get("Location"), "/");
+    }
+    assert.equal(redirectHomeAlias(new Request("https://pokemon.fara-labs.com/home?x=1&y=2")).headers.get("Location"), "/?x=1&y=2");
+    for (const path of ["/", "/homepage", "/home/x", "/Home", "/speed-comparison", "/api/maintenance"]) {
+        assert.equal(redirectHomeAlias(new Request(`https://pokemon.fara-labs.com${path}`)), null, path);
     }
 });
 
@@ -67,8 +79,15 @@ test("本番と確認用の両方で、/ が Worker を通る（wrangler.jsonc�
 
 test("index.js は / のとき serveHome を返す（/api/* の処理より前）", () => {
     const source = readFileSync(join(root, "worker", "index.js"), "utf8");
-    assert.match(source, /import \{ serveHome \} from "\.\/home\.js";/);
+    assert.match(source, /import \{ serveHome, redirectHomeAlias \} from "\.\/home\.js";/);
     const branch = source.indexOf('if (url.pathname === "/") return serveHome(request, env);');
     assert.ok(branch > 0);
     assert.ok(branch < source.indexOf("maintenance.state"));
+});
+
+test("index.js は home の別名の転送を、メンテナンスの判定（maintenance.state）より前に置く（メンテナンス中でも 301）", () => {
+    const source = readFileSync(join(root, "worker", "index.js"), "utf8");
+    const redirect = source.indexOf("redirectHomeAlias(request)");
+    assert.ok(redirect > 0);
+    assert.ok(redirect < source.indexOf("maintenance.state"));
 });

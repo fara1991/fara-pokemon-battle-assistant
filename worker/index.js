@@ -53,7 +53,7 @@ import { DurableObject } from "cloudflare:workers";
 // Worker の共有 JS（報告の受け口・メンテナンス表示）は kit（external/fara-site-kit。CLAUDE.md・docs/usage.md）
 import { handleReport } from "../external/fara-site-kit/worker/report.js";
 import { getMaintenance, maintenanceResponse } from "../external/fara-site-kit/worker/maintenance.js";
-import { serveHome } from "./home.js";
+import { serveHome, redirectHomeAlias } from "./home.js";
 
 /** パス → 使えるメソッド。 */
 const ROUTES = {
@@ -349,6 +349,9 @@ export default {
     const url = new URL(request.url);
     // トップページ（ホームの本文入りの home.html）。index.html とは別に返す（worker/home.js）
     if (url.pathname === "/") return serveHome(request, env);
+    // /home・/home.html・/home/（内部の入口ファイル home.html）は / へ 301。静的な _redirects では書けない（serveHome が env.ASSETS.fetch("/home") で取るとき、_redirects が効いて / が転送ループになるため）。メンテナンス中でも転送する
+    const homeAlias = redirectHomeAlias(request);
+    if (homeAlias) return homeAlias;
     // メンテナンスの状態（Worker の変数 MAINTENANCE。external/fara-site-kit/worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
     const maintenance = getMaintenance(env);
     if (url.pathname === "/api/maintenance") {

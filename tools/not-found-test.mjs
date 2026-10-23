@@ -81,6 +81,21 @@ const isHtml = (r) => (r.headers.get("content-type") ?? "").includes("text/html"
 /** 404.html の本文か（noindex・404 用の title・読み込み表示）。 */
 const isNotFoundPage = (text) => text.includes('<meta name="robots" content="noindex" />') && text.includes("ページが見つかりません") && text.includes('id="boot-indicator"');
 
+/** 内部の入口ファイル home.html の別名（/home・/home.html・/home/）は、1 回の 301 で / になる（/ は 200 のホームのまま）。 */
+async function checkHomeRedirect(base, label) {
+  for (const path of ["/home", "/home.html", "/home/", "/home?x=1"]) {
+    const r = await fetch(`${base}${path}`, { redirect: "manual" });
+    const expected = path.includes("?") ? "/?x=1" : "/";
+    check(`${label} ${path} は 301 で ${expected}`, r.status === 301 && r.headers.get("location") === expected, `${r.status} ${r.headers.get("location")}`);
+    const head = await fetch(`${base}${path}`, { method: "HEAD", redirect: "manual" });
+    check(`${label} HEAD ${path} も 301`, head.status === 301, String(head.status));
+  }
+  const followed = await fetch(`${base}/home`);
+  const text = await followed.text();
+  check(`${label} /home を辿った先は 200 のホーム（転送ループにならない）`, followed.status === 200 && followed.url === `${base}/` && isHtml(followed) && !isNotFoundPage(text), `${followed.status} ${followed.url}`);
+  check(`${label} /homepage・/home/x・/Home は 404 のまま（別名は 3 つだけ）`, (await Promise.all(["/homepage", "/home/x", "/Home"].map((p) => fetch(`${base}${p}`)))).every((r) => r.status === 404));
+}
+
 async function checkNormal(base, label, dir) {
   const fromPages = discoverPageRoutes().filter((r) => r !== "");
   const fromFiles = readdirSync(dir).filter((f) => f.endsWith(".html") && !["index.html", "home.html", "404.html"].includes(f)).map((f) => f.slice(0, -5));
@@ -110,6 +125,7 @@ async function checkNormal(base, label, dir) {
   check(`${label} 全ての有効なルート（${routes.length} 件。クエリ付きも）が 200 の HTML`, bad.length === 0, bad.join(", "));
   const home = await get("/");
   check(`${label} / は 200（ホーム）`, home.status === 200 && isHtml(home) && !isNotFoundPage(await home.text()));
+  await checkHomeRedirect(base, label);
   const head = await get(`/${routes[0]}`, { method: "HEAD" });
   check(`${label} HEAD も有効なルートは 200`, head.status === 200);
   check(`${label} HEAD /abc は 404`, (await get("/abc", { method: "HEAD" })).status === 404);
@@ -151,6 +167,8 @@ async function checkMaintenance(base, label) {
   check(`${label} MAINTENANCE=true: /api/maintenance は state=on`, state.state === "on", JSON.stringify(state));
   // ページ本体は静的アセットのまま（メンテナンス画面はアプリが /api/maintenance を読んで出す）。存在しない URL は 404 のまま
   check(`${label} MAINTENANCE=true: 存在しない URL は 404 のまま`, (await fetch(`${base}/abc`)).status === 404);
+  await checkHomeRedirect(base, "[本番] MAINTENANCE=true:");
+  check(`${label} MAINTENANCE=true: / は 200 のまま`, (await fetch(`${base}/`)).status === 200);
   check(`${label} MAINTENANCE=true: 有効なルートは 200 のまま`, (await fetch(`${base}/speed-comparison`)).status === 200);
 }
 
