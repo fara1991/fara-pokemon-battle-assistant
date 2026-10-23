@@ -48,6 +48,10 @@ jobs:
       - name: Build entry pages (develop)
         run: node tools/build-entry-pages.mjs --env develop
 
+      # 有効なルート（Blazor の @page）の HTML と 404.html が全部あるか。無いと、そのページが 404 になるので、公開の前に止める
+      - name: Check routes
+        run: node tools/check-routes.mjs
+
       # 確認用サイトが検索結果に載らないようにする。kit が X-Robots-Tag: noindex を入れるが、従来どおり nofollow も付けるため、ここで追記する
       - name: Add noindex header
         run: |

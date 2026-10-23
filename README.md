@@ -51,7 +51,7 @@ fara-pokemon-battle-assistant/
 - `datasets.json` の `calc: "Reference"` のゲームは参照のみです（計算機などでは案内を出します）。
 - 第3〜7世代のダメージ計算（`LegacyDamageCalculator`）は、その世代の補正の順番・丸め（第3〜4世代は補正ごとの切り捨て・タイプ一致の位置、急所 2 倍 / 1.5 倍、スキン系 1.3 倍、フィールド 1.5 倍、まひ 1/4、やけど 1/8 など）で行います。公開されているダメージ計算ツール（@smogon/calc）の結果と、`tools/calc_vectors` で作った条件（`tests/.../Data/calc_vectors.json`。第3〜7世代に加え、ソード・シールド / スカーレット・バイオレット / チャンピオンズの条件も含む）で一致を確かめています（第3世代のウェザーボールは、天候があると威力ではなくダメージが 2 倍になり、変わったタイプで物理・特殊も決まります。天候がないときはツールが特殊技として計算しますが、ゲームではノーマルタイプの物理技なので、その条件だけ比較から除いています）。ちからずく・すてみの対象の技は `move_lists.js` で作る `Data/move_lists.json` で全部の技を照合します。今のゲームの計算を意図して変えたときは `Data/calc_snapshot.txt` を作り直し、変わったケースを確認します。
 - 手動で更新する場合: `python tools/sync_data.py`（HOME を飛ばすなら `--skip-home`）。
-- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイル。通常は Worker が、そのまま返します。メンテナンス中（`MAINTENANCE=true`）だけ `503`。そのとき配信用BOTは、取り直しに失敗した扱いで、古いキャッシュで続行します）。配信用BOT（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルはサイトの SPA 設定のため `404` ではなく `index.html`（`200`、`text/html`）が返るので、`HttpDataSource` は HTML を「無い」として扱います。
+- 公開サイトでは `src/FaraPokemonBattleAssistant.Web/wwwroot/api/game/` がそのまま `https://pokemon.fara-labs.com/api/game/`（確認用は `https://pokemon-dev.fara-labs.com/api/game/`）で配られます（`datasets.csv`・`natures.csv`・`updated.txt`・`<ゲーム>/pokemon.csv` など。認証なしの静的ファイル。通常は Worker が、そのまま返します。メンテナンス中（`MAINTENANCE=true`）だけ `503`。そのとき配信用BOTは、取り直しに失敗した扱いで、古いキャッシュで続行します）。配信用BOT（`HttpDataSource` + `CachingDataSource`）もこの URL から読みます。無いファイルは `404`（以前の SPA 設定では `index.html` の `200`、`text/html` でした）。`HttpDataSource` は 404 も HTML も「無い」として扱います。
 
 ## チャットコマンド
 
@@ -211,6 +211,17 @@ npm run test:worker                                      # データ共有 API�
 
 `develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-dev`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。
 確認用サイトは Cloudflare Access で自分だけが見られるようにしています（Zero Trust → Access → Applications。許可したメールアドレスに届くコードでログイン）。
+
+### 存在しない URL は 404
+
+存在しない URL（例: `/abc`）は、`wrangler.jsonc` の `not_found_handling: "404-page"` で、`404.html` を **404 のステータス**で返します（本文は読み込み表示だけで、起動後に Blazor が「ページが見つかりません」の画面を描きます。`noindex` 付き）。以前の SPA 設定（`single-page-application`）は存在しない URL にも `index.html` を 200 で返していたため、検索エンジンには薄い 200 のページ（soft 404）に見え得ました。
+
+- 有効な URL（Blazor の `@page` のルート）には、ビルドで必ず静的 HTML を作ります（`tools/build-entry-pages.mjs`）。入口ページは本文つきの `<route>.html`、それ以外（`/my-pokemon`・`/data-share`・以前の URL の転送用など）は `index.html` と同じ殻の `<route>.html`（200。起動後に Blazor がページを描く）、`/` は `home.html`（Worker が返す）。
+- ルートの一覧は **`Components/**/*.razor` の `@page` から自動で集めます**（手で更新する一覧はありません）。`@page "/item/{id}"` のような静的 HTML を作れない形（パラメータ・大文字・`index`/`home`/`404`）はビルドが失敗します（その場合は、このスクリプトと Worker の扱いを決めてから進めてください）。
+- 確認: `npm run test:entry`（`@page` の全ルートの HTML・404.html・入口ページと `@page` の対応）、`npm run check:routes`（公開物 `publish/wwwroot` の網羅。`publish:web`・CI・deploy でも実行）、`npm run test:routes`（wrangler dev で、`/abc` → 404、全ルート → 200、`/api/game/*`・`/_framework/*`・robots・sitemap、`MAINTENANCE=true` を本番・develop の設定で確認。`--dir publish/wwwroot` を付けると実際のビルド成果物で確認）。
+- ページ（`@page`）を追加するとき: 追加だけで `<route>.html` が自動で作られます。検索の入口にしたい場合だけ `tools/entry-pages.json` にも足します（`EntryPagesTests`・`npm run test:entry` が整合を見ます）。ルートを消す・変えるときは、以前の URL の転送（`SitePaths.Legacy` と `LegacyUrlRedirect.razor` の `@page`）を残すかも決めます。
+- 挙動のメモ: 大文字のパス（`/Speed-Comparison`）は 404 のステータス（正規の URL は小文字だけ。ページ自体は Blazor が描く）。末尾スラッシュ（`/speed-comparison/`）と `.html` 付きは Cloudflare が `/speed-comparison` へ 307 で転送。クエリ（`?a=1`）とハッシュ（`#...`）は無関係に 200。以前の URL（`/speed`・`/team` など）は 200 の殻のまま、起動後に Blazor が新しい URL へ転送します（301 にする案は未対応）。
+- 有効なルートの HTML が無いと、そのページが 404 のステータスで返ります（見た目は Blazor が描くので使えますが、検索には載りません）。公開前に `check:routes` が止めます。
 
 初回だけ、リポジトリの **Settings → Secrets and variables → Actions** に次を登録してください（値は fara-portfolio-site と同じものを使えます）。
 

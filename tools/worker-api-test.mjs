@@ -18,6 +18,10 @@ if (!existsSync("publish/wwwroot/index.html")) {
   mkdirSync("publish/wwwroot", { recursive: true });
   writeFileSync("publish/wwwroot/index.html", "<!doctype html><title>test</title>");
 }
+// 存在しない URL は 404-page で 404 になる設定なので、有効なページ（<route>.html）の代わりに最小のものを置く（本物の出力は tools/not-found-test.mjs が確かめる）
+for (const route of ["my-pokemon", "my-teams"]) {
+  if (!existsSync(`publish/wwwroot/${route}.html`)) writeFileSync(`publish/wwwroot/${route}.html`, "<!doctype html><title>test</title>");
+}
 if (!existsSync("publish/wwwroot/api/game/datasets.csv")) {
   mkdirSync("publish/wwwroot/api/game", { recursive: true });
   writeFileSync("publish/wwwroot/api/game/datasets.csv", "Key,Name,Generation,EvSystem,CommandPrefix,Gimmick,UsageFallback,Calc\nChampions,test,9,Points,pokech,None,,Full\n");
@@ -314,8 +318,8 @@ try {
   check("/api/my そのものは 404", (await req("GET", "/api/my", key)).status === 404);
   check("/api/ の他のパスは 404", (await req("GET", "/api/other", key)).status === 404);
   const page = await fetch(`${base}/my-pokemon`);
-  check("以前の URL（/my-teams）も静的アセット（SPA）", (await fetch(`${base}/my-teams`)).status === 200);
-  check("API 以外は今までどおり静的アセット（SPA）", page.status === 200 && (page.headers.get("content-type") ?? "").includes("text/html"));
+  check("以前の URL（/my-teams）も静的アセット（<route>.html）", (await fetch(`${base}/my-teams`)).status === 200);
+  check("API 以外は今までどおり静的アセット（<route>.html）", page.status === 200 && (page.headers.get("content-type") ?? "").includes("text/html"));
 
   // ゲームデータ（/api/game/*）は静的アセット。Worker を通して、そのまま返す（メンテナンス中だけ 503。external/fara-site-kit/worker/maintenance.test.mjs）
   // （Worker を通ると worker/index.js が X-Worker-Fallback を付けるので、それがあることで確かめる）
@@ -326,7 +330,7 @@ try {
   const missingCsv = await fetch(`${base}/api/game/NoSuchGame/pokemon.csv`);
   const missingText = await missingCsv.text();
   // 無いファイルは SPA のフォールバック（index.html）ではなく 404 にする（HTML をゲームデータとして読まないように。HttpDataSource は 404 を「無い」として扱う）
-  check("無い /api/game/... は 404 で、HTML（SPA の index.html）を返さない",
+  check("無い /api/game/... は 404 で、HTML（404.html・SPA の index.html）を返さない",
     missingCsv.status === 404 && !(missingCsv.headers.get("content-type") ?? "").includes("text/html") && !/<!doctype html|<html/i.test(missingText) && missingCsv.headers.get("x-worker-fallback") === "assets",
     `${missingCsv.status} ${missingCsv.headers.get("content-type")}`);
   console.log(`     （参考）無い /api/game/... の応答: ${missingCsv.status} ${missingCsv.headers.get("content-type")}`);

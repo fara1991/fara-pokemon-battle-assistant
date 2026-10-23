@@ -15,10 +15,12 @@
   "assets": {
     "directory": "./publish/wwwroot",
     "binding": "ASSETS",
-    // /speed-comparison・/my-pokemon・/my-team などを直接開いたときも index.html を返す（Blazor 側でページを切り替える。以前の /speed・/pokemon・/roster・/team・/my-teams などは Blazor 側で新しい URL に転送）
-    "not_found_handling": "single-page-application",
+    // 有効な URL（/speed-comparison・/my-pokemon・/my-team など、Blazor の @page）は、ビルドで作る <route>.html を返す（tools/build-entry-pages.mjs。起動後に Blazor がページを切り替える。
+    // 以前の /speed・/pokemon・/roster・/team・/my-teams などは Blazor 側で新しい URL に転送）。それ以外の存在しない URL は 404.html を 404 のステータスで返す（本物の 404。検索エンジンに薄い 200 のページを見せない）。
+    // 有効なルートに HTML が無いと、そのページが 404 のステータスで返る。ルートは @page から自動で集め、tools/build-entry-pages.test.mjs と CI（tools/check-routes.mjs）で網羅を確かめる
+    "not_found_handling": "404-page",
     // / と /api/*（登録データ・報告・メンテナンスの状態・ゲームデータ）だけ Worker スクリプトに渡す（それ以外のパスは今までどおり静的アセット）。
-    // / は、ホームの本文入りの home.html を返すため（worker/home.js）。存在しない URL は index.html（読み込み表示だけ）のまま
+    // / は、ホームの本文入りの home.html を返すため（worker/home.js）。存在しない URL は 404.html の 404（読み込み表示だけ。起動後に Blazor が 404 画面を描く）
     // ゲームデータの /api/game/* は、通常は Worker が静的アセットをそのまま返し、メンテナンス中（MAINTENANCE=true）だけ 503 にする
     // （データの更新をメンテナンス中に行えるように）。Worker を通るぶん、無料枠のリクエスト数を使う
     "run_worker_first": ["/", "/api/*"]
@@ -40,7 +42,7 @@
       "assets": {
         "directory": "./publish/wwwroot",
         "binding": "ASSETS",
-        "not_found_handling": "single-page-application",
+        "not_found_handling": "404-page",
         "run_worker_first": ["/", "/api/*"]
       },
       // durable_objects はトップレベルから引き継がれないので、環境ごとに書く

@@ -56,8 +56,8 @@ public sealed class HttpDataSource : IDataSource
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             return null;
         response.EnsureSuccessStatusCode();
-        // 公開サイトは SPA 設定（not_found_handling: single-page-application）なので、
-        // 存在しないファイルにも 200 で index.html が返る。HTML はデータとして扱わず「無い」とみなす。
+        // 公開サイトの存在しないファイルは 404（not_found_handling: 404-page）だが、以前の SPA 設定（single-page-application）では
+        // 200 で index.html が返った。念のため HTML はデータとして扱わず「無い」とみなす。
         if (string.Equals(response.Content.Headers.ContentType?.MediaType, "text/html", StringComparison.OrdinalIgnoreCase))
             return null;
         var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
