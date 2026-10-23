@@ -210,7 +210,7 @@ test("404.html: noindex・404 用の title・読み込み表示だけ（本文�
         assert.match(html, /<title>ページが見つかりません \| Pokémon Battle Assistant<\/title>/);
         assert.match(html, /<meta name="robots" content="noindex" \/>/);
         assert.match(html, /id="boot-indicator"/);
-        assert.doesNotMatch(html, /entry-static|canonical/);
+        assert.doesNotMatch(html, /canonical/);
     }
     assert.doesNotMatch(prod.out.get("sitemap.xml"), /404/);
 });
@@ -271,4 +271,36 @@ test("check-routes（CI・公開の前の確認）: 揃っていれば問題な�
     assert.match(checkRoutes(dir).join("\n"), /404\.html がありません/);
     writeFileSync(join(dir, "404.html"), "<html>no robots</html>");
     assert.match(checkRoutes(dir).join("\n"), /noindex/);
+});
+
+test("404.html の <noscript> に、ページが見つかりません・ホームへのリンク・JavaScript の案内がある（JS 無しで空白にならない）", () => {
+    for (const out of [prod.out, dev.out]) {
+        const html = out.get("404.html");
+        const noscript = /<noscript>(<h1>[\s\S]*?)<\/noscript>/.exec(html)?.[1] ?? "";
+        assert.match(noscript, /ページが見つかりません/);
+        assert.match(noscript, /<a href="\/">ホームへ戻る<\/a>/);
+        assert.match(noscript, /JavaScript/);
+    }
+});
+
+test("ルート収集の取りこぼしがない: AdditionalAssemblies・@attribute [Route]・.razor.cs の [Route]・.cshtml・MapFallback が無い（@page 以外のルート定義は collect できない）", () => {
+    const web = join(here, "..", "src", "FaraPokemonBattleAssistant.Web");
+    const found = [];
+    const walk = (dir) => {
+        for (const item of readdirSync(dir, { withFileTypes: true })) {
+            const path = join(dir, item.name);
+            if (item.isDirectory()) {
+                if (item.name !== "bin" && item.name !== "obj" && item.name !== "wwwroot") walk(path);
+            } else if (/\.(razor|cs|cshtml)$/.test(item.name)) {
+                if (item.name.endsWith(".cshtml")) found.push(`${path}: .cshtml`);
+                const text = readFileSync(path, "utf8");
+                if (/AdditionalAssemblies/.test(text)) found.push(`${path}: AdditionalAssemblies`);
+                if (/@attribute\s+\[\s*Route/.test(text) || /^\s*\[\s*Route\s*\(/m.test(text)) found.push(`${path}: [Route] 属性`);
+                if (/MapFallback|AddAdditionalAssemblies/.test(text)) found.push(`${path}: MapFallback 等`);
+            }
+        }
+    };
+    walk(web);
+    assert.deepEqual(found, [], "@page 以外のルート定義は静的 HTML の収集（discoverPageRoutes）に入りません。収集を拡張してから使ってください");
+    assert.match(readFileSync(join(web, "App.razor"), "utf8"), /<Router AppAssembly="@typeof\(App\)\.Assembly">/);
 });

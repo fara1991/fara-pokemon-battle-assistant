@@ -7,7 +7,7 @@
     "bodyRootClass": "entry-static",
     "homeFile": "home.html",
     "spaFallback": {},
-    "notFoundPage": {},
+    "notFoundPage": { "bodyHtml": "<main class=\"entry-static\"><div class=\"entry-static-bar\">Pokémon Battle Assistant</div><div class=\"entry-static-body\"><div class=\"entry-static-card\"><noscript><h1>ページが見つかりません</h1><p>URL が間違っているか、ページが移動した可能性があります。</p><p><a href=\"/\">ホームへ戻る</a></p><p>このサイトを使うには JavaScript を有効にしてください。</p></noscript></div></div></main>" },
     "robotsDisallow": ["/my-", "/data-share", "/api/my/"],
     "developRobots": "allow",
     "maxDescription": 150,

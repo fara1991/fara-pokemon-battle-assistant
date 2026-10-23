@@ -43,6 +43,8 @@ public static class SitePaths
 
     /// <summary>
     /// 以前の URL なら転送先を返す。パスは / の有無・大文字小文字を問わない（例: <c>/Speed/</c>）。
+    /// ブラウザでは Blazor が転送する。ただし HTTP としては、小文字・末尾スラッシュなしの旧 URL（<c>/speed</c>）だけが 200 の殻で、
+    /// 大文字・末尾スラッシュ付き（<c>/Speed</c>・<c>/speed/</c>）は静的 HTML が無く 404 のステータスで返る（ページは Blazor が描いて転送する。検索エンジンには 404）。
     /// クエリ文字列（?...）とハッシュ（#...）はそのまま引き継ぐ。以前の URL でなければ <c>null</c>。
     /// </summary>
     public static string? Redirect(string pathAndQuery)
