@@ -41,7 +41,7 @@ test("/ は静的アセットの /home（home.html）に差し替えて返す。
     assert.equal(calls[0].headers.get("If-None-Match"), "abc");
 });
 
-test("Worker を通るのは / と /api/* だけ（それ以外は静的アセット。存在しない URL は index.html のまま）", () => {
+test("Worker を通るのは / と /api/* だけ（それ以外は静的アセット。存在しない URL は 404.html の 404）", () => {
     const config = readWranglerConfig();
     for (const env of [config.assets, config.env.develop.assets]) {
         assert.deepEqual([...env.run_worker_first].sort(), ["/", "/api/*"]);

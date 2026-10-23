@@ -347,7 +347,7 @@ function validateTeams(key, value, pokemonIds) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    // トップページ（ホームの本文入りの home.html）。SPA のフォールバック（index.html）とは別に返す（worker/home.js）
+    // トップページ（ホームの本文入りの home.html）。index.html とは別に返す（worker/home.js）
     if (url.pathname === "/") return serveHome(request, env);
     // メンテナンスの状態（Worker の変数 MAINTENANCE。external/fara-site-kit/worker/maintenance.js）。アプリが起動時に読んで、お知らせやメンテナンス画面を出す
     const maintenance = getMaintenance(env);
@@ -362,9 +362,9 @@ export default {
       // /api/game/* はゲームデータの静的アセット。そのまま返す（run_worker_first の対象外のパスは、通常は来ない）。
       // ここを通ったことが分かるようにヘッダーを付ける（tools/worker-api-test.mjs が確かめる）
       const response = await env.ASSETS.fetch(request);
-      // 無いファイルは SPA のフォールバック（index.html・text/html の 200）が返る。ゲームデータとしては「無い」ので 404 にする
+      // 無いファイルは 404-page 設定の 404.html（text/html の 404）が返る（以前の SPA 設定では index.html の 200）。ゲームデータとしては「無い」ので、HTML でない 404 にする
       // （HttpDataSource は 404 を「無い」として扱う。HTML をデータとして読まないように）
-      if (url.pathname.startsWith("/api/game/") && isHtmlFallback(response)) {
+      if (url.pathname.startsWith("/api/game/") && (response.status === 404 || isHtmlFallback(response))) {
         await response.body?.cancel();
         return gameDataNotFound();
       }

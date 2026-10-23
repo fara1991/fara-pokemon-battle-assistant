@@ -3,11 +3,12 @@
 // 作り方そのもの（head・区切り・CSP の形）は kit の検査（external/fara-site-kit/tests）が見る。ここでは pokemon の入力と、呼び出しの配線を見る。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { run, validateEntries, toKitPages } from "./build-entry-pages.mjs";
+import { run, validateEntries, toKitPages, discoverPageRoutes } from "./build-entry-pages.mjs";
+import { checkRoutes } from "./check-routes.mjs";
 import { buildBody, escapeHtml } from "./entry-body.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -174,4 +175,100 @@ test("CI・deploy・package.json の build-entry-pages の呼び出しは、直�
         });
     }
     assert.equal(checked, 4, "build-entry-pages の呼び出しを 4 か所（build・deploy・deploy-develop・package.json）確かめる");
+});
+
+// ---- 存在しない URL は 404（wrangler.jsonc の not_found_handling: "404-page"）。有効なルートには必ず静的 HTML がある ----
+
+/** wrangler.jsonc を読む（行頭の // のコメントだけを外す）。 */
+function readWranglerConfig() {
+    const text = readFileSync(join(here, "..", "wrangler.jsonc"), "utf8").split("\n").filter((line) => !/^\s*\/\//.test(line)).join("\n");
+    return JSON.parse(text);
+}
+
+/** 一時の Components フォルダに、指定した内容の .razor を置いて返す。 */
+function razorDirWith(files) {
+    const dir = mkdtempSync(join(tmpdir(), "razor-"));
+    for (const [name, text] of Object.entries(files)) {
+        mkdirSync(join(dir, name, ".."), { recursive: true });
+        writeFileSync(join(dir, name), text);
+    }
+    return dir;
+}
+
+test("wrangler.jsonc: 本番も develop も not_found_handling は 404-page（SPA のフォールバックに戻さない）。keep_vars と run_worker_first はそのまま", () => {
+    const config = readWranglerConfig();
+    assert.equal(config.assets.not_found_handling, "404-page");
+    assert.equal(config.env.develop.assets.not_found_handling, "404-page");
+    assert.equal(config.keep_vars, true);
+    assert.deepEqual([...config.assets.run_worker_first].sort(), ["/", "/api/*"]);
+});
+
+test("404.html: noindex・404 用の title・読み込み表示だけ（本文なし）。本番にも develop にも作る", () => {
+    for (const out of [prod.out, dev.out]) {
+        const html = out.get("404.html");
+        assert.ok(html, "404.html がある");
+        assert.match(html, /<title>ページが見つかりません \| Pokémon Battle Assistant<\/title>/);
+        assert.match(html, /<meta name="robots" content="noindex" \/>/);
+        assert.match(html, /id="boot-indicator"/);
+        assert.doesNotMatch(html, /entry-static|canonical/);
+    }
+    assert.doesNotMatch(prod.out.get("sitemap.xml"), /404/);
+});
+
+test("@page のルートは全部、静的 HTML がある（ホームは home.html、入口ページは <route>.html、それ以外は index.html と同じ殻）", () => {
+    const routes = discoverPageRoutes();
+    assert.ok(routes.includes("") && routes.includes("speed-comparison") && routes.includes("my-pokemon"), "代表的なルートを拾っている");
+    const entryRoutes = new Set(pages.map((p) => p.route));
+    for (const out of [prod.out, dev.out]) {
+        for (const route of routes) {
+            if (route === "") assert.ok(out.has("home.html"));
+            else assert.ok(out.has(`${route}.html`), `/${route} の ${route}.html がありません（このページが 404 になります）`);
+            if (route !== "" && !entryRoutes.has(route)) assert.equal(out.get(`${route}.html`), out.get("index.html"), `${route}.html は殻`);
+        }
+    }
+    // 入口ページは本文つきの別ファイル（殻で上書きしない）
+    assert.match(prod.out.get("battle-terms.html"), /<main class="entry-static"/);
+});
+
+test("入口ページは全部 @page のルートにある（Blazor に無いページを 200 で返さない）。殻は sitemap に入らない", () => {
+    const routes = new Set(discoverPageRoutes());
+    for (const entry of pages) assert.ok(routes.has(entry.route), `/${entry.route} の @page がありません`);
+    assert.equal((prod.out.get("sitemap.xml").match(/<url>/g) || []).length, pages.length);
+    assert.doesNotMatch(prod.out.get("sitemap.xml"), /my-pokemon|data-share|speed</);
+    const dir = razorDirWith({ "Pages/A.razor": '@page "/a"\n' });
+    const entries = JSON.parse(readFileSync(join(here, "entry-pages.json"), "utf8"));
+    const out = mkdtempSync(join(tmpdir(), "entry-pages-bad-"));
+    writeFileSync(join(out, "index.html"), TEMPLATE);
+    assert.throws(() => run({ dir: out, env: "production", razorDir: dir }), /@page がありません/);
+    assert.ok(entries.length > 0);
+});
+
+test("discoverPageRoutes: 複数の @page・入れ子のフォルダを拾う。静的 HTML を作れない形（{パラメータ}・大文字・予約名）と @page なしは失敗する", () => {
+    const dir = razorDirWith({
+        "Pages/A.razor": '@page "/"\n@page "/a"\n@page "/b-c"\n',
+        "Pages/Sub/B.razor": '@page "/sub/page"\n',
+        "Shared/Layout.razor": "<div></div>",
+        "obj/Generated.razor": '@page "/ignored"\n',
+    });
+    assert.deepEqual(discoverPageRoutes(dir), ["", "a", "b-c", "sub/page"]);
+    for (const bad of ['@page "/item/{id}"', '@page "/Upper"', '@page "/index"', '@page "/home"', '@page "/a/"', '@page "/a.b"']) {
+        assert.throws(() => discoverPageRoutes(razorDirWith({ "Pages/X.razor": bad })), /静的 HTML/, bad);
+    }
+    assert.throws(() => discoverPageRoutes(razorDirWith({ "Shared/Layout.razor": "<div></div>" })), /@page が見つかりません/);
+});
+
+test("check-routes（CI・公開の前の確認）: 揃っていれば問題なし。ページの HTML や 404.html が欠ける・noindex が無いと検出する", () => {
+    assert.deepEqual(checkRoutes(prod.dir), []);
+    const dir = mkdtempSync(join(tmpdir(), "check-routes-"));
+    writeFileSync(join(dir, "index.html"), TEMPLATE);
+    run({ dir, env: "production" });
+    rmSync(join(dir, "my-pokemon.html"));
+    rmSync(join(dir, "home.html"));
+    const problems = checkRoutes(dir).join("\n");
+    assert.match(problems, /my-pokemon\.html/);
+    assert.match(problems, /home\.html/);
+    rmSync(join(dir, "404.html"));
+    assert.match(checkRoutes(dir).join("\n"), /404\.html がありません/);
+    writeFileSync(join(dir, "404.html"), "<html>no robots</html>");
+    assert.match(checkRoutes(dir).join("\n"), /noindex/);
 });

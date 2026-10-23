@@ -48,7 +48,7 @@ jobs:
       - run: npm ci
 
       # サイトはカスタムドメインのルートで公開するので、<base href="/" /> はそのまま。
-      # 直接開いた URL（/speed-comparison など）は wrangler.jsonc の not_found_handling で index.html を返す。
+      # 直接開いた URL（/speed-comparison など）は、ビルドで作る <route>.html を返す。存在しない URL は wrangler.jsonc の not_found_handling（404-page）で 404.html を 404 で返す。
       # ゲームデータ（wwwroot/api/game）は publish/wwwroot/api/game に入り、/api/game/... の静的アセットとして配られる（Worker は /api/my/* だけ）。
       - name: Publish Blazor WebAssembly
         run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
@@ -56,6 +56,10 @@ jobs:
       # 検索の入口ページ（/battle-terms など）の静的 HTML・robots.txt・sitemap.xml・_headers を作る（tools/build-entry-pages.mjs。kit の build を使う）
       - name: Build entry pages (production)
         run: node tools/build-entry-pages.mjs --env production
+
+      # 有効なルート（Blazor の @page）の HTML と 404.html が全部あるか。無いと、そのページが 404 になるので、公開の前に止める
+      - name: Check routes
+        run: node tools/check-routes.mjs
 
       # 本番の公開は、Cloudflare の Worker の変数 MAINTENANCE が notice（更新予定のお知らせを出している）のときだけ行う。
       # 確認できないとき・notice でないときは、ここで止める（手動実行の skip_maintenance_check で飛ばせる）

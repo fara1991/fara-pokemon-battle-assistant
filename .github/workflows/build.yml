@@ -51,6 +51,9 @@ jobs:
       - name: Build entry pages (sanity check)
         run: node tools/build-entry-pages.mjs --env production --dir artifacts/web/wwwroot
 
+      - name: "有効なルート（@page）の HTML と 404.html が全部あるか"
+        run: node tools/check-routes.mjs --dir artifacts/web/wwwroot
+
       - name: "入口ページの確認（ホームの HTML と canonical。/ で配られる home.html）"
         run: |
           test -f artifacts/web/wwwroot/home.html
@@ -111,6 +114,9 @@ jobs:
 
       - name: Search index test
         run: npm run test:search
+
+      - name: "Not found (404) test: 存在しない URL は 404、有効なルートは 200（wrangler dev）"
+        run: npm run test:routes
 
       - name: Home page (Worker) test
         run: npm run test:home
