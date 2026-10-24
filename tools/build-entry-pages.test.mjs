@@ -334,11 +334,11 @@ test("viewport に viewport-fit=cover がある（ノッチ端末で安全領域
 test("ファビコンの link は、生成した全 HTML（本番・develop。home.html・404.html を含む）に残り、参照先のファイルが wwwroot にある（/favicon.ico が無いと 404 になる）", () => {
     const wwwroot = join(here, "..", "src", "FaraPokemonBattleAssistant.Web", "wwwroot");
     const LINKS = [
-        /<link rel="icon" href="\/favicon\.ico" sizes="16x16 32x32 48x48" \/>/,
-        /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml" \/>/,
-        /<link rel="icon" href="\/favicon-32x32\.png" type="image\/png" sizes="32x32" \/>/,
-        /<link rel="icon" href="\/favicon-16x16\.png" type="image\/png" sizes="16x16" \/>/,
-        /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png" \/>/,
+        /<link rel="icon" href="\/favicon\.ico\?v=2" sizes="16x16 32x32 48x48" \/>/,
+        /<link rel="icon" href="\/favicon\.svg\?v=2" type="image\/svg\+xml" \/>/,
+        /<link rel="icon" href="\/favicon-32x32\.png\?v=2" type="image\/png" sizes="32x32" \/>/,
+        /<link rel="icon" href="\/favicon-16x16\.png\?v=2" type="image\/png" sizes="16x16" \/>/,
+        /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png\?v=2" \/>/,
     ];
     for (const [label, result] of [["production", prod], ["develop", dev]]) {
         for (const name of ["home.html", "index.html", "404.html", "damage-calculator.html", "privacy.html"]) {
@@ -350,4 +350,33 @@ test("ファビコンの link は、生成した全 HTML（本番・develop。ho
     }
     // SVG は prefers-color-scheme で切り替えない（Safari 非対応。PNG・ICO と見た目をそろえる）
     assert.doesNotMatch(readFileSync(join(wwwroot, "favicon.svg"), "utf8"), /prefers-color-scheme/);
+});
+
+test("OGP: 入口ページ（home.html を含む）に og:image（絶対 URL・版つき）と twitter:card=summary_large_image。type・width・height・alt は SEO-HEAD の外（全ページ共通）で、画像は 1200x630 の PNG", () => {
+    const wwwroot = join(here, "..", "src", "FaraPokemonBattleAssistant.Web", "wwwroot");
+    const image = readFileSync(join(wwwroot, "img", "og-v1.png"));
+    assert.equal(image.subarray(1, 4).toString("latin1"), "PNG");
+    assert.equal(image.readUInt32BE(16), 1200);
+    assert.equal(image.readUInt32BE(20), 630);
+    for (const [label, result, origin] of [["production", prod, "https://pokemon.fara-labs.com"], ["develop", dev, "https://pokemon-dev.fara-labs.com"]]) {
+        for (const entry of pages) {
+            const name = entry.route === "" ? "home.html" : `${entry.route}.html`;
+            const html = result.out.get(name);
+            assert.ok(html.includes(`<meta property="og:image" content="${origin}/img/og-v1.png" />`), `${label}/${name} に og:image がありません`);
+            assert.match(html, /<meta name="twitter:card" content="summary_large_image" \/>/, `${label}/${name} の twitter:card`);
+        }
+        for (const name of ["home.html", "index.html", "404.html", "damage-calculator.html", "privacy.html"]) {
+            const html = result.out.get(name);
+            const outside = html.slice(html.indexOf("<!-- SEO-HEAD:END -->"));
+            for (const meta of ['og:image:type" content="image/png"', 'og:image:width" content="1200"', 'og:image:height" content="630"', 'og:image:alt" content="']) {
+                assert.ok(outside.includes(meta), `${label}/${name} の SEO-HEAD の外に ${meta} がありません`);
+            }
+        }
+    }
+});
+
+test("OGP: ogImage が無い・/ で始まらない入口ページは検証で止まる", () => {
+    assert.throws(() => validateEntries([{ ...battleTerms, ogImage: undefined }]), /ogImage/);
+    assert.throws(() => validateEntries([{ ...battleTerms, ogImage: "img/og-v1.png" }]), /ogImage/);
+    assert.doesNotThrow(() => validateEntries([battleTerms]));
 });
