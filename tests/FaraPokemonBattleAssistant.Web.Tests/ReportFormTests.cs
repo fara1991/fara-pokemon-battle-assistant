@@ -119,6 +119,18 @@ public class ReportFormTests
         Assert.Equal("", root.GetProperty("website").GetString());
     }
 
+    [Fact]
+    public void Json_keeps_japanese_text_unescaped_so_a_long_report_stays_small()
+    {
+        var form = Valid();
+        form.Message = new string('あ', 2000);
+        var json = form.ToJson();
+        Assert.DoesNotContain("\\u3042", json);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(json) < 8 * 1024);
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal(2000, doc.RootElement.GetProperty("message").GetString()!.Length);
+    }
+
     [Theory]
     [InlineData("/speed-comparison", "/speed-comparison")]
     [InlineData("/", "/")]
@@ -143,7 +155,7 @@ public class ReportFormTests
 
     [Theory]
     [InlineData(413, "", "長すぎ")]
-    [InlineData(429, "<html>Too Many Requests</html>", "何度も")]   // Cloudflare のレート制限（本文は HTML）
+    [InlineData(429, "<html>Too Many Requests</html>", "入力を確かめて")]   // Cloudflare のレート制限（本文は HTML）。kit 0.3.5 で 429 専用の文は無くなり既定の文になる
     [InlineData(503, "not json", "受け付けていません")]
     [InlineData(502, null, "失敗")]
     [InlineData(500, "{\"message\":\"\"}", "失敗")]            // 空の文は使わない
