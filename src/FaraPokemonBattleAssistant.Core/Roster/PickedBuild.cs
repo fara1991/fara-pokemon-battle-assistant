@@ -5,7 +5,7 @@ using FaraPokemonBattleAssistant.Core.Models;
 namespace FaraPokemonBattleAssistant.Core.Roster;
 
 /// <summary>
-/// 計算機・素早さ比較の「登録から選ぶ」で、選んだ登録から画面に入れる構成を作る処理。
+/// 計算機・素早さ比較の「登録チームから選ぶ」で、選んだ登録から画面に入れる構成を作る処理。
 /// 2 つの画面で同じ規則（メガシンカの前後・お面・固定の持ち物と特性）になるよう、ここにまとめる。
 /// </summary>
 public static class PickedBuild

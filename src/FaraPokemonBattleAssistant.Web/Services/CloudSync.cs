@@ -500,7 +500,7 @@ public sealed class CloudSync : IRosterStore
 /// <summary>使用中チームを読む（計算機・素早さ比較用）。クラウドに届かなくてもページは動くように、エラーは文で返す。</summary>
 public static class RosterReading
 {
-    /// <summary>「登録から選ぶ」用に、登録済みの構成を、そのバトル形式のチームごとに読む。</summary>
+    /// <summary>「登録チームから選ぶ」用に、登録済みの構成を、そのバトル形式のチームごとに読む。</summary>
     public static async Task<(IReadOnlyList<RosterChoiceGroup> Groups, string Error)> ChoiceGroupsAsync(RosterRepository repo, string dataSetKey, PokemonDataSet data, BattleFormat format)
     {
         try

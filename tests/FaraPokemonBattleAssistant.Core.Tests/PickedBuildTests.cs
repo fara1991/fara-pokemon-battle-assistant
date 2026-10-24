@@ -4,7 +4,7 @@ using Xunit;
 
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
-/// <summary>計算機・素早さ比較の「登録から選ぶ」で作る構成（2 つの画面で同じ規則になるよう、Core にまとめたもの）。</summary>
+/// <summary>計算機・素早さ比較の「登録チームから選ぶ」で作る構成（2 つの画面で同じ規則になるよう、Core にまとめたもの）。</summary>
 public class PickedBuildTests
 {
     private static RosterChoice Choice(int pokemonId, string name, Item? item = null) =>

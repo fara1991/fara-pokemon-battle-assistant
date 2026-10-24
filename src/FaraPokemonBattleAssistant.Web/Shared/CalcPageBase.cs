@@ -8,7 +8,7 @@ namespace FaraPokemonBattleAssistant.Web.Shared;
 
 /// <summary>
 /// 「ダメージ計算機」「素早さ比較」ページの共通部分。2 体のポケモン（側 0 = 攻撃側・ポケモン1、側 1 = 防御側・ポケモン2）を扱い、
-/// 選んだポケモン・性格・「登録から選ぶ」の状態を、共有の <see cref="BattleStage"/> を通して、もう一方のページに引き継ぐ。
+/// 選んだポケモン・性格・「登録チームから選ぶ」の状態を、共有の <see cref="BattleStage"/> を通して、もう一方のページに引き継ぐ。
 /// </summary>
 public abstract class CalcPageBase : AppPageBase
 {
@@ -20,7 +20,7 @@ public abstract class CalcPageBase : AppPageBase
     /// <summary>読み込んだゲームのデータ（読み込めていなければ null）。</summary>
     protected abstract PokemonDataSet? CalcData { get; }
 
-    /// <summary>「登録から選ぶ」の候補。</summary>
+    /// <summary>「登録チームから選ぶ」の候補。</summary>
     protected abstract IReadOnlyList<RosterChoiceGroup> RosterChoices { get; }
 
     /// <summary>いま入っているページの入力のゲームのキー（読み込み中の別のゲームの値を、Stage に書かないために使う）。</summary>
@@ -44,7 +44,7 @@ public abstract class CalcPageBase : AppPageBase
     /// <summary>ポケモン（全ポケモンから選ぶ欄）を、その側に入れる。</summary>
     protected abstract void SelectPokemon(int side, int pokemonId);
 
-    /// <summary>「登録から選ぶ」が実際に効いているか（登録が 1 つも無いときは、スイッチが出ず、普通の入力欄になる）。</summary>
+    /// <summary>「登録チームから選ぶ」が実際に効いているか（登録が 1 つも無いときは、スイッチが出ず、普通の入力欄になる）。</summary>
     protected bool RosterOn(int side) => GetUseRoster(side) && RosterChoices.Count > 0;
 
     protected RosterChoice? FindChoice(string? key) => PickedBuild.FindChoice(RosterChoices, key);
@@ -58,13 +58,13 @@ public abstract class CalcPageBase : AppPageBase
         int.TryParse(query, out var id) && id > 0 && CalcData?.FindPokemon(id) is not null ? id : null;
 
     /// <summary>
-    /// もう一方のページで選んだポケモン・性格・「登録から選ぶ」を入れる（ゲームのキーが同じときだけ）。
-    /// 「登録から選ぶ」がオンの側は、選んだ登録とメガシンカの姿も入れる。オフの側は、ポケモンと性格を入れる。
+    /// もう一方のページで選んだポケモン・性格・「登録チームから選ぶ」を入れる（ゲームのキーが同じときだけ）。
+    /// 「登録チームから選ぶ」がオンの側は、選んだ登録とメガシンカの姿も入れる。オフの側は、ポケモンと性格を入れる。
     /// </summary>
     protected void ImportFromStage(string dataSetKey)
     {
         if (Stage.DataSetKey != dataSetKey) return;
-        // 「登録から選ぶ」のオン・オフ
+        // 「登録チームから選ぶ」のオン・オフ
         if (Stage.UseRosterMine is { } useMine) SetUseRoster(0, useMine);
         if (Stage.UseRosterFoe is { } useFoe) SetUseRoster(1, useFoe);
         // 順番は、登録 → ポケモン → 性格（天候・フィールドの特性は、先に入れた側が優先されるため、この順を保つ）
@@ -89,7 +89,7 @@ public abstract class CalcPageBase : AppPageBase
             // 同じポケモンのときだけ、性格も引き継ぐ
             if (!rosterOn[side] && nature is not null && GetBuild(side) is { } build && build.Pokemon.Id == picked?.Id) build.Nature = nature;
         }
-        // ダブルバトルの 2 体目（側 2・3）は、「登録から選ぶ」の引き継ぎはせず、ポケモンと性格だけ入れる
+        // ダブルバトルの 2 体目（側 2・3）は、「登録チームから選ぶ」の引き継ぎはせず、ポケモンと性格だけ入れる
         for (var side = 2; side < SlotCount; side++)
         {
             var picked = side == 2 ? Stage.PickedMine2 : Stage.PickedFoe2;
@@ -100,7 +100,7 @@ public abstract class CalcPageBase : AppPageBase
         }
     }
 
-    /// <summary>今のポケモン・性格・「登録から選ぶ」を、もう一方のページに引き継げるよう、Stage に書く（読み込みが終わってから）。</summary>
+    /// <summary>今のポケモン・性格・「登録チームから選ぶ」を、もう一方のページに引き継げるよう、Stage に書く（読み込みが終わってから）。</summary>
     protected void ShareToStage()
     {
         if (!stageReady) return;

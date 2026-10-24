@@ -61,11 +61,11 @@ public sealed class BattleStage
     public Nature? PickedMineNature { get; private set; }
     public Nature? PickedFoeNature { get; private set; }
 
-    /// <summary>「登録から選ぶ」のオン・オフ（自分側＝攻撃側／ポケモン1、相手側＝防御側／ポケモン2）。もう一方のページを開いたときに引き継ぐ。null はまだどちらのページでも決めていない。</summary>
+    /// <summary>「登録チームから選ぶ」のオン・オフ（自分側＝攻撃側／ポケモン1、相手側＝防御側／ポケモン2）。もう一方のページを開いたときに引き継ぐ。null はまだどちらのページでも決めていない。</summary>
     public bool? UseRosterMine { get; private set; }
     public bool? UseRosterFoe { get; private set; }
 
-    /// <summary>「登録から選ぶ」で選んでいる登録（RosterChoice.Key）と、メガシンカ後にしているときの姿。</summary>
+    /// <summary>「登録チームから選ぶ」で選んでいる登録（RosterChoice.Key）と、メガシンカ後にしているときの姿。</summary>
     public string? RosterKeyMine { get; private set; }
     public string? RosterKeyFoe { get; private set; }
     public Pokemon? RosterMegaMine { get; private set; }
