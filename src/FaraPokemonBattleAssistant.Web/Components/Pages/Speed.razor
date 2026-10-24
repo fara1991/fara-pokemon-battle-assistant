@@ -340,6 +340,9 @@ else if (string.IsNullOrEmpty(loadError))
         data = loaded;
         teamMembers = members;
         rosterGroups = groups;
+        // バトル形式を切り替えると選べるチームが変わる。もう一覧に無いチームの選択は外す（入れた構成はそのまま）
+        for (var i = 0; i < s.RosterKey.Length; i++)
+            if (s.RosterKey[i] is { } stale && PickedBuild.FindChoice(groups, stale) is null) s.RosterKey[i] = null;
         rosterError = string.IsNullOrEmpty(membersError) ? groupsError : membersError;
         if (s.DataSetKey != key)
         {

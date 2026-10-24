@@ -546,6 +546,12 @@ else if (string.IsNullOrEmpty(loadError))
             data = loaded;
             usage = loadedUsage;
             rosterGroups = groups;
+            // バトル形式を切り替えると選べるチームが変わる。もう一覧に無いチームの選択は外す（入れた構成はそのまま）
+            for (var i = 0; i < s.AttackerRosterKeys.Length; i++)
+            {
+                if (s.AttackerRosterKeys[i] is { } staleAttacker && PickedBuild.FindChoice(groups, staleAttacker) is null) s.AttackerRosterKeys[i] = null;
+                if (s.DefenderRosterKeys[i] is { } staleDefender && PickedBuild.FindChoice(groups, staleDefender) is null) s.DefenderRosterKeys[i] = null;
+            }
             rosterError = groupsError;
             rivals = loadedRivals;
             // 図鑑順（メガシンカ後の姿は元の姿のすぐ後ろ）

@@ -6,7 +6,7 @@
 <PageTitle>自分チーム | Pokémon Battle Assistant</PageTitle>
 
 <div class="page-header">
-    <h3>自分チーム <Help Title="自分チーム">登録したポケモンをチームにまとめ、持ち物を決めます。ここには、画面上部の「バトル形式」で選んでいる形式（シングル／ダブル）のチームだけが出ます。形式を切り替えると、その形式のチームが出ます（もう一方のチームは消えません）。チームを「使用中」にすると、ダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます。データはゲームごとに分かれています。</Help></h3>
+    <h3>自分チーム <Help Title="自分チーム">登録したポケモンをチームにまとめ、持ち物を決めます。ここには、画面上部の「バトル形式」で選んでいる形式（シングル／ダブル）のチームだけが出ます。形式を切り替えると、その形式のチームが出ます（もう一方のチームは消えません）。チーム番号と「使用中」は、シングルとダブルで別々です。チームを「使用中」にすると、その形式のダメージ計算機・素早さ比較・チャットコマンドでその構成が自動で使われます（形式を切り替えると、その形式の使用中のチームに切り替わります）。データはゲームごとに分かれています。</Help></h3>
     <p class="text-muted mb-0">チームが 0 体になると自動で削除されます。先に<a href="my-pokemon">育成ポケモン</a>でポケモンを登録してください。</p>
     <RegistrationStorageNote />
 </div>
@@ -25,17 +25,13 @@ else if (data is not null && roster is not null && dataSet is not null)
                 <Notice Empty="true" Class="mb-3">登録したポケモンがまだありません。先に<a href="my-pokemon">育成ポケモン</a>で登録してください。</Notice>
             }
             <MudCard Elevation="0" Class="card mb-3">
-                <MudCardHeader Class="card-header"><CardHeaderContent><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで（ダブルでも 6 体まで登録できます）。同じ登録 ID をもう一度追加すると持ち物を更新します。新しいチームは、画面上部の「バトル形式」で選んでいる形式になります（チームごとに形式を変える欄はありません）。チーム番号は、シングルとダブルで共通です（他の形式で使っている番号には追加できません）。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></CardHeaderContent></MudCardHeader>
+                <MudCardHeader Class="card-header"><CardHeaderContent><h5>チームに追加 <Help Title="チーム">1 チーム 6 体まで（ダブルでも 6 体まで登録できます）。同じ登録 ID をもう一度追加すると持ち物を更新します。新しいチームは、画面上部の「バトル形式」で選んでいる形式になります（チームごとに形式を変える欄はありません）。チーム番号は、シングルとダブルで別々に数えます（シングルのチーム1 とダブルのチーム1 を両方作れます）。メガシンカ後のポケモンはメガストーンが自動で付きます。</Help></h5></CardHeaderContent></MudCardHeader>
                 <MudCardContent Class="card-body">
                     <div class="row g-2">
                         <div class="col-4">
                             <label class="form-label">チーム番号</label>
                             <input type="number" class="form-control" min="1" value="@s.TeamNumber" @onchange="@(e => s.TeamNumber = Math.Max(1, ParseId(e.Value)))" />
                         </div>
-                        @if (OtherFormatTeamWithNumber is { } other)
-                        {
-                            <div class="col-12 form-text text-danger team-number-conflict mt-1">チーム@(other.Number) は@(TeamFormats.Label(other.BattleFormat))のチームです。別の番号にしてください</div>
-                        }
                         <div class="col-12">
                             <label class="form-label">登録ポケモン</label>
                             <SearchableSelect TItem="RegisteredPokemon" Items="roster.Pokemon" DisplayText="@(e => $"#{e.Id} {e.PokemonName}（{e.Nature}）")" ValueSelector="@(e => e.Id.ToString())"
@@ -71,7 +67,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             }
                         </div>
                     </div>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="AddToTeamAsync" Disabled="@(s.TeamEntryId == 0 || s.TeamNumber < 1 || OtherFormatTeamWithNumber is not null)">チームに追加</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="AddToTeamAsync" Disabled="@(s.TeamEntryId == 0 || s.TeamNumber < 1)">チームに追加</MudButton>
                 </MudCardContent>
             </MudCard>
         </div>
@@ -84,13 +80,10 @@ else if (data is not null && roster is not null && dataSet is not null)
             {
                 <Notice Empty="true" Class="mb-3">@(FormatLabel)のチームはまだありません。左のフォームからチームに追加すると、ここに表示されます。</Notice>
             }
-            @if (ActiveTeamInOtherFormat is { } hiddenActive)
-            {
-                <Notice Class="mb-3 team-active-hidden">使用中のチーム@(hiddenActive.Number) は@(TeamFormats.Label(hiddenActive.BattleFormat))のチームです。画面上部の「バトル形式」を@(TeamFormats.Label(hiddenActive.BattleFormat))にすると表示されます。</Notice>
-            }
+            @{ var activeNumber = roster.ActiveNumber(App.Format); }
             @foreach (var team in VisibleTeams)
             {
-                var isActive = roster.ActiveNumber(App.Format) == team.Number;
+                var isActive = activeNumber == team.Number;
                 <div class="card mb-3 @(isActive ? "border-primary" : "")">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">チーム@(team.Number) @(isActive ? "（使用中）" : "")</h5>
@@ -170,14 +163,6 @@ else
     private IReadOnlyList<RosterTeam> VisibleTeams =>
         roster?.Teams.Where(t => t.BattleFormat == App.Format).ToList() ?? new List<RosterTeam>();
 
-    /// <summary>入力中のチーム番号を、ほかの形式のチームが使っているとき、そのチーム（チーム番号はシングルとダブルで共通のため、追加できない）。</summary>
-    private RosterTeam? OtherFormatTeamWithNumber =>
-        roster?.Teams.FirstOrDefault(t => t.Number == s.TeamNumber && t.BattleFormat != App.Format);
-
-    /// <summary>使用中のチームが、ほかの形式のチームのとき、そのチーム（使用中は変えないので、一覧に出ない理由を知らせる）。</summary>
-    private RosterTeam? ActiveTeamInOtherFormat =>
-        roster?.Teams.FirstOrDefault(t => t.BattleFormat != App.Format && roster.ActiveNumber(t.BattleFormat) == t.Number);
-
     private bool TeamEntryIsMega =>
         roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } entry && data?.FindPokemon(entry.PokemonId)?.FixedItemId is not null;
 
@@ -198,15 +183,10 @@ else
     {
         var key = App.DataSetKey;
         var format = App.Format;
-        if (OtherFormatTeamWithNumber is { } other)
-        {
-            Toast.Warning($"チーム{other.Number} は{TeamFormats.Label(other.BattleFormat)}のチームです。別の番号にしてください");
-            return;
-        }
         await MutateAsync(async () =>
         {
             var (team, _, replaced) = await Repo.AddToTeamAsync(key, format, s.TeamNumber, s.TeamEntryId, s.TeamItem);
-            Show($"チーム{team.Number} に{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）", false);
+            Show($"{TeamNames.Full(format, team.Number)} に{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）", false);
         });
     }
 
@@ -218,41 +198,44 @@ else
         {
             await Repo.RemoveFromTeamAsync(key, format, teamNo, e => e.Id == entryId);
             if ((await Repo.GetAsync()).For(key).FindTeam(format, teamNo) is null)
-                Show($"チーム{teamNo} は 0 体になったので削除しました", false);
+                Show($"{TeamNames.Full(format, teamNo)} は 0 体になったので削除しました", false);
         });
     }
 
     private async Task RemoveTeamAsync(int teamNo)
     {
         var key = App.DataSetKey;
+        var format = App.Format;
         if (Mutating) return;   // 実行中の操作があるあいだは、確認も出さない
-        if (!await ConfirmAsync($"チーム{teamNo} を削除します（登録したポケモンは残ります）。よろしいですか？")) return;
+        if (!await ConfirmAsync($"{TeamNames.Full(format, teamNo)} を削除します（登録したポケモンは残ります）。よろしいですか？")) return;
         await MutateAsync(async () =>
         {
-            await Repo.RemoveTeamAsync(key, App.Format, teamNo);
-            Show($"チーム{teamNo} を削除しました", false);
+            await Repo.RemoveTeamAsync(key, format, teamNo);
+            Show($"{TeamNames.Full(format, teamNo)} を削除しました", false);
         });
     }
 
     private async Task UnuseTeamAsync()
     {
         var key = App.DataSetKey;
+        var format = App.Format;
         await MutateAsync(async () =>
         {
-            await Repo.ClearActiveTeamAsync(key, App.Format);
-            Show("使用チームを解除しました", false);
+            await Repo.ClearActiveTeamAsync(key, format);
+            Show($"{FormatLabel}の使用チームを解除しました", false);
         });
     }
 
     private async Task UseTeamAsync(int teamNo)
     {
         var key = App.DataSetKey;
+        var format = App.Format;
         await MutateAsync(async () =>
         {
-            if (await Repo.UseTeamAsync(key, App.Format, teamNo))
-                Show($"チーム{teamNo} を使用します", false);
+            if (await Repo.UseTeamAsync(key, format, teamNo))
+                Show($"{TeamNames.Full(format, teamNo)} を使用します", false);
             else
-                Toast.Warning($"チーム{teamNo} はありません（他の場所で削除された可能性があります）");
+                Toast.Warning($"{TeamNames.Full(format, teamNo)} はありません（他の場所で削除された可能性があります）");
         });
     }
 }
