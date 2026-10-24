@@ -8,39 +8,40 @@ FaraBotModerator（WPF / TwitchLib）側に必要な変更は 3 箇所です。
 
 ```
 C:\repos\FaraBotModerator\
-C:\repos\fara-pokemon-assistance\
+C:\repos\fara-pokemon-battle-assistant\
 ```
 
 `FaraBotModerator.csproj`:
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\fara-pokemon-assistance\src\FaraPokemonAssistance.Core\FaraPokemonAssistance.Core.csproj" />
+  <ProjectReference Include="..\fara-pokemon-battle-assistant\src\FaraPokemonBattleAssistant.Core\FaraPokemonBattleAssistant.Core.csproj" />
 </ItemGroup>
 ```
 
 ### 方法 B: NuGet パッケージ
 
-`build.yml` が `FaraPokemonAssistance.Core.<version>.nupkg` を Actions の成果物として出力します。
+`build.yml` が `FaraPokemonBattleAssistant.Core.<version>.nupkg` を Actions の成果物として出力します。
 ローカルフォルダをパッケージソースに追加して参照してください。
+パッケージは net10.0 と net8.0 の両方を含みます。bot の SDK が .NET 10 以上である必要があります（bot の `global.json` を `10.0.100` にしてください）。SDK 8 のままだと restore が NETSDK1045 で失敗します。bot が net10 に上がったら、Core の net8.0 を外します。
 
 ```powershell
 dotnet nuget add source C:\packages --name local
-dotnet add package FaraPokemonAssistance.Core --source local
+dotnet add package FaraPokemonBattleAssistant.Core --source local
 ```
 
 ## 2. 起動時に DataCatalog と登録データを用意する
 
-データは GitHub Pages に公開された CSV を使い、1 日キャッシュします。取り直しに失敗したとき（回線断・タイムアウト）は古いキャッシュで続行します。登録したポケモン・チームはローカルの JSON に保存します。
+データは https://pokemon.fara-labs.com/api/game/ に公開された CSV（静的ファイル。認証なし。`HttpDataSource.GameDataPath`）を使い、1 日キャッシュします。取り直しに失敗したとき（回線断・タイムアウト）は古いキャッシュで続行します。登録したポケモン・チームはローカルの JSON に保存します。
 
 ```csharp
-using FaraPokemonAssistance.Core.Data;
-using FaraPokemonAssistance.Core.Roster;
-using FaraPokemonAssistance.Core.Text;
+using FaraPokemonBattleAssistant.Core.Data;
+using FaraPokemonBattleAssistant.Core.Roster;
+using FaraPokemonBattleAssistant.Core.Text;
 
 public sealed class PokemonAssistService
 {
-    private const string DataUrl = "https://pokemon.app-fara.com/data/";
+    private const string DataUrl = RemoteRosterStore.ProductionBaseUrl + HttpDataSource.GameDataPath; // https://pokemon.fara-labs.com/api/game/
 
     private readonly PokeCommand _command;
 
@@ -63,13 +64,49 @@ public sealed class PokemonAssistService
     {
         var result = await _command.ExecuteAsync(message, new PokeCommandOptions
         {
-            Format = Models.BattleFormat.Singles,   // ダブル配信なら Doubles
-            AllowMutations = canEdit,               // add / rm / use team は配信者本人とモデレーターだけ
+            Format = registeredFormat ?? Models.BattleFormat.Singles,   // 登録した形式（format set）。未登録ならシングル。形式を書かないコマンドはこの形式で動く
+            FormatIsRegistered = registeredFormat is not null,          // format の表示（登録している／既定）に使う
+            SaveFormatAsync = (format, ct) => SaveRegisteredFormatAsync(format, ct),   // format set / format clear の保存先（null は解除）。BOT の設定ファイルなど
+            AllowMutations = canEdit,               // add -m / rm -m / add -t など登録系・format set / clear は配信者本人とモデレーターだけ
         });
         return result.Message;
     }
 }
 ```
+
+### チーム番号は形式ごと・形式の指定（`-f`）と登録（`format`）
+
+チーム番号は **シングルとダブルで別々** に数えます（シングルのチーム1 とダブルのチーム1 は別のチーム）。使用中のチームも形式ごとに 1 つです。
+
+- 形式は、チームのコマンドに `-f シングル` / `-f single` / `-f ダブル` / `-f double`（`--format` でも可）を付けて指定します。`dmg` / `scan` / `faster` も同じオプションで、計算の形式（と、使う使用中チームの形式）を決めます
+- 書かなかったときは、`PokeCommandOptions.Format`（`format set` で登録した形式。未登録ならシングル）で動きます。登録は BOT 全体で 1 つの状態で、`format set シングル|ダブル` で登録、`format clear` で解除（既定のシングルに戻る）、`format` で確認します
+- `format set` / `format clear` の保存は `PokeCommandOptions.SaveFormatAsync` が呼ばれます（`null` を渡されたら登録の解除）。ここで設定ファイルなどに保存し、**次のメッセージから** `Format` / `FormatIsRegistered` にその値を渡してください。`SaveFormatAsync` を設定していなければ、`format set` は「保存できません」と返します
+- 以前の BOT の「対戦形式」設定（`pokemon.battleFormat`）は、この「登録した形式」と同じものとして扱います（使用率・ダブルの計算の形式も、これを使います）
+- チームの登録内容の表示（`RosterRepository` の `Teams` を読む画面）は、`Team.Format` と `Team.Number` の組でチームを区別し、使用中は `DataSetRoster.ActiveNumber(format)` で読みます（`ActiveTeam` は古いデータ用で、新しい版は使いません）
+- 形式ごとにチーム番号を数える前に保存されたデータは、読み込むときに、すべてシングルのチームとして扱います（使用中のチームはシングルの使用中）。ダブルの構成で使っていたデータは、`set -t 番号 ダブル` でダブルへ移してください
+
+### 登録データをサイトと共有する（データ共有）
+
+サイトの「データ共有」ページ（`/data-share`）で **データ共有を始める** を押すとアクセスキー（43 文字）が作られ、登録データがクラウド（`https://pokemon.fara-labs.com/api/my/pokemon`・`/api/my/team`）に保存されます。
+配信用BOT（Auto Bot Settings の Game タブ → ポケモンシリーズ の「アクセスキー」）に同じアクセスキーを設定し、`FileRosterStore` の代わりに `RemoteRosterStore` を使うと、サイトと配信用BOTが同じデータを読み書きします（データはクラウドの 1 か所だけにあり、コピーを同期するのではありません）。
+画面上の呼び方は「データ共有」「アクセスキー」ですが、コード上の名前（`syncKey` 引数、サイトの localStorage キー `fara-pokemon-battle-assistant.syncKey` など）は互換性のためそのままです。
+
+```csharp
+// syncKey: 配信用BOTの Game タブ（ポケモンシリーズ）の「アクセスキー」欄に貼り付けた値（パスワードと同じ扱い。ログに出さない）
+IRosterStore store = RemoteRosterStore.IsValidKey(syncKey)
+    ? new RemoteRosterStore(httpClient, RemoteRosterStore.ProductionBaseUrl, syncKey)
+    : new FileRosterStore(Path.Combine(appDir, "pokemon-roster.json"));
+var roster = new RosterRepository(store);
+```
+
+- `RemoteRosterStore(HttpClient http, string apiBaseUrl, string syncKey)`。`apiBaseUrl` は本番 `RemoteRosterStore.ProductionBaseUrl`（`https://pokemon.fara-labs.com/`）、確認用 `RemoteRosterStore.DevelopBaseUrl`（`https://pokemon-dev.fara-labs.com/`。データは本番と別）。キーの形式が違うと `ArgumentException`
+- `RosterRepository` は読み書きのたびにクラウドから読み直し（ポケモンとチームの 2 回の GET。間に更新が入って版が食い違ったら読み直す）、他の場所（サイト）の更新と競合したら読み直して最大 3 回やり直します（`RosterRepository.MaxConflictRetries`）
+- 保存は変えた部分だけです。登録・削除（`add -m` / `rm -m`）は `PUT /api/my/pokemon`、チーム・使用チームの変更（`add -t` / `rm -t` / `use -t` / `unuse -t`）は `PUT /api/my/team` を呼びます（`IRosterStore.SavePartAsync`）。ポケモンを消したときにチームから外す・0 体のチームを消す・使用中を解除する処理はサーバーが同じ処理の中で行います
+- `IRosterStore` を包むクラスを作るときは、`SavePartAsync` も中の保存先にそのまま渡してください（`SaveAsync` は登録データ全体の保存で、クラウドではデータの移し替え用です）
+- クラウドに届かないときは `RosterUnavailableException`（`Reason`: `Network` / `Unauthorized`＝キーが正しくない / `KeyRetired`＝サイトでキーが作り直された / `TooLarge` / `Rejected` / `Server` / `InvalidResponse`）。`Message` はそのまま表示できる日本語で、キーは含みません。やり直しても競合が続くと `RosterConflictException`
+- `PokeCommand.ExecuteAsync` / `TryExecuteAsync` はこれらの例外を受け止めて「失敗しました: アクセスキーが正しくありません」のような結果を返します（チャットにそのまま返せます）
+- サイトでキーを作り直すと（`DELETE /api/my/access-key`）、古いキーは `KeyRetired` になります。新しいキーを設定し直してください
+- 確認用サイト（`RemoteRosterStore.DevelopBaseUrl`）は Cloudflare Access の内側なので、`/api/*`（登録データの `/api/my/*` とゲームデータの `/api/game/*`）を Access の **Bypass** にしておく必要があります
 
 ## 3. チャットメッセージをさばく
 
@@ -95,19 +132,27 @@ private async void TwitchClientOnMessageReceived(object? sender, OnMessageReceiv
 
 ## 動作確認
 
-ボットに組み込む前に、同じ文字列をターミナルやブラウザで試せます。
+配信用BOTに組み込む前に、同じ文字列をターミナルやブラウザで試せます。
 
 ```bash
-dotnet run --project src/FaraPokemonAssistance.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
-dotnet run --project src/FaraPokemonAssistance.Cli -- --data https://pokemon.app-fara.com/data/ "!pokesv diff ガブリアス ハバタクカミ"
+dotnet run --project src/FaraPokemonBattleAssistant.Cli -- "!pokech dmg イエッサン♂ ワイドフォース メガリザードンX サイコフィールド"
+dotnet run --project src/FaraPokemonBattleAssistant.Cli -- --data https://pokemon.fara-labs.com/api/game/ "!pokesv faster ガブリアス ハバタクカミ"
 ```
 
-ブラウザ: https://pokemon.app-fara.com/command
+ブラウザ: https://pokemon.fara-labs.com/chat-commands
 
 ## 注意
 
 - Twitch は `/` 始まりのメッセージを自身のコマンドとして扱うため、`!` 始まりにしています。
 - 1 メッセージ 500 文字制限に合わせて、結果は `DamageCommandOptions.MaxLength`（既定 480）で切り詰めます。
-- 連投対策（同一ユーザーのクールダウンなど）はボット側で行ってください。計算自体は数ミリ秒です。
-- `!poke cmd ls` で使えるコマンド一覧が返ります（`!poke` はチャンピオンズ扱い）。
-- `AllowMutations = false` のとき、`add` / `rm` / `use team` は「配信者・モデレーターのみ行えます」と返し、閲覧・計算系はそのまま動きます。
+- 連投対策（同一ユーザーのクールダウンなど）は配信用BOT側で行ってください。計算自体は数ミリ秒です。
+- `!poke help` で使えるコマンド一覧が返ります（`!poke` はチャンピオンズ扱い）。
+- 登録・チームは短い形の `-m` / `-t` が主です。長い形の `--my` / `--team` も同じ意味で使えます。例（短い形の直後に同じ意味の長い形を並べています）:
+  ```
+  !pokech add -m ガブリアス 4 32 0 0 0 30 ようき
+  !pokech add --my ガブリアス 4 32 0 0 0 30 ようき
+  !pokech use -t 1
+  !pokech use --team 1
+  ```
+- 返信の性格は、性格名ではなく上がる・下がる能力で出ます（例: `イエッサン(C252 C↑A↓ …)`）。補正のない性格（まじめ・てれや など）は「補正無し」と出ます（例: `ガブリアス(H32 補正無し …)`、`ls -m` なら `#1 ガブリアス(補正無し)`）。入力は今までどおり性格名です。
+- `AllowMutations = false` のとき、`add` / `rm` / `use -t`（pokemon・team とも） は「配信者・モデレーターのみ行えます」と返し、閲覧・計算系はそのまま動きます。

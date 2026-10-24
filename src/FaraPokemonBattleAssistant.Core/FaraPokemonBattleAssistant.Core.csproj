@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- bot（net8.0）が参照できるよう、net8.0 も残す（bot を net10 に上げたら net8.0 を外す） -->
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>FaraPokemonBattleAssistant.Core</RootNamespace>
+    <PackageId>FaraPokemonBattleAssistant.Core</PackageId>
+    <Version>0.3.0</Version>
+    <Authors>Fara</Authors>
+    <Description>ポケモンのダメージ計算・データ読み込み・チャットコマンド解析（Web とボットの共通ライブラリ）</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/fara1991/fara-pokemon-battle-assistant</RepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+@page "/report"
+@* 問い合わせ。画面・送信・ボット判定（Turnstile）は、kit の ReportFormView。このサイト固有の文言だけを渡す。
+   送信先は SiteOptions.ReportApiPath（既定 api/report。external/fara-site-kit/worker/report.js） *@
+
+<ReportFormView From="@From"
+                UnavailableNote="お急ぎの場合は、画面下のフッターにある Twitter のアイコンからお願いします。"
+                MessagePlaceholder="例: ダメージ計算機で、〇〇を選ぶと結果が出ません（使っているゲーム・操作の手順も書いてもらえると助かります）"
+                ContactHint="返信が欲しいときだけ、メールアドレスや Twitter の ID などを書いてください。書かなくても送れます。" />
+
+@code {
+    /// <summary>報告のきっかけになったページ（フッターのリンクが ?from= に付ける。パスだけ）。</summary>
+    [SupplyParameterFromQuery(Name = "from")] public string? From { get; set; }
+}

@@ -1,0 +1,40 @@
+@* 「対戦画面で表示」のスイッチ（ヘッダー・サイドバーに置く。MudBlazor の MudSwitch）。オンにすると、背景のフィールドを止めて、結果をフィールドの上に重ねて出す（Shared/BattleOverlay.razor）。
+   オン・オフは BattleStage が持ち、ブラウザに保存する。ダメージ計算機・素早さ比較・「育成ポケモン」で効く *@
+@using MudBlazor
+@inject BattleStage Stage
+@implements IDisposable
+
+@if (Compact)
+{
+    @* ヘッダー用: 狭いので、説明（?）は付けず、短い名前だけにする *@
+    <MudSwitch T="bool" Value="@Stage.BattleView" ValueChanged="Toggle" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End" Class="@("battle-switch " + Class)" AriaLabel="対戦画面で表示">対戦画面</MudSwitch>
+}
+else
+{
+    <div class="battle-switch-wrap @Class">
+        <MudSwitch T="bool" Value="@Stage.BattleView" ValueChanged="Toggle" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End" Class="battle-switch" AriaLabel="対戦画面で表示">対戦画面で表示</MudSwitch>
+        <Help Title="対戦画面で表示">背景のフィールドの回転を止め、ダメージ計算機・素早さ比較・育成ポケモンの内容を、実際の対戦画面のようにフィールドの上に重ねて出します（入力欄は隠れます。入力した内容は残ります）。オフにすると入力欄に戻ります。全ページ共通で、前回の状態を覚えています。</Help>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Stage.Changed += OnStageChanged;
+
+    // ほかの操作（見出しをまたぐページの切り替えなど）でオン・オフが変わったときも、スイッチの表示を合わせる
+    private void OnStageChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Stage.Changed -= OnStageChanged;
+
+    private async Task Toggle(bool on)
+    {
+        Stage.SetBattleView(on);
+        await OnChanged.InvokeAsync();
+    }
+
+    [Parameter] public string InputId { get; set; } = "battle-view";
+    [Parameter] public string? Class { get; set; }
+    /// <summary>ヘッダー・スマホの上のバーに置く小さい表示（ラベルだけ。説明の ? は付けない）。</summary>
+    [Parameter] public bool Compact { get; set; }
+    /// <summary>切り替えたあとに呼ぶ（スマホでメニューを閉じて、結果が見えるようにする）。</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+}

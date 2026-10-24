@@ -1,0 +1,30 @@
+@* 項目の説明を出す「?」ボタン。押すと Excel のコメントのような吹き出し（MudBlazor の MudPopover）を表示する。外側を押すか、×で閉じる。 *@
+@using MudBlazor
+<span class="help-wrap">
+    <MudIconButton Icon="@Icons.Material.Filled.QuestionMark" Size="Size.Small" Class="help-btn" title="説明を見る" aria-label="説明を見る"
+                   aria-expanded="@(open ? "true" : "false")" aria-controls="@(open ? noteId : null)" OnClick="Toggle" />
+    <MudPopover Open="open" Fixed="true" Elevation="4" AnchorOrigin="Origin.CenterRight" TransformOrigin="Origin.CenterLeft"
+                OverflowBehavior="OverflowBehavior.FlipAlways" Class="help-popover">
+        <div class="help-note" role="note" id="@noteId">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <strong class="d-block mb-1">@Title</strong>
+            }
+            @ChildContent
+            <button type="button" class="help-close" aria-label="閉じる" @onclick="Close">×</button>
+        </div>
+    </MudPopover>
+</span>
+<MudOverlay Visible="open" OnClick="Close" ZIndex="1099" />
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool open;
+    private readonly string noteId = "hp-" + Guid.NewGuid().ToString("N")[..8];
+
+    private void Toggle() => open = !open;
+
+    private void Close() => open = false;
+}

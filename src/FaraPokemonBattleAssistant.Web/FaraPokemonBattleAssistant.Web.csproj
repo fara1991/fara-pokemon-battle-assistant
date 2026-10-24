@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>FaraPokemonBattleAssistant.Web</RootNamespace>
+    <BlazorEnableCompression>true</BlazorEnableCompression>
+    <!--
+      ICU（文化依存の比較・書式）を載せない（約 240 KiB・Brotli を配らずに済む）。
+      日本語の並び・検索は Ordinal / InvariantCulture で書いてある。tests/.../OrderSnapshotTests.cs が、
+      ICU あり・なしの両方で同じ結果になることを確かめる（CI は DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 でも実行する）。
+    -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.13" PrivateAssets="all" />
+    <PackageReference Include="MudBlazor" Version="9.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FaraPokemonBattleAssistant.Core\FaraPokemonBattleAssistant.Core.csproj" />
+    <!-- 共通部品（Core: SiteLinks・MaintenanceInfo・ReportForm・SiteOptions。Razor: レイアウト・フッター・報告フォームなど） -->
+    <ProjectReference Include="..\..\external\fara-site-kit\src\FaraSiteKit.Core\FaraSiteKit.Core.csproj" />
+    <ProjectReference Include="..\..\external\fara-site-kit\src\FaraSiteKit.Razor\FaraSiteKit.Razor.csproj" />
+  </ItemGroup>
+
+</Project>

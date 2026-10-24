@@ -1,0 +1,61 @@
+{
+  // Cloudflare Workers で公開する設定。
+  // サイト本体は dotnet publish の出力（publish/wwwroot）を静的アセットとして配信し、
+  // /（ホームの home.html。worker/home.js）と /api/*（登録データのデータ共有・報告・メンテナンスの状態・ゲームデータ）だけ Worker スクリプト（worker/index.js）を通す。
+  // ゲームデータ（CSV）の /api/game/* は wwwroot/api/game を静的アセットとして配る（Worker を通して、そのまま返す。メンテナンス中だけ 503）。
+  //   本番:   npx wrangler deploy               → https://pokemon.fara-labs.com/          （deploy.yml・master への push）
+  //   確認用: npx wrangler deploy --env develop → https://pokemon-dev.fara-labs.com/  （deploy-develop.yml・develop への push）
+  // 本番と確認用は Worker が別なので、登録データ（Durable Object）も別々。
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fara-pokemon",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-01",
+  // ダッシュボードで足した変数（MAINTENANCE_MODE・MAINTENANCE_MESSAGE など）を、公開（wrangler deploy）のたびに消さない
+  "keep_vars": true,
+  "assets": {
+    "directory": "./publish/wwwroot",
+    "binding": "ASSETS",
+    // 有効な URL（/speed-comparison・/my-pokemon・/my-team など、Blazor の @page）は、ビルドで作る <route>.html を返す（tools/build-entry-pages.mjs。起動後に Blazor がページを切り替える。
+    // 以前の /speed・/pokemon・/roster・/team・/my-teams などは Blazor 側で新しい URL に転送）。それ以外の存在しない URL は 404.html を 404 のステータスで返す（本物の 404。検索エンジンに薄い 200 のページを見せない）。
+    // 有効なルートに HTML が無いと、そのページが 404 のステータスで返る。ルートは @page から自動で集め、tools/build-entry-pages.test.mjs と CI（tools/check-routes.mjs）で網羅を確かめる
+    "not_found_handling": "404-page",
+    // / と /api/*（登録データ・報告・メンテナンスの状態・ゲームデータ）、および /home・/home.html・/home/（内部の入口ファイル home.html。/ へ 301）だけ Worker スクリプトに渡す（それ以外のパスは今までどおり静的アセット）。
+    // /home の転送を静的な _redirects にしないのは、Worker が / で env.ASSETS.fetch("/home") を呼ぶときにも _redirects が効いて、/ が / へ転送されてしまうため
+    // / は、ホームの本文入りの home.html を返すため（worker/home.js）。存在しない URL は 404.html の 404（読み込み表示だけ。起動後に Blazor が 404 画面を描く）
+    // ゲームデータの /api/game/* は、通常は Worker が静的アセットをそのまま返し、メンテナンス中（MAINTENANCE_MODE=true）だけ 503 にする
+    // （データの更新をメンテナンス中に行えるように）。Worker を通るぶん、無料枠のリクエスト数を使う
+    "run_worker_first": ["/", "/home", "/home.html", "/home/", "/api/*"]
+  },
+  // アクセスキーごとの置き場。SQLite ストレージの Durable Object（無料プランで使える）
+  "durable_objects": {
+    "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RosterSlot"] }],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "pokemon.fara-labs.com", "custom_domain": true }
+  ],
+  "env": {
+    "develop": {
+      // Worker 名（ダッシュボードで変更した名前に合わせる）
+      "name": "fara-pokemon-dev",
+      "assets": {
+        "directory": "./publish/wwwroot",
+        "binding": "ASSETS",
+        "not_found_handling": "404-page",
+        "run_worker_first": ["/", "/home", "/home.html", "/home/", "/api/*"]
+      },
+      // durable_objects はトップレベルから引き継がれないので、環境ごとに書く
+      "durable_objects": {
+        "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RosterSlot"] }],
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        { "pattern": "pokemon-dev.fara-labs.com", "custom_domain": true }
+      ]
+    }
+  }
+}

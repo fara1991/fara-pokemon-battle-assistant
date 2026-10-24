@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bunit" Version="2.12.5" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\FaraPokemonBattleAssistant.Core\FaraPokemonBattleAssistant.Core.csproj" />
+    <ProjectReference Include="..\..\src\FaraPokemonBattleAssistant.Web\FaraPokemonBattleAssistant.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- データ共有 API の偽サーバー（Core.Tests と共有） -->
+    <Compile Include="..\FaraPokemonBattleAssistant.Core.Tests\FakeRosterServer.cs" Link="FakeRosterServer.cs" />
+  </ItemGroup>
+
+</Project>

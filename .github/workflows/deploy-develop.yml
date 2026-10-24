@@ -1,0 +1,111 @@
+name: Deploy (develop)
+
+# 確認用（https://pokemon-dev.fara-labs.com/）への公開。develop に push（PR のマージ含む）されるたびに実行。
+# 本番には影響しない。手動で再実行したいときは Actions タブから develop を選んで Run workflow。
+on:
+  push:
+    branches: [develop]
+    paths-ignore:
+      - "**.md"
+      - ".github/ISSUE_TEMPLATE/**"
+  workflow_dispatch:
+    inputs:
+      maintenance_mode:
+        description: "メンテナンス表示の切り替え。true = 全体メンテナンス（全ページがメンテナンス画面・503）、notice = お知らせ帯、false = 通常。空 = 変更しない"
+        type: choice
+        options: ["", "true", "notice", "false"]
+        default: ""
+      maintenance_message:
+        description: "お知らせ・メンテナンス画面に出す文（200 文字まで・改行なし）。空 = 変更しない"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-develop
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: develop
+      url: https://pokemon-dev.fara-labs.com/
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # ゲームデータ（wwwroot/api/game）は publish/wwwroot/api/game に入り、/api/game/... の静的アセットとして配られる（Worker は /api/my/* だけ）。
+      - name: Publish Blazor WebAssembly
+        run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --output publish
+
+      # 検索の入口ページの静的 HTML と robots.txt を作る（確認用のホスト名で canonical を付ける。sitemap.xml は作らない）
+      - name: Build entry pages (develop)
+        run: node tools/build-entry-pages.mjs --env develop
+
+      # 有効なルート（Blazor の @page）の HTML と 404.html が全部あるか。無いと、そのページが 404 になるので、公開の前に止める
+      - name: Check routes
+        run: node tools/check-routes.mjs
+
+      # 確認用サイトが検索結果に載らないようにする。kit が X-Robots-Tag: noindex を入れるが、従来どおり nofollow も付けるため、ここで追記する
+      - name: Add noindex header
+        run: |
+          cat >> publish/wwwroot/_headers <<'HEADERS'
+          /*
+            X-Robots-Tag: noindex, nofollow
+          HEADERS
+
+      - name: Deploy (develop)
+        shell: bash
+        run: |
+          vars=()
+          if [ -n "$MAINTENANCE_MODE_INPUT" ]; then vars+=(--var "MAINTENANCE_MODE:$MAINTENANCE_MODE_INPUT"); fi
+          if [ -n "$MAINTENANCE_MESSAGE_INPUT" ]; then vars+=(--var "MAINTENANCE_MESSAGE:$MAINTENANCE_MESSAGE_INPUT"); fi
+          npx wrangler deploy --env develop "${vars[@]}"
+        env:
+          MAINTENANCE_MODE_INPUT: ${{ inputs.maintenance_mode }}
+          MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Summary (maintenance)
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          msg="$(printf '%s' "$MAINTENANCE_MESSAGE_INPUT" | tr '`' '"')"
+          {
+            echo "### メンテナンス表示 (${WORKER_NAME})"
+            echo "- 設定した値: MAINTENANCE_MODE=\`${MAINTENANCE_MODE_INPUT:-(変更なし)}\` / MAINTENANCE_MESSAGE=\`${msg:-(変更なし)}\`"
+            node -e '
+              const j = (v) => JSON.stringify(v);
+              fetch(`https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${process.env.WORKER_NAME}/settings`, { headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` } })
+                .then((r) => r.json())
+                .then((b) => {
+                  const list = b?.result?.bindings ?? [];
+                  const v = (n) => { const x = list.find((y) => y.name === n); return x ? (x.type === "plain_text" ? j(x.text).replaceAll("`", "\u0027") : `(${x.type})`) : "(未設定)"; };
+                  console.log(`- 反映後の現在値: MAINTENANCE_MODE=\`${v("MAINTENANCE_MODE")}\` / MAINTENANCE_MESSAGE=\`${v("MAINTENANCE_MESSAGE")}\``);
+                })
+                .catch(() => console.log("- 反映後の現在値: 取得できませんでした"));
+            '
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          MAINTENANCE_MODE_INPUT: ${{ inputs.maintenance_mode }}
+          MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
+          WORKER_NAME: fara-pokemon-dev
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

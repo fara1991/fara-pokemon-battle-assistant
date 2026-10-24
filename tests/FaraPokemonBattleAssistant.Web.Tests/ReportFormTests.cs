@@ -1,0 +1,194 @@
+using System.Text.Json;
+using FaraPokemonBattleAssistant.Web.Services;
+using FaraSiteKit.Core;
+using Xunit;
+
+namespace FaraPokemonBattleAssistant.Web.Tests;
+
+/// <summary>「作者へ報告」の入力の確認と、フッターに出すサイトの情報。</summary>
+public class ReportFormTests
+{
+    private static ReportForm Valid() => new() { Category = "bug", Message = "ここが動きません", Contact = "", TurnstileToken = "tok" };
+
+    [Fact]
+    public void A_complete_form_has_no_problem() => Assert.Null(Valid().Validate());
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("other-kind")]
+    [InlineData("BUG")]
+    public void The_category_must_be_one_of_the_known_ones(string category)
+    {
+        var form = Valid();
+        form.Category = category;
+        Assert.Contains("種類", form.Validate());
+    }
+
+    [Fact]
+    public void Categories_match_the_server_names()
+    {
+        // external/fara-site-kit/worker/report.js の CATEGORIES と同じ ID（画面と通知の食い違いを防ぐ）
+        Assert.Equal(new[] { "bug", "request", "other" }, ReportForm.Categories.Select(c => c.Id));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("あ")]
+    [InlineData("  あいうえ  ")]    // 前後の空白は数えない（4 文字）
+    public void A_message_that_is_too_short_is_rejected(string message)
+    {
+        var form = Valid();
+        form.Message = message;
+        Assert.Contains("文字以上", form.Validate());
+    }
+
+    [Fact]
+    public void The_message_limit_counts_trimmed_characters()
+    {
+        var form = Valid();
+        form.Message = new string('あ', ReportForm.MaxMessage);
+        Assert.Null(form.Validate());
+        form.Message = " " + new string('あ', ReportForm.MaxMessage) + " ";
+        Assert.Null(form.Validate());
+        form.Message = new string('あ', ReportForm.MaxMessage + 1);
+        Assert.Contains("文字までに", form.Validate());
+    }
+
+    [Fact]
+    public void Characters_are_counted_by_code_point_so_an_emoji_is_one_character()
+    {
+        // 報告フォームの文字数（「いま N 文字」の表示・上限の判定）は、kit のコードポイントの数え方（worker/report.js と同じ）。
+        // これまで（Razor の画面は UTF-16 の Length）は、絵文字（サロゲートペア）が 2 文字だった。「😀」は 1 文字になる
+        Assert.Equal(1, ReportForm.CountCharacters("😀"));
+        Assert.Equal(2, "😀".Length);
+        Assert.Equal(3, ReportForm.CountCharacters("あ😀い"));
+        Assert.Equal(0, ReportForm.CountCharacters(""));
+    }
+
+    [Fact]
+    public void The_message_limit_and_minimum_use_the_code_point_count()
+    {
+        var form = Valid();
+        // 絵文字 MaxMessage 個は、UTF-16 では 2 倍の長さだが、上限ちょうど（通る）
+        form.Message = string.Concat(Enumerable.Repeat("😀", ReportForm.MaxMessage));
+        Assert.Null(form.Validate());
+        form.Message = string.Concat(Enumerable.Repeat("😀", ReportForm.MaxMessage + 1));
+        Assert.Contains("文字までに", form.Validate());
+        // 絵文字 MinMessage 個は、最小の文字数ちょうど（通る）
+        form.Message = string.Concat(Enumerable.Repeat("😀", ReportForm.MinMessage));
+        Assert.Null(form.Validate());
+    }
+
+    [Fact]
+    public void The_report_page_shows_the_code_point_count()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !Directory.Exists(Path.Combine(dir, "external", "fara-site-kit"))) dir = Path.GetDirectoryName(dir);
+        var view = File.ReadAllText(Path.Combine(dir!, "external", "fara-site-kit", "src", "FaraSiteKit.Razor", "Components", "ReportFormView.razor"));
+        Assert.Contains("ReportForm.CountCharacters(Form.Message.Trim())", view);
+        Assert.DoesNotContain("Message.Trim().Length", view);
+    }
+
+    [Fact]
+    public void A_long_contact_is_rejected_and_the_check_token_is_required()
+    {
+        var form = Valid();
+        form.Contact = new string('a', ReportForm.MaxContact + 1);
+        Assert.Contains("連絡先", form.Validate());
+        form = Valid();
+        form.TurnstileToken = "";
+        Assert.Contains("ロボット", form.Validate());
+    }
+
+    [Fact]
+    public void Json_uses_the_names_the_server_reads_and_trims_the_text()
+    {
+        var form = Valid();
+        form.Message = "  こんにちは世界  ";
+        form.Contact = " me@example.com ";
+        form.Page = "/speed-comparison";
+        form.Website = "";
+        using var doc = JsonDocument.Parse(form.ToJson());
+        var root = doc.RootElement;
+        Assert.Equal("bug", root.GetProperty("category").GetString());
+        Assert.Equal("こんにちは世界", root.GetProperty("message").GetString());
+        Assert.Equal("me@example.com", root.GetProperty("contact").GetString());
+        Assert.Equal("/speed-comparison", root.GetProperty("page").GetString());
+        Assert.Equal("tok", root.GetProperty("turnstileToken").GetString());
+        Assert.Equal("", root.GetProperty("website").GetString());
+    }
+
+    [Fact]
+    public void Json_keeps_japanese_text_unescaped_so_a_long_report_stays_small()
+    {
+        var form = Valid();
+        form.Message = new string('あ', 2000);
+        var json = form.ToJson();
+        Assert.DoesNotContain("\\u3042", json);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(json) < 8 * 1024);
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal(2000, doc.RootElement.GetProperty("message").GetString()!.Length);
+    }
+
+    [Theory]
+    [InlineData("/speed-comparison", "/speed-comparison")]
+    [InlineData("/", "/")]
+    [InlineData("/a/b_c-d.e", "/a/b_c-d.e")]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData("speed", "")]                         // パスでないもの
+    [InlineData("//evil.example/x", "")]              // 別のサイトを指す形
+    [InlineData("https://evil.example/", "")]
+    [InlineData("/x?y=1", "")]                        // 英数字・- _ / . 以外を含むもの
+    [InlineData("/<script>", "")]
+    public void The_page_is_a_plain_path_or_empty(string? from, string expected) => Assert.Equal(expected, ReportForm.CleanPage(from));
+
+    [Fact]
+    public void A_too_long_page_is_dropped() => Assert.Equal("", ReportForm.CleanPage("/" + new string('a', 300)));
+
+    [Fact]
+    public void Failure_message_comes_from_the_server_when_it_has_one()
+    {
+        Assert.Equal("内容を 5 文字以上で書いてください", ReportForm.DescribeFailure(400, "{\"error\":\"invalid_message\",\"message\":\"内容を 5 文字以上で書いてください\"}"));
+    }
+
+    [Theory]
+    [InlineData(413, "", "長すぎ")]
+    [InlineData(429, "<html>Too Many Requests</html>", "入力を確かめて")]   // Cloudflare のレート制限（本文は HTML）。kit 0.3.5 で 429 専用の文は無くなり既定の文になる
+    [InlineData(503, "not json", "受け付けていません")]
+    [InlineData(502, null, "失敗")]
+    [InlineData(500, "{\"message\":\"\"}", "失敗")]            // 空の文は使わない
+    [InlineData(400, "{\"message\":123}", "入力を確かめて")]       // 文字列でないものは使わない
+    [InlineData(403, "[1,2]", "入力を確かめて")]
+    public void Failure_message_falls_back_to_a_default_for_the_status(int status, string? body, string expectedPart) =>
+        Assert.Contains(expectedPart, ReportForm.DescribeFailure(status, body));
+
+    [Fact]
+    public void Footer_info_has_the_agreed_format()
+    {
+        Assert.Equal("Pokémon Battle Assistant", SiteInfo.Name);
+        Assert.Equal("© 2026 Fara", SiteInfo.Copyright);
+        Assert.Equal("https://fara-labs.com/", SiteInfo.PortfolioUrl);
+    }
+
+    [Fact]
+    public void The_author_link_goes_to_the_dev_homepage_on_the_dev_site()
+    {
+        // フッターの作者のリンクは、kit の SiteFooter が、開いているホスト名（NavigationManager.BaseUri）と DevelopHost を比べて切り替える
+        var beforeDevelop = SiteLinks.DevelopHost;
+        try
+        {
+            var options = new SiteOptions();
+            SiteInfo.Configure(options);
+            SiteLinks.DevelopHost = options.DevelopHost;
+            Assert.Equal("pokemon-dev.fara-labs.com", options.DevelopHost);
+            Assert.Equal("https://fara-labs.com/", SiteLinks.Localize(options.AuthorHomeUrl, "pokemon.fara-labs.com"));
+            Assert.Equal("https://dev.fara-labs.com/", SiteLinks.Localize(options.AuthorHomeUrl, "pokemon-dev.fara-labs.com"));
+        }
+        finally
+        {
+            SiteLinks.DevelopHost = beforeDevelop;
+        }
+    }
+}

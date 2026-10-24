@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- SEO-HEAD:START -->
+    <title>Pokémon Battle Assistant</title>
+    <!-- SEO-HEAD:END -->
+    <!-- OGP 画像の形式・大きさ・説明。画像（og:image）そのものは SEO-HEAD の中に、build-entry-pages が全ページに入れる（tools/entry-pages.json の ogImage）。
+         kit（v0.3.5）は type・width・height・alt を出さないので、全ページ共通の値をここに置く（SEO-HEAD の外なので build-entry-pages に消されない）。
+         og:image の「後ろ」に並ぶ位置にする（SNS のクローラーは、直前の og:image に紐づけて読む）。画像を差し替えたら、ファイル名の版（og-v2 など）と、ここの大きさ・説明を合わせる -->
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="雨の降る紫色のバトルフィールドを、斜め上から見下ろした絵" />
+    <!-- ファビコン（六角形のレーダー。外側の枠は明るい紫、内側の多角形は濃い紫、どちらも白い縁取り）。SEO-HEAD の区切りの外に置く（build-entry-pages が区切りの中だけを書き換えるので、全ページに残る）。
+         /favicon.ico は必ず置く（not_found_handling が 404 ページなので、無いと 404）。SVG は prefers-color-scheme の切り替えなし（Safari 非対応のため PNG・ICO と見た目をそろえる）。
+         ファイル名は固定。Workers の静的アセットは再検証（must-revalidate）で配られるが、ブラウザーのファビコンは強く覚えられるので、図案を変えたら ?v= を上げる -->
+    <link rel="icon" href="/favicon.ico?v=4" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32x32.png?v=4" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16x16.png?v=4" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=4" />
+    <base href="/" />
+    <!-- 起動までの読み込み表示（画面全体を覆う不透明なオーバーレイ）。最初に当てる（CSS の読み込み前にも本文が見えないように、インラインで書く）。
+         背景色は theme-init.js（kit）が決める data-bs-theme に従う（app.css の --app-body-bg と同じ色）。 -->
+    <style>
+        html, body { background: #f7f4fd; }
+        html[data-bs-theme="dark"], html[data-bs-theme="dark"] body { background: #0c0616; }
+        /* 保険: JS が動かない（読めない・失敗した）ときも、60 秒たったら隠れて本文を読めるようにする（JS の RELEASE_MS と同じ秒数）。
+           動きを減らす設定の対象外（spinner の規則だけを止める）。visibility は隠れたあとも戻らない */
+        #boot-indicator {
+            position: fixed; inset: 0; z-index: 2147483000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.1rem;
+            box-sizing: border-box; padding: 1.5rem;
+            /* 横向きのノッチ・下端のバーで文字が隠れないよう、安全領域の分だけ内側に寄せる（viewport-fit=cover のとき。ブラウザ表示では 0）。背景は端まで */
+            padding: calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px));
+            background: #f7f4fd; color: #3b2a5c;
+            font-family: "Zen Kaku Gothic New", "Yu Gothic", system-ui, sans-serif;
+            animation: boot-indicator-release 0s linear 60s forwards;
+        }
+        @keyframes boot-indicator-release { to { visibility: hidden; } }
+        html[data-bs-theme="dark"] #boot-indicator { background: #0c0616; color: #e9e3f5; }
+        .boot-indicator-spinner {
+            width: 3rem; height: 3rem; box-sizing: border-box;
+            border: 0.3rem solid #7c3aed; border-right-color: transparent; border-radius: 50%;
+            animation: boot-indicator-spin 0.75s linear infinite;
+        }
+        html[data-bs-theme="dark"] .boot-indicator-spinner { border-color: #a855f7; border-right-color: transparent; }
+        .boot-indicator-label { font-size: 0.95rem; font-weight: 700; line-height: 1.6; text-align: center; max-width: 24rem; }
+        .boot-indicator-label:empty::before { content: "読み込み中…"; }
+        /* 案内（45 秒後）の「再読み込み」は押せるようにする（オーバーレイ自体は、本文の上で操作を受け止める） */
+        .boot-indicator-label a { color: #7c3aed; font-weight: 700; text-decoration: underline; pointer-events: auto; }
+        html[data-bs-theme="dark"] .boot-indicator-label a { color: #a855f7; }
+        /* 時間がかかっているとき（再読み込みの案内）は、回転を止める */
+        #boot-indicator[data-state="slow"] .boot-indicator-spinner { animation: none; }
+        @keyframes boot-indicator-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .boot-indicator-spinner { animation: none; }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link href="css/base.css" rel="stylesheet" />
+    <!-- 共通部品（fara-site-kit）の CSS。サイトの app.css より前に読む（同じ強さの規則は app.css が勝つ） -->
+    <link href="_content/FaraSiteKit.Razor/css/fara-site-kit.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <!-- 描画の前に、保存されたテーマ（ライト／ダーク）と PC のサイドバーを隠す設定を html に反映する（kit の theme-init.js）。
+         data-storage-key・data-sidebar-key は、SiteOptions（Services/SiteInfo.cs の StorageKey・SidebarKey）と同じ値にする（違うと、起動の後にコンソールに警告が出る） -->
+    <script src="_content/FaraSiteKit.Razor/js/theme-init.js" data-storage-key="fara-pokemon-battle-assistant.settings" data-sidebar-key="fara-pokemon-battle-assistant.sidebar-hidden"></script>
+    <script src="js/site-init.js"></script>
+    <!-- JavaScript が無いときは読み込み表示を出さない（静的な本文をそのまま読める）。インラインの script は CSP で使えないので style で隠す -->
+    <noscript><style>#boot-indicator { display: none; }</style></noscript>
+</head>
+<body>
+    <!-- 起動までの読み込み表示。#app の外に置く（Blazor が #app の中身を置き換えても残るので、boot-indicator.js（kit）が起動後に外す）。
+         静的な本文は、このオーバーレイの下に DOM として残す（検索エンジン・JavaScript が無い環境のため）。
+         文言は CSS（:empty::before）で出すので、生の HTML の本文には入らない。読み上げは aria-label -->
+    <div id="boot-indicator" class="boot-indicator">
+        <div class="boot-indicator-spinner" aria-hidden="true"></div>
+        <span class="boot-indicator-label" role="status" aria-live="polite" aria-label="読み込み中"></span>
+    </div>
+    <button type="button" id="scroll-top" class="scroll-top" aria-label="いちばん上へ" title="いちばん上へ">↑</button>
+    <div id="app">
+        <!-- SEO-BODY:START -->
+        <!-- SEO-BODY:END -->
+    </div>
+
+    <div id="blazor-error-ui">
+        エラーが発生しました。ページを再読み込みしてください。
+        <a href="" class="reload">再読み込み</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script src="_content/FaraSiteKit.Razor/js/boot-indicator.js"></script>
+    <script src="_content/FaraSiteKit.Razor/js/fara-site-kit.js"></script>
+    <script src="js/page.js"></script>
+    <script src="js/motion.js"></script>
+    <script src="_content/FaraSiteKit.Razor/js/scroll-progress.js"></script>
+    <script src="_content/FaraSiteKit.Razor/js/report.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+</body>
+</html>

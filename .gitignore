@@ -39,3 +39,13 @@ Desktop.ini
 
 ## Logs
 *.log
+
+## Cloudflare Workers（wrangler）
+node_modules/
+publish/
+.wrangler/
+
+## Python
+__pycache__/
+*.pyc
+tools/.cache/
