@@ -64,13 +64,26 @@ public sealed class PokemonAssistService
     {
         var result = await _command.ExecuteAsync(message, new PokeCommandOptions
         {
-            Format = Models.BattleFormat.Singles,   // ダブル配信なら Doubles
-            AllowMutations = canEdit,               // add -m / rm -m / add -t など登録系は配信者本人とモデレーターだけ
+            Format = registeredFormat ?? Models.BattleFormat.Singles,   // 登録した形式（format set）。未登録ならシングル。形式を書かないコマンドはこの形式で動く
+            FormatIsRegistered = registeredFormat is not null,          // format の表示（登録している／既定）に使う
+            SaveFormatAsync = (format, ct) => SaveRegisteredFormatAsync(format, ct),   // format set / format clear の保存先（null は解除）。BOT の設定ファイルなど
+            AllowMutations = canEdit,               // add -m / rm -m / add -t など登録系・format set / clear は配信者本人とモデレーターだけ
         });
         return result.Message;
     }
 }
 ```
+
+### チーム番号は形式ごと・形式の指定（`-f`）と登録（`format`）
+
+チーム番号は **シングルとダブルで別々** に数えます（シングルのチーム1 とダブルのチーム1 は別のチーム）。使用中のチームも形式ごとに 1 つです。
+
+- 形式は、チームのコマンドに `-f シングル` / `-f single` / `-f ダブル` / `-f double`（`--format` でも可）を付けて指定します。`dmg` / `scan` / `faster` も同じオプションで、計算の形式（と、使う使用中チームの形式）を決めます
+- 書かなかったときは、`PokeCommandOptions.Format`（`format set` で登録した形式。未登録ならシングル）で動きます。登録は BOT 全体で 1 つの状態で、`format set シングル|ダブル` で登録、`format clear` で解除（既定のシングルに戻る）、`format` で確認します
+- `format set` / `format clear` の保存は `PokeCommandOptions.SaveFormatAsync` が呼ばれます（`null` を渡されたら登録の解除）。ここで設定ファイルなどに保存し、**次のメッセージから** `Format` / `FormatIsRegistered` にその値を渡してください。`SaveFormatAsync` を設定していなければ、`format set` は「保存できません」と返します
+- 以前の BOT の「対戦形式」設定（`pokemon.battleFormat`）は、この「登録した形式」と同じものとして扱います（使用率・ダブルの計算の形式も、これを使います）
+- チームの登録内容の表示（`RosterRepository` の `Teams` を読む画面）は、`Team.Format` と `Team.Number` の組でチームを区別し、使用中は `DataSetRoster.ActiveNumber(format)` で読みます（`ActiveTeam` は古いデータ用で、新しい版は使いません）
+- 形式ごとにチーム番号を数える前に保存されたデータは、読み込むときに、すべてシングルのチームとして扱います（使用中のチームはシングルの使用中）。ダブルの構成で使っていたデータは、`set -t 番号 ダブル` でダブルへ移してください
 
 ### 登録データをサイトと共有する（データ共有）
 

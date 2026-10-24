@@ -16,13 +16,30 @@ public sealed class PokeCommandOptions
     public int MaxLength { get; set; } = 480;
     /// <summary>登録・削除などの変更系コマンドを許可するか（ボット側で配信者本人とモデレーターだけ true にする想定）。</summary>
     public bool AllowMutations { get; set; } = true;
+
+    /// <summary><see cref="Format"/> が <c>format set</c> で登録したものか（false なら既定のシングル。<c>format</c> の表示に使う）。</summary>
+    public bool FormatIsRegistered { get; set; }
+
+    /// <summary>
+    /// <c>format set</c> / <c>format clear</c> の登録を保存する処理（引数が null なら登録の解除）。保存先は呼び出し側（ボットなら設定ファイル）が決める。
+    /// null のときは、形式の登録・解除はできない（その旨を返す）。
+    /// </summary>
+    public Func<BattleFormat?, CancellationToken, Task>? SaveFormatAsync { get; set; }
+
+    /// <summary>形式だけを変えた写し（-f や dmg のダブルで、その 1 回だけ形式を変えるため）。</summary>
+    public PokeCommandOptions WithFormat(BattleFormat format)
+    {
+        var copy = (PokeCommandOptions)MemberwiseClone();
+        copy.Format = format;
+        return copy;
+    }
 }
 
 /// <summary>
 /// <c>!pokech</c> / <c>!pokesv</c> / <c>!pokess</c> で始まるコマンド群。接頭辞でデータセットが決まる。
 /// <list type="bullet">
 /// <item><c>add -m 名前 H A B C D S 性格 [特性] [技]</c> 登録、<c>ls -m [名前]</c> 一覧、<c>detail -m ID</c> 詳細、<c>rm -m ID</c> 削除</item>
-/// <item><c>add -t 番号 ID [持ち物] [シングル|ダブル]</c>、<c>set -t 番号 シングル|ダブル</c>、<c>rm -t 番号 [名前]</c>、<c>use -t 番号</c>、<c>ls -t</c>、<c>detail -t 番号</c>、<c>help</c> 一覧</item>
+/// <item><c>add -t 番号 ID [持ち物] [-f 形式]</c>、<c>set -t 番号 移す先の形式 [新番号]</c>、<c>rm -t 番号 [名前] [-f 形式]</c>、<c>use -t 番号 [-f 形式]</c>、<c>unuse -t [-f 形式]</c>、<c>ls -t [-f 形式]</c>、<c>detail -t 番号 [-f 形式]</c>、<c>format [set 形式|clear]</c>、<c>help</c> 一覧（チーム番号はシングルとダブルで別々。形式を書かないときは登録した形式）</item>
 /// <item><c>dmg 攻撃側 技±ランク 防御側 [オプション]</c> 通常と急所、<c>scan 攻撃側 技±ランク 相手 受けたダメージ[%]</c> 相手の振り方の推定、<c>faster 自分 相手</c> 素早さ比較</item>
 /// </list>
 /// 使用チームに入っているポケモンは、その努力値・性格・特性・持ち物で計算される。
@@ -46,7 +63,8 @@ public sealed partial class PokeCommand
     public static string Usage(string prefix) =>
         $"!{prefix} の使い方\n" +
         "育成ポケモン(-m): add -m 名前 H A B C D S 性格 | set -m ID・名前 … | ls -m [名前] | detail -m ID | rm -m ID\n" +
-        "自分チーム(-t): add -t 番号 ID [持ち物] [ダブル] | set -t 番号 シングル|ダブル | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号\n" +
+        "自分チーム(-t): add -t 番号 ID [持ち物] | set -t 番号 シングル|ダブル [新番号](形式を移す) | rm -t 番号 [名前] | use -t 番号 | unuse -t | ls -t | detail -t 番号（形式は -f シングル|ダブル。書かなければ登録した形式）\n" +
+        "形式の登録: format（確認） | format set シングル|ダブル | format clear\n" +
         "相手チーム(-r): add -r 名前… | set -r 名前 … | ls -r | detail -r 名前 | rm -r 名前 | clear -r\n" +
         "対戦: dmg 攻撃 技±ランク 防御 | scan 攻撃 技 相手 ダメージ | faster 自分 相手 | end [メモ]\n" +
         "履歴(-h): ls -h [名前] | detail -h ID | rm -h ID\n" +
@@ -79,11 +97,11 @@ public sealed partial class PokeCommand
     {
         var prefixes = string.Join(" ", dataSets.Select(d => $"!{d.CommandPrefix}={d.Name.Split('（')[0]}"));
         return "育成ポケモン(-m): add -m 名前 H A B C D S 性格 [特性] [技] / set -m ID・名前 … / ls・detail・rm\n" +
-               "自分チーム(-t): add -t 番号 ID [持ち物] [ダブル] / set -t 番号 シングル|ダブル / use・unuse・ls・detail・rm\n" +
-               "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 持ち物 選出] / set -r / ls・detail・rm / clear -r（全員の登録を解除）\n" +
-               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]（試合終了）\n" +
+               "自分チーム(-t): add -t 番号 ID [持ち物] / set -t 番号 形式 [新番号] / use・unuse・ls・detail・rm（-f 形式 / format set・clear）\n" +
+               "相手チーム(-r): add -r 名前… [H32 D10 B↑A↓ 特性 技 持ち物 選出] / set -r / ls・detail・rm / clear -r\n" +
+               "対戦: dmg 攻撃 技 防御 [オプション] / scan 攻撃 技 相手 ダメージ / faster 自分 相手 / end [メモ]\n" +
                "履歴(-h): ls・detail・rm\n" +
-               $"{prefixes}（!poke はチャンピオンズ）｜ --my/--team/--rival/--history も可";
+               $"{prefixes}（!poke=チャンピオンズ）｜--my/--team 等も可";
     }
 
     public async Task<DamageCommandResult> ExecuteAsync(string message, PokeCommandOptions? options = null, CancellationToken ct = default)
@@ -136,10 +154,33 @@ public sealed partial class PokeCommand
         var isRival = args.Count > 0 && (args[0].Equals("-r", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--rival", StringComparison.OrdinalIgnoreCase));
         var isHistory = args.Count > 0 && (args[0].Equals("-h", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--history", StringComparison.OrdinalIgnoreCase));
         if (isTeam || isPokemon || isRival || isHistory) args.RemoveAt(0);
-        BattleFormat? optFormat = null;   // 形式オプション（-f）はまだ読まない。省略時の形式は options.Format
+        // 形式のオプション（-f / --format）。自分チームの操作・format・計算（dmg / scan / faster）だけが読む
+        BattleFormat? optFormat = null;
+        if (isTeam || sub is "format" or "dmg" or "damage" or "scan" or "faster")
+        {
+            var (withoutFormat, parsed, formatError) = FormatOption.Extract(args);
+            if (formatError is not null) return Fail(formatError);
+            args = withoutFormat;
+            optFormat = parsed;
+        }
+        // 計算は、-f か、コマンドの中のシングル / ダブルの言葉で決めた形式の使用中チームを使う（どちらも書かなければ登録した形式）
+        if (!isTeam && sub is "dmg" or "damage" or "scan" or "faster")
+        {
+            var bareFormat = optFormat;
+            var kept = new List<string>();
+            foreach (var a in args)
+            {
+                if (TeamFormats.TryParseWord(a, out var word) && a.Length > 1) bareFormat = word;
+                else kept.Add(a);
+            }
+            if (kept.Count != args.Count) args = kept;
+            options = options.WithFormat(bareFormat ?? options.Format);
+        }
         // ヘルプと参照専用データセットの拒否はデータ本体を使わないので、データセットを読み込む前に返す
         if (sub is "help")
             return Ok(CommandList(await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false)));
+        if (sub is "format")
+            return await FormatAsync(ds, args, optFormat, options, ct).ConfigureAwait(false);
         if (!ds.CalcSupported)
             return Fail(NotCalcSupported(ds));
         var data = await _catalog.GetDataSetAsync(ds.Key, ct).ConfigureAwait(false);
@@ -446,6 +487,59 @@ public sealed partial class PokeCommand
         });
         var active = roster.ActiveNumber(format) == teamNo ? "(使用中)" : "";
         return Ok($"{TeamNames.Full(format, teamNo)}{active}: " + string.Join(" / ", parts));
+    }
+
+    // ------------------------------------------------------------------ 形式の登録
+
+    /// <summary>
+    /// <c>format</c>（今の登録を見る）/ <c>format set シングル|ダブル</c>（登録）/ <c>format clear</c>（解除）。
+    /// 形式を書かなかったコマンドは、登録した形式で動く（未登録・解除後はシングル）。登録は BOT 全体で 1 つ。
+    /// </summary>
+    private async Task<DamageCommandResult> FormatAsync(DataSetInfo ds, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
+    {
+        var usage = $"書式: !{ds.CommandPrefix} format（今の登録を見る） / format set シングル|ダブル（登録） / format clear（解除）";
+        var action = args.Count > 0 ? args[0].ToLowerInvariant() : "show";
+        if (action is "show" or "ls" or "status")
+        {
+            if (args.Count > 1 || optFormat is not null) return Fail(usage);
+            var state = options.FormatIsRegistered
+                ? $"登録している形式は{TeamFormats.Label(options.Format)}です"
+                : $"形式は登録していません（既定の{TeamFormats.Label(options.Format)}で動きます）";
+            return Ok($"{state}。形式を書かない add / rm / use / ls / detail / dmg … はこの形式で動きます（-f シングル|ダブル で、その1回だけ形式を指定できます。登録は format set、解除は format clear）");
+        }
+        if (!options.AllowMutations) return Fail("形式の登録は配信者・モデレーターのみ行えます");
+        BattleFormat? chosen = null;
+        if (action is "set")
+        {
+            var words = args.Skip(1).ToList();
+            if (words.Count > 1) return Fail(usage);
+            if (words.Count == 1)
+            {
+                if (!TeamFormats.TryParseWord(words[0], out var parsed)) return Fail($"形式「{words[0]}」が分かりません。{usage}");
+                chosen = parsed;
+            }
+            if (optFormat is { } viaOption)
+            {
+                if (chosen is { } c && c != viaOption) return Fail("形式が 2 つ書かれています（シングルとダブルのどちらか 1 つにしてください）");
+                chosen = viaOption;
+            }
+            if (chosen is null) return Fail(usage);
+        }
+        else if (action is "clear" or "unset" or "reset")
+        {
+            if (args.Count > 1 || optFormat is not null) return Fail(usage);
+        }
+        else if (args.Count == 1 && TeamFormats.TryParseWord(args[0], out var shorthand) && optFormat is null)
+        {
+            chosen = shorthand;   // format ダブル（set の省略）
+        }
+        else return Fail(usage);
+
+        if (options.SaveFormatAsync is not { } save) return Fail("この環境では、形式の登録を保存できません（形式を書いて指定してください）");
+        await save(chosen, ct).ConfigureAwait(false);
+        return chosen is { } format
+            ? Ok($"形式を{TeamFormats.Label(format)}に登録しました。形式を書かない add / rm / use / ls / detail / dmg … は{TeamFormats.Label(format)}で動きます（解除は format clear）")
+            : Ok("形式の登録を解除しました。形式を書かないコマンドは、既定のシングルで動きます");
     }
 
     // ------------------------------------------------------------------ 計算
