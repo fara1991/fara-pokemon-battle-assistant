@@ -15,6 +15,7 @@ namespace FaraPokemonBattleAssistant.Web.Tests;
 /// <summary>
 /// 自分チームのページ: バトル形式はヘッダーだけで選ぶ。追加フォームにもチームごとにも形式の欄は無く、
 /// 一覧にはヘッダーの形式のチームだけが出て、新しいチームもその形式になる。ほかの形式のチームのデータは残る。
+/// チーム番号と使用中のチームは、シングルとダブルで別々（同じ番号を両方に作れ、使用中も形式ごと）。
 /// </summary>
 public class TeamPageFormatTests : BunitContext, IAsyncLifetime
 {
@@ -92,11 +93,11 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         await Task.Delay(50);
     }
 
-    private async Task<RosterTeam?> StoredTeamAsync(int number) =>
-        (await repo.GetAsync()).For(Ds).Teams.FirstOrDefault(t => t.Number == number);
+    private async Task<RosterTeam?> StoredTeamAsync(BattleFormat format, int number) =>
+        (await repo.GetAsync()).For(Ds).FindTeam(format, number);
 
     private async Task AddTeamAsync(int number, int entryId, BattleFormat format) =>
-        await repo.AddToTeamAsync(Ds, number, entryId, null, format);
+        await repo.AddToTeamAsync(Ds, format, number, entryId, null);
 
     /// <summary>チーム一覧の見出し（「チーム1」「チーム2（使用中）」…）。追加フォームの見出しは含めない。</summary>
     private static List<string> TeamHeadings(IRenderedComponent<TeamPage> cut) =>
@@ -105,6 +106,12 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
 
     private static bool AddButtonDisabled(IRenderedComponent<TeamPage> cut) =>
         cut.FindAll("button").First(b => b.TextContent.Trim() == "チームに追加").HasAttribute("disabled");
+
+    private static async Task ClickAsync(IRenderedComponent<TeamPage> cut, string text, int index = 0)
+    {
+        cut.FindAll("button").Where(b => b.TextContent.Trim() == text).ElementAt(index).Click();
+        await Task.Delay(50);
+    }
 
     [Fact]
     public async Task The_add_form_has_no_battle_format_field()
@@ -154,9 +161,24 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         await app.SetFormatAsync(BattleFormat.Singles);
         cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム1" }, TeamHeadings(cut)));
 
-        Assert.Equal(BattleFormat.Singles, (await StoredTeamAsync(1))!.BattleFormat);
-        Assert.Equal(BattleFormat.Doubles, (await StoredTeamAsync(2))!.BattleFormat);
-        Assert.Single((await StoredTeamAsync(2))!.Slots);
+        Assert.Equal(BattleFormat.Singles, (await StoredTeamAsync(BattleFormat.Singles, 1))!.BattleFormat);
+        Assert.Equal(BattleFormat.Doubles, (await StoredTeamAsync(BattleFormat.Doubles, 2))!.BattleFormat);
+        Assert.Single((await StoredTeamAsync(BattleFormat.Doubles, 2))!.Slots);
+    }
+
+    [Fact]
+    public async Task The_same_number_in_both_formats_is_listed_per_format()
+    {
+        var cut = await OpenAsync(BattleFormat.Singles, async id =>
+        {
+            await AddTeamAsync(1, id, BattleFormat.Singles);
+            await AddTeamAsync(1, id, BattleFormat.Doubles);
+            await AddTeamAsync(2, id, BattleFormat.Doubles);
+        });
+
+        Assert.Equal(new[] { "チーム1" }, TeamHeadings(cut));
+        await app.SetFormatAsync(BattleFormat.Doubles);
+        cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム1", "チーム2" }, TeamHeadings(cut)));
     }
 
     [Fact]
@@ -166,21 +188,38 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
 
         Assert.Empty(TeamHeadings(cut));
         Assert.Contains("ダブルのチームはまだありません", cut.Markup);
-        Assert.NotNull(await StoredTeamAsync(1));
+        Assert.NotNull(await StoredTeamAsync(BattleFormat.Singles, 1));
     }
 
     [Fact]
-    public async Task A_number_used_by_another_format_cannot_be_added_to_and_the_team_is_untouched()
+    public async Task A_number_used_by_another_format_can_be_added_and_the_other_team_is_untouched()
     {
         var cut = await OpenAsync(BattleFormat.Singles, id => AddTeamAsync(1, id, BattleFormat.Doubles));   // 入力欄の番号は 1
 
-        Assert.True(AddButtonDisabled(cut));
-        Assert.Contains("チーム1 はダブルのチームです", cut.Find(".team-number-conflict").TextContent);
+        Assert.False(AddButtonDisabled(cut));
+        Assert.Empty(cut.FindAll(".team-number-conflict"));
+        Assert.DoesNotContain("他の形式", cut.Markup);
         await ClickAddAsync(cut);
 
-        var stored = (await StoredTeamAsync(1))!;
-        Assert.Equal(BattleFormat.Doubles, stored.BattleFormat);
-        Assert.Single(stored.Slots);
+        // シングルのチーム1 が新しくできて、ダブルのチーム1 はそのまま
+        Assert.Equal(BattleFormat.Singles, (await StoredTeamAsync(BattleFormat.Singles, 1))!.BattleFormat);
+        Assert.Single((await StoredTeamAsync(BattleFormat.Singles, 1))!.Slots);
+        Assert.Single((await StoredTeamAsync(BattleFormat.Doubles, 1))!.Slots);
+        Assert.Equal(2, (await repo.GetAsync()).For(Ds).Teams.Count);
+        cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム1" }, TeamHeadings(cut)));
+    }
+
+    [Fact]
+    public async Task The_team_number_input_is_limited_like_the_cloud()
+    {
+        var cut = await OpenAsync(BattleFormat.Singles);
+        Assert.Equal("2147483646", cut.Find("input[type=number]").GetAttribute("max"));
+        cut.Find("input[type=number]").Change("2147483647");
+        Assert.Equal("2147483646", cut.Find("input[type=number]").GetAttribute("value"));
+        await ClickAddAsync(cut);
+        Assert.NotNull(await StoredTeamAsync(BattleFormat.Singles, 2147483646));
+        cut.Find("input[type=number]").Change("0");
+        Assert.Equal("1", cut.Find("input[type=number]").GetAttribute("value"));
     }
 
     [Fact]
@@ -193,21 +232,58 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public async Task An_active_team_of_another_format_is_not_listed_but_stays_active_and_is_explained()
+    public async Task The_active_team_is_per_format_and_follows_the_header()
     {
         var cut = await OpenAsync(BattleFormat.Singles, async id =>
         {
+            await AddTeamAsync(1, id, BattleFormat.Singles);
+            await AddTeamAsync(1, id, BattleFormat.Doubles);
             await AddTeamAsync(2, id, BattleFormat.Doubles);
-            await repo.UseTeamAsync(Ds, 2);
+            await repo.UseTeamAsync(Ds, BattleFormat.Doubles, 2);
         });
 
-        Assert.Empty(TeamHeadings(cut));
-        Assert.Contains("使用中のチーム2 はダブルのチームです", cut.Find(".team-active-hidden").TextContent);
-        Assert.Equal(2, (await repo.GetAsync()).For(Ds).ActiveTeam);
+        // シングルには使用中が無い（ダブルのチーム2 が使用中でも、他の形式の注意文は出ない）
+        Assert.Equal(new[] { "チーム1" }, TeamHeadings(cut));
+        Assert.Empty(cut.FindAll(".team-active-hidden"));
+        Assert.DoesNotContain("使用中のチーム", cut.Markup);
 
         await app.SetFormatAsync(BattleFormat.Doubles);
-        cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム2 （使用中）" }, TeamHeadings(cut)));
+        cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム1", "チーム2 （使用中）" }, TeamHeadings(cut)));
         Assert.Empty(cut.FindAll(".team-active-hidden"));
+    }
+
+    [Fact]
+    public async Task Using_a_team_changes_only_the_header_format_and_unusing_does_too()
+    {
+        var cut = await OpenAsync(BattleFormat.Doubles, async id =>
+        {
+            await AddTeamAsync(1, id, BattleFormat.Singles);
+            await AddTeamAsync(1, id, BattleFormat.Doubles);
+            await repo.UseTeamAsync(Ds, BattleFormat.Singles, 1);
+        });
+
+        await ClickAsync(cut, "このチームを使用");
+        var roster = (await repo.GetAsync()).For(Ds);
+        Assert.Equal(1, roster.ActiveNumber(BattleFormat.Doubles));
+        Assert.Equal(1, roster.ActiveNumber(BattleFormat.Singles));   // シングルの使用中はそのまま
+        cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム1 （使用中）" }, TeamHeadings(cut)));
+
+        await ClickAsync(cut, "使用を解除");
+        roster = (await repo.GetAsync()).For(Ds);
+        Assert.Null(roster.ActiveNumber(BattleFormat.Doubles));
+        Assert.Equal(1, roster.ActiveNumber(BattleFormat.Singles));   // シングルの使用中は残る
+    }
+
+    [Fact]
+    public void The_page_help_says_numbers_are_separate_per_format()
+    {
+        // ヘルプの吹き出しは押すまで描かれないので、ページのソースで確かめる
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "src", "FaraPokemonBattleAssistant.Web", "Components", "Pages", "Team.razor"))) dir = dir.Parent;
+        var source = File.ReadAllText(Path.Combine(dir!.FullName, "src", "FaraPokemonBattleAssistant.Web", "Components", "Pages", "Team.razor"));
+        Assert.Contains("シングルとダブルで別々", source);
+        Assert.DoesNotContain("シングルとダブルで共通", source);
+        Assert.DoesNotContain("追加できません", source);
     }
 
     [Fact]
@@ -216,7 +292,7 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         var cut = await OpenAsync(BattleFormat.Doubles);
         await ClickAddAsync(cut);
 
-        Assert.Equal(BattleFormat.Doubles, (await StoredTeamAsync(1))!.BattleFormat);
+        Assert.Equal(BattleFormat.Doubles, (await StoredTeamAsync(BattleFormat.Doubles, 1))!.BattleFormat);
     }
 
     [Fact]
@@ -225,7 +301,7 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         var cut = await OpenAsync(BattleFormat.Singles);
         await ClickAddAsync(cut);
 
-        Assert.Equal(BattleFormat.Singles, (await StoredTeamAsync(1))!.BattleFormat);
+        Assert.Equal(BattleFormat.Singles, (await StoredTeamAsync(BattleFormat.Singles, 1))!.BattleFormat);
     }
 
     [Fact]
@@ -235,7 +311,7 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         await app.SetFormatAsync(BattleFormat.Doubles);   // ヘッダーのセレクトが呼ぶもの
         await ClickAddAsync(cut);
 
-        Assert.Equal(BattleFormat.Doubles, (await StoredTeamAsync(1))!.BattleFormat);
+        Assert.Equal(BattleFormat.Doubles, (await StoredTeamAsync(BattleFormat.Doubles, 1))!.BattleFormat);
     }
 
     [Fact]
@@ -248,7 +324,7 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         });
         await ClickAddAsync(cut);   // 同じ登録 ID をもう一度（持ち物の更新）
 
-        Assert.Equal(BattleFormat.Doubles, (await StoredTeamAsync(1))!.BattleFormat);
-        Assert.Equal(BattleFormat.Singles, (await StoredTeamAsync(2))!.BattleFormat);
+        Assert.Equal(BattleFormat.Doubles, (await StoredTeamAsync(BattleFormat.Doubles, 1))!.BattleFormat);
+        Assert.Equal(BattleFormat.Singles, (await StoredTeamAsync(BattleFormat.Singles, 2))!.BattleFormat);
     }
 }

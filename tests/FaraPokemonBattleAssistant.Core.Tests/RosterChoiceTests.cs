@@ -1,6 +1,7 @@
 using FaraPokemonBattleAssistant.Core.Battle;
 using FaraPokemonBattleAssistant.Core.Data;
 using FaraPokemonBattleAssistant.Core.Models;
+using FaraPokemonBattleAssistant.Core.Models;
 using FaraPokemonBattleAssistant.Core.Roster;
 using Xunit;
 
@@ -19,11 +20,11 @@ public class RosterChoiceTests
         var charizard = await repo.AddPokemonAsync("Gen9", data.FindPokemon(6)!, new StatSet { SpAttack = 252 }, nature, null);
         var dragonite = await repo.AddPokemonAsync("Gen9", data.FindPokemon(149)!, new StatSet { HP = 252 }, nature, null);
         var scarf = data.Items.First(i => i.Id == 264);
-        await repo.AddToTeamAsync("Gen9", 2, garchomp.Id, scarf);
-        await repo.AddToTeamAsync("Gen9", 1, charizard.Id, null);
-        await repo.UseTeamAsync("Gen9", 2);
+        await repo.AddToTeamAsync("Gen9", BattleFormat.Singles, 2, garchomp.Id, scarf);
+        await repo.AddToTeamAsync("Gen9", BattleFormat.Singles, 1, charizard.Id, null);
+        await repo.UseTeamAsync("Gen9", BattleFormat.Singles, 2);
 
-        var groups = await repo.ChoiceGroupsAsync("Gen9", data);
+        var groups = await repo.ChoiceGroupsAsync("Gen9", data, BattleFormat.Singles);
         Assert.Equal(new[] { "チーム1", "チーム2（使用中）", "チームに入っていない登録" }, groups.Select(g => g.Label));
         var team2 = groups[1].Choices.Single();
         Assert.Equal(garchomp.Id, team2.Entry.Id);
@@ -32,7 +33,7 @@ public class RosterChoiceTests
         Assert.Equal(dragonite.Id, groups[2].Choices.Single().Entry.Id);
         Assert.Null(groups[2].Choices.Single().Item);
         // 別のゲームの登録は混ざらない
-        Assert.Empty(await repo.ChoiceGroupsAsync("Gen8", data));
+        Assert.Empty(await repo.ChoiceGroupsAsync("Gen8", data, BattleFormat.Singles));
     }
 
     [Fact]
@@ -41,7 +42,7 @@ public class RosterChoiceTests
         var data = await TestData.Catalog().GetDataSetAsync("Gen9");
         var repo = new RosterRepository(new MemoryRosterStore());
         var entry = await repo.AddPokemonAsync("Gen9", data.FindPokemon(445)!, new StatSet { Attack = 252, Speed = 252 }, data.Natures.First(), null);
-        var choice = (await repo.ChoiceGroupsAsync("Gen9", data)).Single().Choices.Single();
+        var choice = (await repo.ChoiceGroupsAsync("Gen9", data, BattleFormat.Singles)).Single().Choices.Single();
         var build = RosterRepository.ToBuild(choice.Entry, data, choice.Item)!;
         Assert.Equal(252, build.EVs.Attack);
         build.EVs = new StatSet { HP = 252 };

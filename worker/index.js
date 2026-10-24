@@ -10,8 +10,9 @@
 //                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
 //          書いたゲームのポケモンだけを置き換える（書かなかったゲームはそのまま）。同じ処理の中で、消えたポケモンをそのゲームの
 //          すべてのチームから外し、0 体になったチームを消し、使用中のチームが消えたら使用中を解除する。
-//   GET    /api/my/team    → 200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}, ...}}
-//   PUT    /api/my/team    ← {"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}}}
+//   GET    /api/my/team    → 200 {"revision": n, "dataSets": {"Champions": {"teams": [...], "activeTeams": {"Singles": n | null, "Doubles": n | null}}, ...}}
+//   PUT    /api/my/team    ← {"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeams": {"Singles": n | null, "Doubles": n | null}}}}
+//                            チームは (Format, Number) で 1 つ（番号はシングルとダブルで別々。Format 省略は Singles）。使用中は形式ごとに 1 つ
 //                           → 200 {"revision": n+1} / 409 {"revision": 現在, "dataSets": 現在}
 //          書いたゲームのチームと使用中チームだけを置き換える。登録に無いポケモン・7 体以上・使用中のチームが無いなどは 400。
 //   GET    /api/my/rival   → 200 {"revision": n, "dataSets": {"Champions": {"nextId": n, "rivals": [...], "nextMatchId": n, "history": [...]}, ...}}
@@ -54,6 +55,7 @@ import { DurableObject } from "cloudflare:workers";
 import { handleReport } from "../external/fara-site-kit/worker/report.js";
 import { getMaintenance, maintenanceResponse } from "../external/fara-site-kit/worker/maintenance.js";
 import { serveHome, redirectHomeAlias } from "./home.js";
+import { teamFormat, upgradeTeamFormats, compareTeams, releaseMissingActiveTeams } from "./teams.js";
 
 /** パス → 使えるメソッド。 */
 const ROUTES = {
@@ -311,37 +313,46 @@ function validateMatch(value) {
 
 /** my-team の 1 ゲーム分を、そのゲームの登録ポケモン（ID の集合）と突き合わせて検証する。 */
 function validateTeams(key, value, pokemonIds) {
-  const { teams, activeTeam } = value;
+  const { teams, activeTeams } = value;
   if (!Array.isArray(teams)) invalid("invalid_teams", `${key}.teams は配列にしてください`);
-  const numbers = new Set();
+  if (!isPlainObject(activeTeams))
+    invalid("invalid_active_teams", `${key}.activeTeams は {"Singles": 番号か null, "Doubles": 番号か null} にしてください（古い版のクライアントの可能性があります。サイトの再読み込み、または BOT の更新をしてください）`);
+  const keys = new Set();
   for (const t of teams) {
     if (!isPlainObject(t)) invalid("invalid_team", `${key}.teams の要素はオブジェクトにしてください`);
     if (!isId(t.Number)) invalid("invalid_team", `${key}.teams の Number は 1 以上の整数にしてください`);
-    if (numbers.has(t.Number)) invalid("duplicate_team", `${key} にチーム${t.Number}が 2 つあります`);
-    numbers.add(t.Number);
     if (t.Format !== undefined && t.Format !== null && t.Format !== "Singles" && t.Format !== "Doubles")
       invalid("invalid_team", `${key} のチーム${t.Number}の Format は "Singles" か "Doubles"（省略するとシングル）にしてください`);
-    if (!Array.isArray(t.Slots)) invalid("invalid_team", `${key} のチーム${t.Number}の Slots は配列にしてください`);
-    if (t.Slots.length === 0) invalid("empty_team", `${key} のチーム${t.Number}が 0 体です（空のチームは送らずに消してください）`);
+    const label = `${teamFormat(t) === "Doubles" ? "ダブル" : "シングル"}のチーム${t.Number}`;
+    const teamKey = `${teamFormat(t)}:${t.Number}`;
+    if (keys.has(teamKey)) invalid("duplicate_team", `${key} に${label}が 2 つあります`);
+    keys.add(teamKey);
+    if (!Array.isArray(t.Slots)) invalid("invalid_team", `${key} の${label}の Slots は配列にしてください`);
+    if (t.Slots.length === 0) invalid("empty_team", `${key} の${label}が 0 体です（空のチームは送らずに消してください）`);
     if (t.Slots.length > MAX_TEAM_SIZE)
-      invalid("team_too_large", `${key} のチーム${t.Number}が ${t.Slots.length} 体います（${MAX_TEAM_SIZE} 体まで）`);
+      invalid("team_too_large", `${key} の${label}が ${t.Slots.length} 体います（${MAX_TEAM_SIZE} 体まで）`);
     const entries = new Set();
     for (const s of t.Slots) {
       if (!isPlainObject(s) || !isId(s.EntryId))
-        invalid("invalid_slot", `${key} のチーム${t.Number}の要素は EntryId（1 以上の整数）を持つオブジェクトにしてください`);
+        invalid("invalid_slot", `${key} の${label}の要素は EntryId（1 以上の整数）を持つオブジェクトにしてください`);
       if (s.ItemId !== undefined && s.ItemId !== null && !isId(s.ItemId))
-        invalid("invalid_slot", `${key} のチーム${t.Number}の ItemId は 1 以上の整数か null にしてください`);
+        invalid("invalid_slot", `${key} の${label}の ItemId は 1 以上の整数か null にしてください`);
       if (!pokemonIds.has(s.EntryId))
-        invalid("unknown_pokemon", `${key} のチーム${t.Number}に、登録に無いポケモン（Id ${s.EntryId}）が入っています`);
-      if (entries.has(s.EntryId)) invalid("duplicate_slot", `${key} のチーム${t.Number}に同じポケモン（Id ${s.EntryId}）が 2 回入っています`);
+        invalid("unknown_pokemon", `${key} の${label}に、登録に無いポケモン（Id ${s.EntryId}）が入っています`);
+      if (entries.has(s.EntryId)) invalid("duplicate_slot", `${key} の${label}に同じポケモン（Id ${s.EntryId}）が 2 回入っています`);
       entries.add(s.EntryId);
     }
   }
-  if (activeTeam !== undefined && activeTeam !== null) {
-    if (!isId(activeTeam)) invalid("invalid_active_team", `${key}.activeTeam はチーム番号か null にしてください`);
-    if (!numbers.has(activeTeam)) invalid("unknown_active_team", `${key}.activeTeam のチーム${activeTeam}がありません`);
+  const actives = { Singles: null, Doubles: null };
+  for (const [format, n] of Object.entries(activeTeams)) {
+    if (format !== "Singles" && format !== "Doubles")
+      invalid("invalid_active_teams", `${key}.activeTeams のキーは "Singles" か "Doubles" にしてください`);
+    if (n === undefined || n === null) continue;
+    if (!isId(n)) invalid("invalid_active_team", `${key}.activeTeams.${format} はチーム番号か null にしてください`);
+    if (!keys.has(`${format}:${n}`)) invalid("unknown_active_team", `${key}.activeTeams.${format} の${format === "Doubles" ? "ダブル" : "シングル"}のチーム${n}がありません`);
+    actives[format] = n;
   }
-  return { teams, activeTeam: activeTeam ?? null };
+  return { teams: teams.map((t) => ({ ...t, Format: teamFormat(t) })), activeTeams: actives };
 }
 
 export default {
@@ -530,7 +541,7 @@ function normalizeDataSet(d) {
   if (!isId(r.NextRivalId)) r.NextRivalId = 1;
   if (!isId(r.NextMatchId)) r.NextMatchId = 1;
   if (!isId(r.NextId)) r.NextId = 1;
-  if (r.ActiveTeam === undefined) r.ActiveTeam = null;
+  upgradeTeamFormats(r);
   return r;
 }
 
@@ -612,7 +623,7 @@ export class RosterSlot extends DurableObject {
     const values = await this.ctx.storage.get(["revision", "roster", "deleted"]);
     const text = values.get("roster");
     let roster = text ? JSON.parse(text) : null;
-    if (!isPlainObject(roster)) roster = { Version: 1, DataSets: {} };
+    if (!isPlainObject(roster)) roster = { Version: 2, DataSets: {} };
     if (!isPlainObject(roster.DataSets)) roster.DataSets = {};
     const deleted = values.get("deleted") === true;
     if (!deleted && !this.#migrated) await this.#migrateHistory(roster);
@@ -742,7 +753,7 @@ export class RosterSlot extends DurableObject {
         ? { nextId: d.NextId, pokemon: d.Pokemon }
         : resource === "rival"
           ? { nextId: d.NextRivalId, rivals: d.Rivals, nextMatchId: this.#nextId(k.toLowerCase()), history: this.#historyFor(k, historyLimit) }
-          : { teams: d.Teams, activeTeam: d.ActiveTeam };
+          : { teams: [...d.Teams].sort(compareTeams), activeTeams: d.ActiveTeams };
     }
     return { revision, dataSets };
   }
@@ -823,7 +834,8 @@ export class RosterSlot extends DurableObject {
         if (t.Slots.length > 0) teams.push(t);
       }
       d.Teams = teams;
-      if (d.ActiveTeam !== null && !teams.some((t) => t.Number === d.ActiveTeam)) d.ActiveTeam = null;
+      // 消えたチームが使用中だった形式は、使用中を解除する
+      releaseMissingActiveTeams(d);
     }
     return this.#save(s.revision, s.roster);
   }
@@ -894,9 +906,9 @@ export class RosterSlot extends DurableObject {
         const ids = new Set(d.Pokemon.filter(isPlainObject).map((p) => p.Id));
         updates.push([key, d, validateTeams(requested, value, ids)]);
       }
-      for (const [key, d, { teams, activeTeam }] of updates) {
-        d.Teams = [...teams].sort((a, b) => a.Number - b.Number);
-        d.ActiveTeam = activeTeam;
+      for (const [key, d, { teams, activeTeams }] of updates) {
+        d.Teams = [...teams].sort(compareTeams);
+        d.ActiveTeams = activeTeams;
         s.roster.DataSets[key] = d;
       }
       return this.#save(s.revision, s.roster);

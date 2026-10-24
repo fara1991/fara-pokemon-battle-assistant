@@ -128,3 +128,6 @@ jobs:
       - name: Home page (Worker) test
         run: npm run test:home
 
+      - name: Teams (Worker) test
+        run: npm run test:teams
+

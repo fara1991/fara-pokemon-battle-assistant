@@ -1,4 +1,5 @@
 using FaraPokemonBattleAssistant.Core.Models;
+using FaraPokemonBattleAssistant.Core.Models;
 using FaraPokemonBattleAssistant.Core.Roster;
 using FaraPokemonBattleAssistant.Core.Text;
 using Xunit;
@@ -15,7 +16,7 @@ public class UpdatePokemonTests
         var repo = new RosterRepository(new MemoryRosterStore());
         var garchomp = data.Pokemon.First(p => p.Name == "ガブリアス");
         var entry = await repo.AddPokemonAsync("Champions", garchomp, new StatSet { Attack = 32 }, data.Natures.First(), null, new[] { 89 });
-        await repo.AddToTeamAsync("Champions", 1, entry.Id, null);
+        await repo.AddToTeamAsync("Champions", BattleFormat.Singles, 1, entry.Id, null);
 
         var jolly = data.Natures.First(n => n.Name == "ようき");
         var updated = await repo.UpdatePokemonAsync("Champions", entry.Id, new StatSet { Attack = 20, Speed = 32 }, jolly, null, new[] { 89, 89, 0, 200 });

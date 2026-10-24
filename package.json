@@ -17,7 +17,8 @@
     "check:routes": "node tools/check-routes.mjs",
     "test:kit": "node --test external/fara-site-kit/tests/build/pokemon-equivalence.test.mjs external/fara-site-kit/tests/csp/render-headers.test.mjs external/fara-site-kit/tests/csp/limits.test.mjs",
     "test:search": "node --test tools/gen-search-index.test.mjs",
-    "test:home": "node --test worker/home.test.mjs"
+    "test:home": "node --test worker/home.test.mjs",
+    "test:teams": "node --test worker/teams.test.mjs"
   },
   "devDependencies": {
     "wrangler": "4.136.3"

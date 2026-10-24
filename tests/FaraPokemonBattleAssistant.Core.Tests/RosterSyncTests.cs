@@ -78,7 +78,7 @@ public class RosterSyncTests
         r.Pokemon.Add(new RegisteredPokemon { Id = 3, PokemonId = 6, PokemonName = "リザードン" });
         r.NextId = 5;
         r.Teams.Add(new Team { Number = 2, Slots = { new TeamSlot { EntryId = 3, ItemId = 275 }, new TeamSlot { EntryId = 1 } } });
-        r.ActiveTeam = 2;
+        r.SetActiveNumber(BattleFormat.Singles, 2);
         state.For("Gen9").Pokemon.Add(new RegisteredPokemon { Id = 1, PokemonId = 987, PokemonName = "ハバタクカミ" });
         state.For("Gen9").NextId = 2;
 
@@ -94,7 +94,7 @@ public class RosterSyncTests
         Assert.Contains("ガブリアス", puts[0].body); // 日本語を \uXXXX にしない
         var second = JsonNode.Parse(puts[1].body!)!;
         Assert.Equal(1, second["baseRevision"]!.GetValue<long>());
-        Assert.Equal(2, second["dataSets"]![Ds]!["activeTeam"]!.GetValue<int>());
+        Assert.Equal(2, second["dataSets"]![Ds]!["activeTeams"]!["Singles"]!.GetValue<int>());
         Assert.Null(second["dataSets"]![Ds]!["pokemon"]);
 
         var loaded = RosterRepository.Deserialize(await store.LoadAsync());
@@ -102,7 +102,7 @@ public class RosterSyncTests
         var ch = loaded.For(Ds);
         Assert.Equal(new[] { 1, 3 }, ch.Pokemon.Select(p => p.Id));
         Assert.Equal(5, ch.NextId);
-        Assert.Equal(2, ch.ActiveTeam);
+        Assert.Equal(2, ch.ActiveNumber(BattleFormat.Singles));
         Assert.Equal(new int?[] { 275, null }, ch.Teams.Single().Slots.Select(slot => slot.ItemId));
         Assert.Equal("ハバタクカミ", loaded.For("Gen9").Pokemon.Single().PokemonName);
         Assert.NotNull(store.LastSyncedAt);
@@ -254,12 +254,12 @@ public class RosterSyncTests
 
         var a = await repo.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
         var b = await repo.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
-        await repo.AddToTeamAsync(Ds, 1, a.Id, null);
-        await repo.AddToTeamAsync(Ds, 1, b.Id, null);
-        await repo.AddToTeamAsync(Ds, 2, b.Id, null);
-        await repo.UseTeamAsync(Ds, 2);
-        await repo.ClearActiveTeamAsync(Ds);
-        await repo.UseTeamAsync(Ds, 2);
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, a.Id, null);
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, b.Id, null);
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 2, b.Id, null);
+        await repo.UseTeamAsync(Ds, BattleFormat.Singles, 2);
+        await repo.ClearActiveTeamAsync(Ds, BattleFormat.Singles);
+        await repo.UseTeamAsync(Ds, BattleFormat.Singles, 2);
         Assert.Equal(new[] { "/api/my/pokemon", "/api/my/pokemon", "/api/my/team", "/api/my/team", "/api/my/team", "/api/my/team", "/api/my/team", "/api/my/team" }, putPaths);
 
         // ポケモンの削除は my-pokemon だけ。チームから外す・空のチームを消す・使用中の解除はサーバーが行う
@@ -271,11 +271,11 @@ public class RosterSyncTests
         var saved = server.State.For(Ds);
         Assert.Equal(new[] { a.Id }, saved.Teams.Single().Slots.Select(slot => slot.EntryId));
         Assert.Equal(1, saved.Teams.Single().Number);
-        Assert.Null(saved.ActiveTeam);
+        Assert.Null(saved.ActiveNumber(BattleFormat.Singles));
         Assert.Equal(3, saved.NextId); // 消した ID は使い回さない
 
         putPaths.Clear();
-        Assert.True(await repo.RemoveTeamAsync(Ds, 1));
+        Assert.True(await repo.RemoveTeamAsync(Ds, BattleFormat.Singles, 1));
         Assert.Equal(new[] { "/api/my/team" }, putPaths);
         Assert.Empty(server.State.For(Ds).Teams);
         Assert.Single(server.State.For(Ds).Pokemon);
@@ -294,14 +294,14 @@ public class RosterSyncTests
             r.Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 }, new TeamSlot { EntryId = 2 }, new TeamSlot { EntryId = 1 } } });
             r.Teams.Add(new Team { Number = 2, Slots = { new TeamSlot { EntryId = 9 } } });
             r.Teams.Add(new Team { Number = 3 });
-            r.ActiveTeam = 2;
+            r.SetActiveNumber(BattleFormat.Singles, 2);
         });
         var repo = new RosterRepository(store);
-        await repo.AddToTeamAsync(Ds, 4, 1, null);
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 4, 1, null);
         var saved = server.State.For(Ds);
         Assert.Equal(new[] { 1, 4 }, saved.Teams.Select(t => t.Number));
         Assert.Equal(new[] { 1 }, saved.Teams[0].Slots.Select(slot => slot.EntryId));
-        Assert.Null(saved.ActiveTeam);
+        Assert.Null(saved.ActiveNumber(BattleFormat.Singles));
     }
 
     [Fact]
@@ -329,13 +329,13 @@ public class RosterSyncTests
         var second = await bot.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
         Assert.Equal(1, first.Id);
         Assert.Equal(2, second.Id); // ボットは Web の登録を読み直してから追加する
-        await bot.AddToTeamAsync(Ds, 1, 2, null);
-        await bot.UseTeamAsync(Ds, 1);
+        await bot.AddToTeamAsync(Ds, BattleFormat.Singles, 1, 2, null);
+        await bot.UseTeamAsync(Ds, BattleFormat.Singles, 1);
 
         // Web 側は何もしなくても最新の内容を読む
         Assert.Equal(2, (await web.GetAsync()).For(Ds).Pokemon.Count);
         var data = await TestData.Catalog().GetDataSetAsync(Ds);
-        var members = await web.ActiveTeamMembersAsync(Ds, data);
+        var members = await web.ActiveTeamMembersAsync(Ds, data, BattleFormat.Singles);
         Assert.Equal(2, Assert.Single(members).Entry.Id);
         Assert.Equal(4, server.Revision);
     }
@@ -389,8 +389,8 @@ public class RosterSyncTests
     {
         var (server, store) = NewRemote();
         var repo = new RosterRepository(store);
-        Assert.False(await repo.UseTeamAsync(Ds, 1));
-        Assert.False(await repo.ClearActiveTeamAsync(Ds));
+        Assert.False(await repo.UseTeamAsync(Ds, BattleFormat.Singles, 1));
+        Assert.False(await repo.ClearActiveTeamAsync(Ds, BattleFormat.Singles));
         Assert.False(await repo.RemovePokemonAsync(Ds, 1));
         Assert.DoesNotContain(server.Requests, r => r.Method == HttpMethod.Put);
     }
@@ -452,7 +452,7 @@ public class RosterSyncTests
         Assert.True((await cmd.ExecuteAsync("!pokech add -t 1 1", options)).Success);
         Assert.True((await cmd.ExecuteAsync("!pokech use -t 1", options)).Success);
         var saved = RosterRepository.Deserialize(server.RosterJson).For(Ds);
-        Assert.Equal(1, saved.ActiveTeam);
+        Assert.Equal(1, saved.ActiveNumber(BattleFormat.Singles));
         Assert.Single(saved.Pokemon);
     }
 
@@ -487,12 +487,12 @@ public class RosterSyncTests
             var (pokemon, nature) = await SamplePokemonAsync();
             var repo = new RosterRepository(new FileRosterStore(path));
             var entry = await repo.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
-            await repo.AddToTeamAsync(Ds, 1, entry.Id, null);
-            await repo.UseTeamAsync(Ds, 1);
+            await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, entry.Id, null);
+            await repo.UseTeamAsync(Ds, BattleFormat.Singles, 1);
 
             var reopened = new RosterRepository(new FileRosterStore(path));
             var roster = (await reopened.GetAsync()).For(Ds);
-            Assert.Equal(1, roster.ActiveTeam);
+            Assert.Equal(1, roster.ActiveNumber(BattleFormat.Singles));
             Assert.Equal(entry.Id, roster.Teams.Single().Slots.Single().EntryId);
             Assert.True(await reopened.RemovePokemonAsync(Ds, entry.Id));
             Assert.Empty((await new RosterRepository(new FileRosterStore(path)).GetAsync()).For(Ds).Teams);

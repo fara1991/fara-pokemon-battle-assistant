@@ -167,12 +167,19 @@ else if (data is not null)
                 @if (Has(Field.TeamFormat))
                 {
                     <div class="cmd-f-num">
-                        <label class="form-label">@(s.Kind == "set -t" ? "バトル形式" : "バトル形式（任意）")</label>
-                        <MudSelect T="string" Value="@s.TeamFormat" ValueChanged="@(v => { s.TeamFormat = v ?? ""; BuildText(); })" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" aria-label="チームのバトル形式">
-                            @if (s.Kind != "set -t") { <MudSelectItem T="string" Value="@("")">指定しない</MudSelectItem> }
+                        <label class="form-label">@(FormatIsRequired ? (s.Kind == "set -t" ? "移す先のバトル形式" : "バトル形式") : "バトル形式（任意）")</label>
+                        <MudSelect T="string" Value="@s.TeamFormat" ValueChanged="@(v => { s.TeamFormat = v ?? ""; BuildText(); })" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" aria-label="バトル形式">
+                            @if (!FormatIsRequired) { <MudSelectItem T="string" Value="@("")">指定しない（登録した形式）</MudSelectItem> }
                             <MudSelectItem T="string" Value="@("シングル")">シングル</MudSelectItem>
                             <MudSelectItem T="string" Value="@("ダブル")">ダブル</MudSelectItem>
                         </MudSelect>
+                    </div>
+                }
+                @if (Has(Field.NewTeamNo))
+                {
+                    <div class="cmd-f-num">
+                        <label class="form-label" for="cmd-team-new">新しい番号（任意）</label>
+                        <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" InputId="cmd-team-new" Placeholder="空いている番号" Value="@(s.NewTeamNo)" ValueChanged="@(v => { s.NewTeamNo = v?.ToString()?.Trim() ?? ""; BuildText(); })" / />
                     </div>
                 }
                 @if (Has(Field.TeamItem))
@@ -426,8 +433,10 @@ else if (string.IsNullOrEmpty(loadError))
         public string AbilityName { get; set; } = "";
         public string EntryId { get; set; } = "";
         public string TeamNo { get; set; } = "";
-        /// <summary>チームのバトル形式の言葉（空 = 指定しない、"シングル"、"ダブル"）。add -t / set -t。</summary>
+        /// <summary>バトル形式の言葉（空 = 指定しない、"シングル"、"ダブル"）。自分チームのコマンドの -f、set -t の移す先、format set。</summary>
         public string TeamFormat { get; set; } = "";
+        /// <summary>set -t で移した先のチーム番号（空 = 同じ番号）。</summary>
+        public string NewTeamNo { get; set; } = "";
         public string ItemName { get; set; } = "";
         public string Memo { get; set; } = "";
         public List<string> Extras { get; set; } = new();
@@ -558,7 +567,7 @@ else if (string.IsNullOrEmpty(loadError))
 
     // ---- 種類ごとの入力欄 ----
 
-    private enum Field { Subject, Rivals, Moves, Evs, Nature, Ability, EntryId, TeamNo, TeamItem, TeamFormat, Attacker, Move, Defender, Weather, Terrain, Damage, Options, Memo }
+    private enum Field { Subject, Rivals, Moves, Evs, Nature, Ability, EntryId, TeamNo, NewTeamNo, TeamItem, TeamFormat, Attacker, Move, Defender, Weather, Terrain, Damage, Options, Memo }
 
     /// <summary>ポケモンの欄の見出し（必須か任意か）。</summary>
     private string SubjectLabel => s.Kind switch
@@ -582,12 +591,15 @@ else if (string.IsNullOrEmpty(loadError))
             new("set -m", "set -m（更新）", "育成ポケモン", new[] { Field.Subject, Field.EntryId, Field.Evs, Field.Nature, Field.Ability }),
             new("rm -m", "rm -m（削除）", "育成ポケモン", new[] { Field.EntryId }),
             new("add -t", "add -t（追加）", "自分チーム", new[] { Field.TeamNo, Field.EntryId, Field.TeamItem, Field.TeamFormat }),
-            new("set -t", "set -t（シングル・ダブル）", "自分チーム", new[] { Field.TeamNo, Field.TeamFormat }),
-            new("rm -t", "rm -t（外す・削除）", "自分チーム", new[] { Field.TeamNo, Field.Subject }),
-            new("use -t", "use -t（使用）", "自分チーム", new[] { Field.TeamNo }),
-            new("unuse -t", "unuse -t（解除）", "自分チーム", Array.Empty<Field>()),
-            new("ls -t", "ls -t（一覧）", "自分チーム", Array.Empty<Field>()),
-            new("detail -t", "detail -t（詳細）", "自分チーム", new[] { Field.TeamNo }),
+            new("set -t", "set -t（形式を移す）", "自分チーム", new[] { Field.TeamNo, Field.TeamFormat, Field.NewTeamNo }),
+            new("rm -t", "rm -t（外す・削除）", "自分チーム", new[] { Field.TeamNo, Field.Subject, Field.TeamFormat }),
+            new("use -t", "use -t（使用）", "自分チーム", new[] { Field.TeamNo, Field.TeamFormat }),
+            new("unuse -t", "unuse -t（解除）", "自分チーム", new[] { Field.TeamFormat }),
+            new("ls -t", "ls -t（一覧）", "自分チーム", new[] { Field.TeamFormat }),
+            new("detail -t", "detail -t（詳細）", "自分チーム", new[] { Field.TeamNo, Field.TeamFormat }),
+            new("format", "format（登録の確認）", "自分チーム", Array.Empty<Field>()),
+            new("format set", "format set（形式を登録）", "自分チーム", new[] { Field.TeamFormat }),
+            new("format clear", "format clear（登録を解除）", "自分チーム", Array.Empty<Field>()),
             new("add -r", "add -r（登録）", "相手チーム", new[] { Field.Rivals }),
             new("set -r", "set -r（更新）", "相手チーム", new[] { Field.Subject, Field.Evs, Field.Nature, Field.Ability, Field.Moves, Field.TeamItem }),
             new("ls -r", "ls -r（一覧）", "相手チーム", Array.Empty<Field>()),
@@ -612,6 +624,17 @@ else if (string.IsNullOrEmpty(loadError))
     private bool Has(Field f) => CurrentKind.Fields.Contains(f);
 
     private bool NoFields => CurrentKind.Fields.Length == 0;
+
+    /// <summary>バトル形式を必ず選ぶコマンドか（set -t の移す先・format set）。ほかは任意（書かなければ登録した形式）。</summary>
+    private bool FormatIsRequired => s.Kind is "set -t" or "format set";
+
+    /// <summary>選んだバトル形式を、-f シングル / -f ダブル として足す（選んでいなければ足さない）。</summary>
+    private void AddFormatOption(List<string> parts)
+    {
+        if (string.IsNullOrEmpty(s.TeamFormat)) return;
+        parts.Add("-f");
+        parts.Add(s.TeamFormat);
+    }
 
     /// <summary>選択欄の内容からコマンド文字列を作る。</summary>
     private void BuildText()
@@ -666,19 +689,29 @@ else if (string.IsNullOrEmpty(loadError))
                 parts.Add(Or(s.TeamNo, "チーム番号"));
                 parts.Add(Or(s.EntryId, "登録ID"));
                 if (!string.IsNullOrEmpty(s.ItemName)) parts.Add(s.ItemName);
-                if (!string.IsNullOrEmpty(s.TeamFormat)) parts.Add(s.TeamFormat);
+                AddFormatOption(parts);
                 break;
             case "set -t":
                 parts.Add(Or(s.TeamNo, "チーム番号"));
                 parts.Add(Or(s.TeamFormat, "シングル|ダブル"));
+                if (!string.IsNullOrWhiteSpace(s.NewTeamNo)) parts.Add(s.NewTeamNo.Trim());
                 break;
             case "rm -t":
                 parts.Add(Or(s.TeamNo, "チーム番号"));
                 if (s.Subject is not null) parts.Add(s.Subject.Name);
+                AddFormatOption(parts);
                 break;
             case "use -t":
             case "detail -t":
                 parts.Add(Or(s.TeamNo, "チーム番号"));
+                AddFormatOption(parts);
+                break;
+            case "unuse -t":
+            case "ls -t":
+                AddFormatOption(parts);
+                break;
+            case "format set":
+                parts.Add(Or(s.TeamFormat, "シングル|ダブル"));
                 break;
             case "faster":
                 parts.Add(s.Attacker?.Name ?? "自分");
@@ -860,12 +893,23 @@ else if (string.IsNullOrEmpty(loadError))
         if ((second is "-m" or "--my") && first is "add" or "set" or "rm" or "ls" or "detail") { consumed = 2; return first + " -m"; }
         if ((second is "-r" or "--rival") && first is "add" or "set" or "rm" or "ls" or "detail" or "clear") { consumed = 2; return first + " -r"; }
         if ((second is "-h" or "--history") && first is "rm" or "ls" or "detail") { consumed = 2; return first + " -h"; }
+        if (first is "format") return second is "set" or "clear" ? SetConsumed(out consumed, 2, "format " + second) : SetConsumed(out consumed, 1, "format");
         if (first is "help" or "dmg" or "scan" or "faster" or "end") { consumed = 1; return first; }
         return null;
     }
 
+    private static string SetConsumed(out int consumed, int count, string kind) { consumed = count; return kind; }
+
     private static string NumberOrEmpty(IReadOnlyList<string> tokens, int index) =>
         index < tokens.Count && int.TryParse(tokens[index], out _) ? tokens[index] : "";
+
+    /// <summary>言葉の並びから -f / --format を読み取って選択欄の形式に反映し、それを除いた言葉を返す（無ければ形式は「指定しない」）。</summary>
+    private List<string> ReadFormatOption(List<string> tokens)
+    {
+        var (rest, format, error) = FormatOption.Extract(tokens);
+        s.TeamFormat = error is null && format is { } f ? TeamFormats.Label(f) : "";
+        return error is null ? rest : tokens;
+    }
 
     /// <summary>コマンド文字列を読み取り、選択欄に反映する。</summary>
     private void ParseText()
@@ -934,26 +978,42 @@ else if (string.IsNullOrEmpty(loadError))
             {
                 s.TeamNo = NumberOrEmpty(tokens, 0);
                 s.EntryId = NumberOrEmpty(tokens, 1);
-                // 最後の言葉が「シングル」「ダブル」なら、バトル形式の指定（持ち物の名前としては読まない。コマンドと同じ読み方）
-                var rest = TeamFormats.SplitTrailingFormat(tokens, 2, out var fmt);
-                s.TeamFormat = fmt is { } f ? TeamFormats.Label(f) : "";
+                // 形式は -f シングル|ダブル。古い書き方（最後の言葉が「シングル」「ダブル」）も読む（持ち物の名前としては読まない。コマンドと同じ読み方）
+                var rest = TeamFormats.SplitTrailingFormat(ReadFormatOption(tokens), 2, out var fmt);
+                if (fmt is { } trailing) s.TeamFormat = TeamFormats.Label(trailing);
                 s.ItemName = rest.Count > 2 && new NameResolver<Item>(data!.Items, i => i.Name).Resolve(string.Join(" ", rest.Skip(2))).Value is { } item ? item.Name : "";
                 return true;
             }
             case "set -t":
-                s.TeamNo = NumberOrEmpty(tokens, 0);
-                s.TeamFormat = tokens.Count > 1 && TeamFormats.TryParseWord(tokens[1], out var setFmt) ? TeamFormats.Label(setFmt) : "";
+            {
+                var rest = ReadFormatOption(tokens);
+                s.TeamNo = NumberOrEmpty(rest, 0);
+                s.TeamFormat = rest.Count > 1 && TeamFormats.TryParseWord(rest[1], out var setFmt) ? TeamFormats.Label(setFmt) : "";
+                s.NewTeamNo = NumberOrEmpty(rest, 2);
                 return true;
+            }
             case "rm -t":
-                s.TeamNo = NumberOrEmpty(tokens, 0);
-                s.Subject = pokemonAt(1);
+            {
+                var rest = ReadFormatOption(tokens);
+                s.TeamNo = NumberOrEmpty(rest, 0);
+                s.Subject = rest.Count > 1 ? DamageCommand.CreatePokemonResolver(data!).Resolve(rest[1]).Value : null;
                 return true;
+            }
             case "use -t":
             case "detail -t":
-                s.TeamNo = NumberOrEmpty(tokens, 0);
+                s.TeamNo = NumberOrEmpty(ReadFormatOption(tokens), 0);
                 return true;
             case "unuse -t":
             case "ls -t":
+                ReadFormatOption(tokens);
+                return true;
+            case "format set":
+                s.TeamFormat = "";
+                foreach (var word in ReadFormatOption(tokens))
+                    if (TeamFormats.TryParseWord(word, out var chosen)) s.TeamFormat = TeamFormats.Label(chosen);
+                return true;
+            case "format":
+            case "format clear":
             case "help":
                 return true;
         }
@@ -1011,7 +1071,11 @@ else if (string.IsNullOrEmpty(loadError))
     {
         var tokens = text.Split(new[] { ' ', '　', '\t' }, StringSplitOptions.RemoveEmptyEntries);
         var i = tokens.Length > 0 && tokens[0].StartsWith('!') ? 1 : 0;
-        return i < tokens.Length && tokens[i].ToLowerInvariant() is "add" or "set" or "rm" or "use" or "unuse" or "clear" or "end";
+        if (i >= tokens.Length) return false;
+        var sub = tokens[i].ToLowerInvariant();
+        // format は、登録・解除（format set / clear / シングル / ダブル）だけが変更。format だけは確認
+        if (sub is "format") return i + 1 < tokens.Length;
+        return sub is "add" or "set" or "rm" or "use" or "unuse" or "clear" or "end";
     }
 
     /// <summary>例をコマンド欄に入れるだけ。実行は「実行」を押したときだけ。</summary>
@@ -1039,7 +1103,13 @@ else if (string.IsNullOrEmpty(loadError))
             var match = await Poke.MatchAsync(text);
             if (match is null)
                 text = $"!{App.CommandPrefix} {text.TrimStart('!')}";
-            var result = await Poke.ExecuteAsync(text, new PokeCommandOptions { Format = App.Format });
+            // このサイトでは、画面上部のバトル形式が「登録した形式」。format set / clear は、その形式を切り替える（clear はシングル）
+            var result = await Poke.ExecuteAsync(text, new PokeCommandOptions
+            {
+                Format = App.Format,
+                FormatIsRegistered = true,
+                SaveFormatAsync = async (format, _) => await App.SetFormatAsync(format ?? BattleFormat.Singles),
+            });
             if (IsMutating(text))
             {
                 // 登録データを変えるコマンドの結果は、画面右上のトーストで知らせる
@@ -1078,7 +1148,7 @@ else if (string.IsNullOrEmpty(loadError))
     private static readonly string[] CommandOrder =
     {
         "add -m", "set -m", "ls -m", "detail -m", "rm -m",
-        "add -t", "set -t", "rm -t", "use -t", "unuse -t", "ls -t", "detail -t",
+        "add -t", "set -t", "rm -t", "use -t", "unuse -t", "ls -t", "detail -t", "format",
         "add -r", "set -r", "ls -r", "detail -r", "rm -r", "clear -r",
         "dmg", "scan", "faster", "end",
         "ls -h", "detail -h", "rm -h",
@@ -1112,13 +1182,14 @@ else if (string.IsNullOrEmpty(loadError))
         yield return new($"{p} ls -m [<名前>]", "育成ポケモン", "登録一覧（名前を付けるとそのポケモンだけ）", new[] { $"{p} ls -m", $"{p} ls --my", $"{p} ls -m ガブリアス" });
         yield return new($"{p} detail -m <登録ID>", "育成ポケモン", "登録の詳細（性格・振り・特性・実数値・所属チーム）", new[] { $"{p} detail -m 1", $"{p} detail --my 1" });
         yield return new($"{p} rm -m <登録ID>", "育成ポケモン", "登録を削除（チームからも外れる）", new[] { $"{p} rm -m 1", $"{p} rm --my 1" });
-        yield return new($"{p} add -t <チーム番号> <登録ID> [<持ち物>] [シングル|ダブル]", "自分チーム", "チームに追加（6 体まで）。同じ登録 ID をもう一度指定すると持ち物を更新。最後に「ダブル」「シングル」を付けると、チームのバトル形式も指定できる（書かなければ今のまま。新しいチームはシングル）", new[] { $"{p} add -t 1 1 こだわりスカーフ", $"{p} add --team 1 1 こだわりスカーフ", $"{p} add -t 2 3 ダブル" });
-        yield return new($"{p} set -t <チーム番号> <シングル|ダブル>", "自分チーム", "チームのバトル形式（シングル・ダブル）を変える", new[] { $"{p} set -t 1 ダブル", $"{p} set --team 1 シングル" });
-        yield return new($"{p} rm -t <チーム番号> [<名前>]", "自分チーム", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）", new[] { $"{p} rm -t 1 ガブリアス", $"{p} rm --team 1 ガブリアス", $"{p} rm -t 1" });
-        yield return new($"{p} use -t <チーム番号>", "自分チーム", "使用チームにする。以降の dmg / scan / faster はこのチームの構成で計算", new[] { $"{p} use -t 1", $"{p} use --team 1" });
-        yield return new($"{p} unuse -t", "自分チーム", (usage is { IsEmpty: false } ? "使用チームを解除（以降は使用率に基づく既定値で計算）" : "使用チームを解除（以降は既定値で計算）"), new[] { $"{p} unuse -t", $"{p} unuse --team" });
-        yield return new($"{p} ls -t", "自分チーム", "チーム一覧", new[] { $"{p} ls -t", $"{p} ls --team" });
-        yield return new($"{p} detail -t <チーム番号>", "自分チーム", "チームの詳細", new[] { $"{p} detail -t 1", $"{p} detail --team 1" });
+        yield return new($"{p} add -t <チーム番号> <登録ID> [<持ち物>] [-f シングル|ダブル]", "自分チーム", "チームに追加（6 体まで）。同じ登録 ID をもう一度指定すると持ち物を更新。チーム番号はシングルとダブルで別々に数える（シングルのチーム1 とダブルのチーム1 が作れる）。形式は -f（--format）で指定（書かなければ format set で登録した形式。登録がなければシングル）。古い書き方の末尾の「ダブル」「シングル」も使える", new[] { $"{p} add -t 1 1 こだわりスカーフ", $"{p} add --team 1 1 こだわりスカーフ", $"{p} add -t 2 3 -f ダブル", $"{p} add -t 1 3 --format double" });
+        yield return new($"{p} set -t <チーム番号> <シングル|ダブル> [<新しい番号>]", "自分チーム", "チームを別の形式へ移す（元の形式は、移す先と反対の形式）。移す先に同じ番号のチームがあれば断る（番号は自動では変えない）。新しい番号を書くと、その番号で移す。同じ形式の中で番号を変えるときは -f で今の形式を書く。使用中だったチームを移すと、元の形式の使用中は解除する", new[] { $"{p} set -t 1 ダブル", $"{p} set --team 1 シングル", $"{p} set -t 2 ダブル 5", $"{p} set -t 2 -f ダブル ダブル 3" });
+        yield return new($"{p} rm -t <チーム番号> [<名前>] [-f シングル|ダブル]", "自分チーム", "チームから外す（名前を省くとチームごと削除。0 体になったチームも自動で削除）。形式を書かなければ登録した形式", new[] { $"{p} rm -t 1 ガブリアス", $"{p} rm --team 1 ガブリアス", $"{p} rm -t 1", $"{p} rm -t 1 -f ダブル" });
+        yield return new($"{p} use -t <チーム番号> [-f シングル|ダブル]", "自分チーム", "その形式の使用チームにする（使用中は形式ごとに 1 つ）。以降のその形式の dmg / scan / faster はこのチームの構成で計算", new[] { $"{p} use -t 1", $"{p} use --team 1", $"{p} use -t 1 --format ダブル" });
+        yield return new($"{p} unuse -t [-f シングル|ダブル]", "自分チーム", (usage is { IsEmpty: false } ? "その形式の使用チームを解除（以降は使用率に基づく既定値で計算）" : "その形式の使用チームを解除（以降は既定値で計算）"), new[] { $"{p} unuse -t", $"{p} unuse --team", $"{p} unuse -t -f ダブル" });
+        yield return new($"{p} ls -t [-f シングル|ダブル]", "自分チーム", "チーム一覧（形式を書かなければシングルとダブルを並べる）", new[] { $"{p} ls -t", $"{p} ls --team", $"{p} ls -t -f ダブル" });
+        yield return new($"{p} detail -t <チーム番号> [-f シングル|ダブル]", "自分チーム", "チームの詳細", new[] { $"{p} detail -t 1", $"{p} detail --team 1", $"{p} detail -t 1 -f double" });
+        yield return new($"{p} format [set <シングル|ダブル> | clear]", "自分チーム", "形式を書かないコマンドが使う形式の登録。format で今の登録を確認、format set ダブル で登録、format clear で解除（解除すると既定のシングル）。変更は配信者・モデレーターのみ。登録は 1 つで、add -t / rm -t / use -t / ls・detail -t / dmg / scan / faster の形式を省略したときに使う", new[] { $"{p} format", $"{p} format set ダブル", $"{p} format set single", $"{p} format clear" });
         yield return new($"{p} dmg <攻撃側> <技>[<±ランク>] <防御側> [<オプション>]", "対戦", "【攻撃側は登録済みのポケモンが必須】通常と急所のダメージと確定数。使用チームにいればその構成、いなければ登録の構成（持ち物は括弧内に表示）。同じポケモンを複数登録しているときは #登録ID で指定する（名前だけだと一覧を出して案内する）。特性でダメージが変わるときは、特性ごとの結果も出す。オプションは下の表",
             new[] { $"{p} dmg ガブリアス じしん リザードン", $"{p} dmg ガブリアス じしん+1 リザードン 晴れ 急所", $"{p} dmg ガブリアス げきりん ドドゲザン 壁", $"{p} dmg イエッサン ワイドフォース メガリザードンX サイコフィールド", $"{p} dmg ガブリアス じしん リザードン A252 いじっぱり{gimmick}" });
         yield return new($"{p} set -m <登録IDか名前> [<振り方>] [<性格>] [<特性>]", "育成ポケモン", "登録済みの育成ポケモンの、書いた項目だけを更新（技・チーム・持ち物はそのまま）。振り方を書いたときは振り方全体の置き換え（書いていない能力は 0）。性格は名前か B↑A↓ で指定",

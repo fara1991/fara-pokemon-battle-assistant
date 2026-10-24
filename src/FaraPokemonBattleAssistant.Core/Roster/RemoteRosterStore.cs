@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using FaraPokemonBattleAssistant.Core.Models;
 
 namespace FaraPokemonBattleAssistant.Core.Roster;
 
@@ -267,7 +268,7 @@ public sealed partial class RemoteRosterStore : IRosterStore
 
     /// <summary>
     /// PUT の本文。ポケモンは <c>{"baseRevision": n, "dataSets": {"Champions": {"nextId": n, "pokemon": [...]}}}</c>、
-    /// チームは <c>{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeam": n | null}}}</c>。
+    /// チームは <c>{"baseRevision": n, "dataSets": {"Champions": {"teams": [...], "activeTeams": {"Singles": n | null, "Doubles": n | null}}}}</c>。
     /// </summary>
     private static ByteArrayContent BuildPutContent(long baseRevision, RosterState state, IReadOnlyList<string> dataSetKeys, RosterPart part)
     {
@@ -298,10 +299,16 @@ public sealed partial class RemoteRosterStore : IRosterStore
                     var teams = ValidTeams(roster);
                     writer.WritePropertyName("teams");
                     JsonSerializer.Serialize(writer, teams, ItemOptions);
-                    if (roster.ActiveTeam is { } active && teams.Any(t => t.Number == active))
-                        writer.WriteNumber("activeTeam", active);
-                    else
-                        writer.WriteNull("activeTeam");
+                    // 使用中のチームは、バトル形式ごとに 1 つ（送るチームの中にあるものだけ）
+                    writer.WriteStartObject("activeTeams");
+                    foreach (var format in new[] { BattleFormat.Singles, BattleFormat.Doubles })
+                    {
+                        if (roster.ActiveNumber(format) is { } active && teams.Any(t => t.BattleFormat == format && t.Number == active))
+                            writer.WriteNumber(TeamFormats.Name(format), active);
+                        else
+                            writer.WriteNull(TeamFormats.Name(format));
+                    }
+                    writer.WriteEndObject();
                 }
                 writer.WriteEndObject();
             }
@@ -321,10 +328,10 @@ public sealed partial class RemoteRosterStore : IRosterStore
     {
         var ids = roster.Pokemon.Select(p => p.Id).ToHashSet();
         var teams = new List<Team>();
-        foreach (var team in roster.Teams.GroupBy(t => t.Number).Select(g => g.First()))
+        foreach (var team in roster.Teams.GroupBy(t => t.Key).Select(g => g.First()))
         {
             var slots = team.Slots.Where(s => ids.Contains(s.EntryId)).GroupBy(s => s.EntryId).Select(g => g.First()).Take(6).ToList();
-            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots, Format = NormalizedFormat(team.Format), Extra = team.Extra });
+            if (slots.Count > 0) teams.Add(new Team { Number = team.Number, Slots = slots, Format = TeamFormats.Name(team.BattleFormat), Extra = team.Extra });
         }
         return teams;
     }
@@ -363,7 +370,7 @@ public sealed partial class RemoteRosterStore : IRosterStore
         using (var writer = new Utf8JsonWriter(buffer, WriterOptions))
         {
             writer.WriteStartObject();
-            writer.WriteNumber("Version", 1);
+            writer.WriteNumber("Version", 2);
             writer.WriteStartObject("DataSets");
             foreach (var key in keys)
             {
@@ -376,8 +383,14 @@ public sealed partial class RemoteRosterStore : IRosterStore
                 if (teamSets.TryGetProperty(key, out var t) && t.ValueKind == JsonValueKind.Object)
                 {
                     WriteArray(writer, "Teams", t, "teams");
-                    if (t.TryGetProperty("activeTeam", out var active) && active.ValueKind == JsonValueKind.Number)
-                        writer.WriteNumber("ActiveTeam", ReadInt(active));
+                    // 使用中のチーム（バトル形式ごと）。この項目があれば、チームはバトル形式ごとに番号を数える新しい形のデータ
+                    if (t.TryGetProperty("activeTeams", out var actives) && actives.ValueKind == JsonValueKind.Object)
+                    {
+                        writer.WriteStartObject("ActiveTeams");
+                        foreach (var a in actives.EnumerateObject())
+                            if (a.Value.ValueKind == JsonValueKind.Number) writer.WriteNumber(a.Name, ReadInt(a.Value));
+                        writer.WriteEndObject();
+                    }
                 }
                 if (rivalSets is { } rv && rv.TryGetProperty(key, out var r) && r.ValueKind == JsonValueKind.Object)
                 {

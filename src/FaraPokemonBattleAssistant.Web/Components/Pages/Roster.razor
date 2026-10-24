@@ -391,13 +391,13 @@ else
         var name = roster?.Pokemon.FirstOrDefault(p => p.Id == id)?.PokemonName ?? "";
         if (!await ConfirmAsync($"#{id} {name} を削除します。チームからも外れ、元に戻せません。よろしいですか？")) return;
         if (s.EditingId == id) ClearForm();
-        var before = roster?.Teams.Select(t => t.Number).ToList() ?? new List<int>();
+        var before = roster?.Teams.Select(t => t.Key).ToList() ?? new List<(BattleFormat Format, int Number)>();
         await MutateAsync(async () =>
         {
             await Repo.RemovePokemonAsync(key, id);
-            var after = (await Repo.GetAsync()).For(key).Teams.Select(t => t.Number);
+            var after = (await Repo.GetAsync()).For(key).Teams.Select(t => t.Key);
             var deleted = before.Except(after).ToList();
-            Show($"#{id} を削除しました" + (deleted.Count > 0 ? $"（0 体になった{string.Join("・", deleted.Select(n => $"チーム{n}"))}も削除しました）" : ""), false);
+            Show($"#{id} を削除しました" + (deleted.Count > 0 ? $"（0 体になった{string.Join("・", deleted.Select(t => TeamNames.Full(t.Format, t.Number)))}も削除しました）" : ""), false);
         });
     }
 }

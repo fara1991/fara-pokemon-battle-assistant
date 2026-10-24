@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using FaraPokemonBattleAssistant.Core.Models;
+using FaraPokemonBattleAssistant.Core.Models;
 using FaraPokemonBattleAssistant.Core.Roster;
 using Xunit;
 
@@ -64,7 +65,7 @@ public class RosterIntegrityTests
           "Teams":[{"Number":1,"Slots":[{"EntryId":1}]}]}}}
         """ };
         var repo = new RosterRepository(store);
-        var groups = await repo.ChoiceGroupsAsync(Ds, data);   // 以前は ToDictionary が ArgumentException で落ちた
+        var groups = await repo.ChoiceGroupsAsync(Ds, data, BattleFormat.Singles);   // 以前は ToDictionary が ArgumentException で落ちた
         Assert.NotEmpty(groups);
     }
 
