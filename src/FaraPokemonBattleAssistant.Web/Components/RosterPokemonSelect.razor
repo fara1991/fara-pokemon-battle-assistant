@@ -4,19 +4,21 @@
 <SearchableSelect TItem="Option"
     Items="options"
     DisplayText="@(o => o.Text)"
+    GroupSelector="@(o => o.Group)"
     ValueSelector="@(o => o.Choice.Key)"
     SelectedValue="@(SelectedKey ?? "")"
     SelectedValueChanged="OnChanged"
     Placeholder="登録チームから選ぶ...">
     <ItemTemplate Context="o">
-        <PokemonIcon Pokemon="o.Pokemon" Small="true" /><span>@o.Choice.Label</span><PokemonTypes Pokemon="o.Pokemon" Small="true" /><span class="text-muted ms-auto small text-nowrap">@o.GroupShort</span>
+        <PokemonIcon Pokemon="o.Pokemon" Small="true" /><span>@o.Choice.Label</span><PokemonTypes Pokemon="o.Pokemon" Small="true" />
     </ItemTemplate>
 </SearchableSelect>
 
 @code {
-    private sealed record Option(RosterChoice Choice, Pokemon? Pokemon, string GroupShort)
+    /// <summary><paramref name="Group"/> はチームの見出し（「チーム1（使用中）」など）。入力欄の文字（Text）には使用中を付けない。</summary>
+    private sealed record Option(RosterChoice Choice, Pokemon? Pokemon, string Group)
     {
-        public string Text => $"{Choice.Label}（{GroupShort}）";
+        public string Text => $"{Choice.Label}（{Group.Replace("（使用中）", "")}）";
     }
 
     [Parameter] public IReadOnlyList<RosterChoiceGroup> Groups { get; set; } = Array.Empty<RosterChoiceGroup>();
@@ -29,7 +31,7 @@
 
     protected override void OnParametersSet() =>
         options = Groups.SelectMany(g => g.Choices.Select(c =>
-            new Option(c, Data.FindPokemon(c.Entry.PokemonId), g.Label.Replace("（使用中）", "")))).ToList();
+            new Option(c, Data.FindPokemon(c.Entry.PokemonId), g.Label))).ToList();
 
     private async Task OnChanged(string key)
     {

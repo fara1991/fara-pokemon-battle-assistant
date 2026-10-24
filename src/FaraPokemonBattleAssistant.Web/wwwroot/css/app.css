@@ -223,6 +223,18 @@ body {
     background-color: var(--bs-tertiary-bg);
 }
 
+.searchable-select-group {
+    padding: 0.3rem 0.75rem 0.15rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--bs-secondary-color);
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.searchable-select-group:first-child {
+    border-top: none;
+}
+
 .split-row {
     display: flex;
     gap: 1rem;

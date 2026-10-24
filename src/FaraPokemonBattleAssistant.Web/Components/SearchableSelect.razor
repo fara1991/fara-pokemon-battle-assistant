@@ -40,6 +40,10 @@
             {
                 var item = visible[i];
                 var index = i;
+                @if (GroupSelector is not null && GroupSelector(item) is { Length: > 0 } group && (i == 0 || GroupSelector(visible[i - 1]) != group))
+                {
+                    <div class="searchable-select-group" role="presentation">@group</div>
+                }
                 <div class="searchable-select-item @(index == highlight ? "active" : "")"
                      id="@ItemId(index)" role="option" aria-selected="@(HasSelection && ValueSelector(item) == SelectedValue ? "true" : "false")"
                      @onmousedown="() => SelectItem(item)" @onmousedown:preventDefault
@@ -69,6 +73,8 @@
     [Parameter] public Func<TItem, string> DisplayText { get; set; } = _ => "";
     /// <summary>候補一覧での表示（省略時は DisplayText）。</summary>
     [Parameter] public RenderFragment<TItem>? ItemTemplate { get; set; }
+    /// <summary>候補の見出し（グループ名）。同じグループが続く間は 1 度だけ、候補の前に見出しを出す。省略時は見出しなし。</summary>
+    [Parameter] public Func<TItem, string?>? GroupSelector { get; set; }
     [Parameter] public Func<TItem, string> ValueSelector { get; set; } = _ => "";
     [Parameter] public string SelectedValue { get; set; } = "";
     [Parameter] public EventCallback<string> SelectedValueChanged { get; set; }

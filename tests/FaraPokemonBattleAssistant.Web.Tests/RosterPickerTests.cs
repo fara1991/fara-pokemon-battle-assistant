@@ -124,12 +124,18 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
             s.UseRosterAttacker = true;
         });
 
-    /// <summary>「登録チームから選ぶ」の入力欄を開き、候補を表示順に返す（各候補は「#ID 名前（チーム名）」）。</summary>
-    private static List<string> Candidates<T>(IRenderedComponent<T> cut) where T : IComponent
+    /// <summary>「登録チームから選ぶ」の入力欄を開き、候補を表示順に返す（各候補は「#ID 名前」）。チームの見出しは、候補を返す一覧には含めない（<see cref="Headings"/>）。</summary>
+    private static List<string> Candidates<T>(IRenderedComponent<T> cut) where T : IComponent => Rows(cut).Where(r => !r.Heading).Select(r => r.Text).ToList();
+
+    /// <summary>開いた一覧のチームの見出し（「チーム1（使用中）」など）を表示順に返す。</summary>
+    private static List<string> Headings<T>(IRenderedComponent<T> cut) where T : IComponent => Rows(cut).Where(r => r.Heading).Select(r => r.Text).ToList();
+
+    /// <summary>一覧を開いて、見出しと候補を表示順に返す（見出しは <c>role=presentation</c>、候補は <c>role=option</c>）。</summary>
+    private static List<(bool Heading, string Text)> Rows<T>(IRenderedComponent<T> cut) where T : IComponent
     {
         cut.Find(Placeholder).Click();
         cut.WaitForState(() => cut.FindAll("[role=listbox] [role=option]").Count > 0);
-        var items = cut.FindAll("[role=listbox] [role=option]").Select(o => o.TextContent.Trim()).ToList();
+        var items = cut.FindAll("[role=listbox] > *").Select(o => (o.GetAttribute("role") == "presentation", o.TextContent.Trim())).ToList();
         cut.Find(".searchable-select").FocusOut();   // 閉じる（次に読むときに開き直して、最新の候補を読む）
         return items;
     }
@@ -179,15 +185,24 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Candidates_are_grouped_by_team_with_the_active_team_first()
+    public async Task Candidates_are_grouped_under_team_headings_with_the_active_team_first()
     {
         var cut = await OpenSpeedAsync(BattleFormat.Singles);
 
-        // 使用中のチーム1（2 体）が先頭、そのあとにチーム3
-        var items = Candidates(cut);
-        Assert.Contains("チーム1", items[0]);
-        Assert.Contains("チーム1", items[1]);
-        Assert.Contains("チーム3", items[2]);
+        // 使用中のチーム1（2 体）が先頭、そのあとにチーム3。見出しは、使用中のチームだけ「（使用中）」つき
+        Assert.Equal(new[] { "チーム1（使用中）", "チーム3" }, Headings(cut));
+        var rows = Rows(cut).Select(r => r.Heading ? $"[{r.Text}]" : r.Text).ToList();
+        Assert.Equal(new[] { "[チーム1（使用中）]", "#1 マニューラ", "#3 リザードン", "[チーム3]", "#3 リザードン" }, rows);
+
+        var doubles = await OpenSpeedAsync2Async(cut, BattleFormat.Doubles);
+        Assert.Equal(new[] { "チーム1（使用中）", "チーム2" }, Headings(doubles));
+    }
+
+    private async Task<IRenderedComponent<Speed>> OpenSpeedAsync2Async(IRenderedComponent<Speed> cut, BattleFormat format)
+    {
+        await app.SetFormatAsync(format);
+        cut.WaitForAssertion(() => Assert.DoesNotContain(SinglesOnly, string.Join("|", Candidates(cut))));
+        return cut;
     }
 
     [Fact]
@@ -198,7 +213,7 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
         await app.SetFormatAsync(BattleFormat.Doubles);
         await app.SetFormatAsync(BattleFormat.Singles);
 
-        cut.WaitForAssertion(() => Assert.Contains("チーム3", Candidates(cut)[0]));
+        cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム3（使用中）", "チーム1" }, Headings(cut)));
     }
 
     [Fact]
@@ -235,7 +250,7 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
         Assert.True(Has(singles, Both));
         Assert.False(Has(singles, DoublesOnly));
         Assert.False(Has(singles, Unassigned));
-        Assert.Contains("チーム1", singles[0]);
+        Assert.Equal(new[] { "チーム1（使用中）", "チーム3" }, Headings(cut));
 
         await app.SetFormatAsync(BattleFormat.Doubles);
         cut.WaitForAssertion(() =>
