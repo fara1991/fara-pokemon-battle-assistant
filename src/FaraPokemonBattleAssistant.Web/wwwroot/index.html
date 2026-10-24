@@ -16,11 +16,11 @@
     <!-- ファビコン（六角形のレーダー。外側の枠は明るい紫、内側の多角形は濃い紫、どちらも白い縁取り）。SEO-HEAD の区切りの外に置く（build-entry-pages が区切りの中だけを書き換えるので、全ページに残る）。
          /favicon.ico は必ず置く（not_found_handling が 404 ページなので、無いと 404）。SVG は prefers-color-scheme の切り替えなし（Safari 非対応のため PNG・ICO と見た目をそろえる）。
          ファイル名は固定。Workers の静的アセットは再検証（must-revalidate）で配られるが、ブラウザーのファビコンは強く覚えられるので、図案を変えたら ?v= を上げる -->
-    <link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48" />
-    <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
-    <link rel="icon" href="/favicon-32x32.png?v=2" type="image/png" sizes="32x32" />
-    <link rel="icon" href="/favicon-16x16.png?v=2" type="image/png" sizes="16x16" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+    <link rel="icon" href="/favicon.ico?v=3" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon.svg?v=3" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32x32.png?v=3" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16x16.png?v=3" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3" />
     <base href="/" />
     <!-- 起動までの読み込み表示（画面全体を覆う不透明なオーバーレイ）。最初に当てる（CSS の読み込み前にも本文が見えないように、インラインで書く）。
          背景色は theme-init.js（kit）が決める data-bs-theme に従う（app.css の --app-body-bg と同じ色）。 -->
