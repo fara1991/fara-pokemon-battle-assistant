@@ -266,6 +266,17 @@ public sealed class Team
     /// <summary>このチームのバトル形式（<see cref="Format"/> を読み替えたもの。読み取り専用）。</summary>
     [JsonIgnore]
     public BattleFormat BattleFormat => TeamFormats.Parse(Format);
+
+    /// <summary>チームを区別する鍵（バトル形式 + チーム番号）。チーム番号は、シングルとダブルで別々に数える。</summary>
+    [JsonIgnore]
+    public (BattleFormat Format, int Number) Key => (BattleFormat, Number);
+}
+
+/// <summary>バトル形式ごとのチームの呼び方（返信・画面の表記をそろえる）。</summary>
+public static class TeamNames
+{
+    /// <summary>「シングルのチーム1」「ダブルのチーム2」。</summary>
+    public static string Full(BattleFormat format, int number) => $"{TeamFormats.Label(format)}のチーム{number}";
 }
 
 /// <summary>チームのバトル形式（シングル・ダブル）の読み書き。サイト・コマンド・クラウドで同じ表記にそろえる。</summary>
@@ -331,7 +342,73 @@ public sealed class DataSetRoster
     public int NextId { get; set; } = 1;
     public List<RegisteredPokemon> Pokemon { get; set; } = new();
     public List<Team> Teams { get; set; } = new();
+    /// <summary>
+    /// 古い版が保存した「使用中のチーム」（バトル形式に関係なく 1 つ）。新しい版は使わない（読み込み時に <see cref="ActiveTeams"/> へ移し、書かない）。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? ActiveTeam { get; set; }
+
+    /// <summary>
+    /// バトル形式ごとの使用中のチーム番号（キーは "Singles" / "Doubles"。値が無い・null は使用中なし）。
+    /// 書いていない（null）ときは、使用中なし。古いデータ（<see cref="RosterState.Version"/> が 1）だけ、読み込み時に <see cref="UpgradeFormats"/> で作り直す。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, int?>? ActiveTeams { get; set; }
+
+    /// <summary>そのバトル形式のチーム。無ければ null。</summary>
+    public Team? FindTeam(BattleFormat format, int number) =>
+        Teams.FirstOrDefault(t => t.BattleFormat == format && t.Number == number);
+
+    /// <summary>そのバトル形式で使用中のチーム番号（そのチームが無ければ null）。</summary>
+    public int? ActiveNumber(BattleFormat format)
+    {
+        if (ActiveTeams is null || !ActiveTeams.TryGetValue(TeamFormats.Name(format), out var n) || n is not { } number) return null;
+        return FindTeam(format, number) is null ? null : number;
+    }
+
+    /// <summary>そのバトル形式で使用中のチーム。使用中が無ければ null。</summary>
+    public Team? ActiveTeamOf(BattleFormat format) => ActiveNumber(format) is { } n ? FindTeam(format, n) : null;
+
+    /// <summary>そのバトル形式の使用中のチームを決める（null で解除）。</summary>
+    public void SetActiveNumber(BattleFormat format, int? number)
+    {
+        ActiveTeams ??= new Dictionary<string, int?>();
+        ActiveTeams[TeamFormats.Name(format)] = number;
+    }
+
+    /// <summary>
+    /// バトル形式ごとにチーム番号を数える前の古いデータ（保存した <see cref="RosterState.Version"/> が 1 で、<see cref="ActiveTeams"/> が無い）を新しい形にする。
+    /// 古いデータのチームは、保存してあったバトル形式が何でも、すべてシングルのチームとして扱う（番号は全体で一意なので、衝突しない）。
+    /// 使用中のチームは、シングルの使用中になる。何度呼んでも結果は同じ（新しい形になったら何もしない）。
+    /// データの世代が 2 以上なら、<see cref="ActiveTeams"/> が無くても（コードで作ったデータなど）チームの形式は変えない。
+    /// </summary>
+    /// <param name="legacyVersion">保存したデータの世代が 1（古い）か。</param>
+    internal void UpgradeFormats(bool legacyVersion = false)
+    {
+        Teams ??= new();
+        if (ActiveTeams is null)
+        {
+            ActiveTeams = new Dictionary<string, int?>();
+            if (legacyVersion)
+            {
+                foreach (var team in Teams) team.Format = TeamFormats.Name(BattleFormat.Singles);
+                if (ActiveTeam is { } legacy && Teams.Any(t => t.Number == legacy)) SetActiveNumber(BattleFormat.Singles, legacy);
+            }
+            else if (ActiveTeam is { } stray && Teams.FirstOrDefault(t => t.Number == stray) is { } strayTeam)
+            {
+                SetActiveNumber(strayTeam.BattleFormat, stray);
+            }
+            ActiveTeam = null;
+            return;
+        }
+        ActiveTeam = null;
+        // 新しい形でも、存在しないチームを指す使用中は外す
+        foreach (var key in ActiveTeams.Keys.ToList())
+        {
+            var format = TeamFormats.Parse(key);
+            if (ActiveTeams[key] is not { } n || FindTeam(format, n) is null) ActiveTeams.Remove(key);
+        }
+    }
     /// <summary>対戦中の相手チーム（同じポケモンは 1 体）。</summary>
     public int NextRivalId { get; set; } = 1;
     public List<RivalPokemon> Rivals { get; set; } = new();
@@ -353,7 +430,7 @@ public sealed class DataSetRoster
     }
 
     /// <summary>読み込んだ JSON が null を書いていても、空の一覧として扱う（一覧の中の null も取り除く）。</summary>
-    internal void Normalize()
+    internal void Normalize(bool legacyVersion = false)
     {
         Pokemon ??= new();
         Teams ??= new();
@@ -363,6 +440,7 @@ public sealed class DataSetRoster
         Teams.RemoveAll(t => t is null);
         Rivals.RemoveAll(r => r is null);
         History.RemoveAll(m => m is null);
+        UpgradeFormats(legacyVersion);
     }
 
     /// <summary>ID の重複を直し、次に振る ID（今ある最大の ID の次より小さくならない）を返す。</summary>
@@ -386,11 +464,12 @@ public sealed class DataSetRoster
         Pokemon.AddRange(other.Pokemon);
         Rivals.AddRange(other.Rivals);
         History.AddRange(other.History);
-        foreach (var team in other.Teams.Where(t => Teams.All(x => x.Number != t.Number))) Teams.Add(team);
+        foreach (var team in other.Teams.Where(t => FindTeam(t.BattleFormat, t.Number) is null)) Teams.Add(team);
         NextId = Math.Max(NextId, other.NextId);
         NextRivalId = Math.Max(NextRivalId, other.NextRivalId);
         NextMatchId = Math.Max(NextMatchId, other.NextMatchId);
-        ActiveTeam ??= other.ActiveTeam;
+        foreach (var format in new[] { BattleFormat.Singles, BattleFormat.Doubles })
+            if (ActiveNumber(format) is null && other.ActiveNumber(format) is { } active) SetActiveNumber(format, active);
     }
 }
 
@@ -400,13 +479,14 @@ public sealed class RosterState
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
 
-    public int Version { get; set; } = 1;
+    /// <summary>データの世代。2 は、チーム番号をシングルとダブルで別々に数える形（<see cref="DataSetRoster.ActiveTeams"/> を持つ）。1 でも読める。</summary>
+    public int Version { get; set; } = 2;
     public Dictionary<string, DataSetRoster> DataSets { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public DataSetRoster For(string dataSetKey)
     {
         if (!DataSets.TryGetValue(dataSetKey, out var r))
-            DataSets[dataSetKey] = r = new DataSetRoster();
+            DataSets[dataSetKey] = r = new DataSetRoster { ActiveTeams = new Dictionary<string, int?>() };
         return r;
     }
 }
@@ -497,17 +577,21 @@ public sealed class RosterRepository
     public static RosterState Deserialize(string? json)
     {
         var state = string.IsNullOrWhiteSpace(json) ? new RosterState() : JsonSerializer.Deserialize<RosterState>(json!, JsonOptions) ?? new RosterState();
+        // 世代 1 のデータ（チーム番号を形式ごとに数える前）は、読み込み時にチームをすべてシングルとして扱う
+        var legacyVersion = state.Version < 2;
         // 読み込むと、ゲームのキーの比較（大文字小文字を区別しない）が標準に戻るので作り直す。ID の採番は、今ある ID より後にそろえる
         var sets = new Dictionary<string, DataSetRoster>(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, set) in state.DataSets ?? new())
         {
             var loaded = set ?? new DataSetRoster();
-            loaded.Normalize();
+            loaded.Normalize(legacyVersion);
             // 大文字小文字だけ違うキーが 2 つあるときは、中身を 1 つにまとめる（片方を捨てない）
             if (sets.TryGetValue(key, out var existing)) existing.MergeFrom(loaded);
             else sets[key] = loaded;
         }
         state.DataSets = sets;
+        // チームの番号を形式ごとに数える形に、すべてのゲームを読み替えた（Normalize）ので、データの世代も 2 にそろえる
+        state.Version = Math.Max(state.Version, 2);
         foreach (var set in sets.Values) set.RepairIds();
         return state;
     }
@@ -764,63 +848,77 @@ public sealed class RosterRepository
         }, ct).ConfigureAwait(false);
     }
 
-    /// <summary>0 体になったチームを削除する（使用中なら使用も解除）。削除したチーム番号を返す。</summary>
-    public static IReadOnlyList<int> RemoveEmptyTeams(DataSetRoster roster)
+    /// <summary>0 体になったチームを削除する（使用中ならその形式の使用も解除）。削除したチーム（バトル形式と番号）を返す。</summary>
+    public static IReadOnlyList<(BattleFormat Format, int Number)> RemoveEmptyTeams(DataSetRoster roster)
     {
-        var empty = roster.Teams.Where(t => t.Slots.Count == 0).Select(t => t.Number).ToList();
+        var empty = roster.Teams.Where(t => t.Slots.Count == 0).Select(t => t.Key).ToList();
         roster.Teams.RemoveAll(t => t.Slots.Count == 0);
-        if (roster.ActiveTeam is { } active && empty.Contains(active)) roster.ActiveTeam = null;
+        foreach (var (format, number) in empty)
+            if (roster.ActiveNumber(format) == number) roster.SetActiveNumber(format, null);
         return empty;
     }
 
-    // ---- チーム
+    // ---- チーム（バトル形式 + 番号で 1 つのチームを指す。番号はシングルとダブルで別々）
 
-    /// <param name="format">チームのバトル形式。null のときは今のまま（新しいチームはシングル）。</param>
-    public async Task<(Team Team, TeamSlot Slot, bool Replaced)> AddToTeamAsync(string dataSetKey, int teamNumber, int entryId, Item? item, BattleFormat? format = null, CancellationToken ct = default)
+    /// <summary>チームに登録ポケモンを入れる（無ければそのバトル形式のチームを作る。もう入っていれば持ち物を更新する）。</summary>
+    public async Task<(Team Team, TeamSlot Slot, bool Replaced)> AddToTeamAsync(string dataSetKey, BattleFormat format, int teamNumber, int entryId, Item? item, CancellationToken ct = default)
     {
         return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
             if (roster.Pokemon.All(p => p.Id != entryId))
                 throw new ArgumentException($"登録ID {entryId} はありません");
-            var team = roster.Teams.FirstOrDefault(t => t.Number == teamNumber);
+            var team = roster.FindTeam(format, teamNumber);
             if (team is null)
             {
-                team = new Team { Number = teamNumber };
+                team = new Team { Number = teamNumber, Format = TeamFormats.Name(format) };
                 roster.Teams.Add(team);
-                roster.Teams.Sort((a, b) => a.Number.CompareTo(b.Number));
+                SortTeams(roster.Teams);
             }
             var existing = team.Slots.FirstOrDefault(s => s.EntryId == entryId);
             var replaced = existing is not null;
             if (existing is null)
             {
                 if (team.Slots.Count >= 6)
-                    throw new InvalidOperationException($"チーム{teamNumber}は既に 6 体います");
+                    throw new InvalidOperationException($"{TeamNames.Full(format, teamNumber)}は既に 6 体います");
                 existing = new TeamSlot { EntryId = entryId };
                 team.Slots.Add(existing);
             }
             existing.ItemId = item?.Id;
-            if (format is { } f) team.Format = TeamFormats.Name(f);
             return ((team, existing, replaced), true);
         }, ct).ConfigureAwait(false);
     }
 
-    /// <summary>チームのバトル形式（シングル・ダブル）を変える。チームが無ければ false。</summary>
-    public async Task<bool> SetTeamFormatAsync(string dataSetKey, int teamNumber, BattleFormat format, CancellationToken ct = default)
+    /// <summary>チームの並び順（番号の小さい順。同じ番号ならシングルが先）。</summary>
+    private static void SortTeams(List<Team> teams) =>
+        teams.Sort((a, b) => a.Number != b.Number ? a.Number.CompareTo(b.Number) : a.BattleFormat.CompareTo(b.BattleFormat));
+
+    /// <summary>
+    /// チームを別のバトル形式へ移す（その形式で同じ番号か <paramref name="newNumber"/> のチームが既にあれば移さない。番号は自動では振り替えない）。
+    /// 使用中だったチームを移すと、移す前の形式の使用中は解除する（移した先の使用中は変えない）。
+    /// </summary>
+    public async Task<TeamMoveResult> MoveTeamAsync(string dataSetKey, BattleFormat from, int teamNumber, BattleFormat to, int? newNumber = null, CancellationToken ct = default)
     {
+        var target = newNumber ?? teamNumber;
         return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
-            var team = roster.Teams.FirstOrDefault(t => t.Number == teamNumber);
-            if (team is null) return (false, false);
-            team.Format = TeamFormats.Name(format);
-            return (true, true);
+            var team = roster.FindTeam(from, teamNumber);
+            if (team is null) return (new TeamMoveResult(TeamMoveStatus.NotFound, target, false), false);
+            if (from == to && target == teamNumber) return (new TeamMoveResult(TeamMoveStatus.Unchanged, target, false), false);
+            if (roster.FindTeam(to, target) is not null) return (new TeamMoveResult(TeamMoveStatus.Occupied, target, false), false);
+            var wasActive = roster.ActiveNumber(from) == teamNumber;
+            team.Format = TeamFormats.Name(to);
+            team.Number = target;
+            if (wasActive) roster.SetActiveNumber(from, null);
+            SortTeams(roster.Teams);
+            return (new TeamMoveResult(TeamMoveStatus.Moved, target, wasActive), true);
         }, ct).ConfigureAwait(false);
     }
 
-    public async Task<bool> RemoveFromTeamAsync(string dataSetKey, int teamNumber, Func<RegisteredPokemon, bool> predicate, CancellationToken ct = default)
+    public async Task<bool> RemoveFromTeamAsync(string dataSetKey, BattleFormat format, int teamNumber, Func<RegisteredPokemon, bool> predicate, CancellationToken ct = default)
     {
         return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
-            var team = roster.Teams.FirstOrDefault(t => t.Number == teamNumber);
+            var team = roster.FindTeam(format, teamNumber);
             if (team is null) return (false, false);
             var byId = ById(roster.Pokemon);
             var removed = team.Slots.RemoveAll(s => byId.TryGetValue(s.EntryId, out var p) && predicate(p)) > 0;
@@ -829,33 +927,34 @@ public sealed class RosterRepository
         }, ct).ConfigureAwait(false);
     }
 
-    public async Task<bool> RemoveTeamAsync(string dataSetKey, int teamNumber, CancellationToken ct = default)
+    public async Task<bool> RemoveTeamAsync(string dataSetKey, BattleFormat format, int teamNumber, CancellationToken ct = default)
     {
         return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
-            var removed = roster.Teams.RemoveAll(t => t.Number == teamNumber) > 0;
-            if (roster.ActiveTeam == teamNumber) roster.ActiveTeam = null;
+            var removed = roster.Teams.RemoveAll(t => t.BattleFormat == format && t.Number == teamNumber) > 0;
+            if (roster.ActiveNumber(format) == teamNumber) roster.SetActiveNumber(format, null);
             return (removed, removed);
         }, ct).ConfigureAwait(false);
     }
 
-    public async Task<bool> UseTeamAsync(string dataSetKey, int teamNumber, CancellationToken ct = default)
+    /// <summary>そのバトル形式の使用中のチームにする。チームが無ければ false。</summary>
+    public async Task<bool> UseTeamAsync(string dataSetKey, BattleFormat format, int teamNumber, CancellationToken ct = default)
     {
         return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
-            if (roster.Teams.All(t => t.Number != teamNumber)) return (false, false);
-            roster.ActiveTeam = teamNumber;
+            if (roster.FindTeam(format, teamNumber) is null) return (false, false);
+            roster.SetActiveNumber(format, teamNumber);
             return (true, true);
         }, ct).ConfigureAwait(false);
     }
 
-    /// <summary>使用チームを解除する。解除したら true（もともと無ければ false）。</summary>
-    public async Task<bool> ClearActiveTeamAsync(string dataSetKey, CancellationToken ct = default)
+    /// <summary>そのバトル形式の使用中のチームを解除する。解除したら true（もともと無ければ false）。</summary>
+    public async Task<bool> ClearActiveTeamAsync(string dataSetKey, BattleFormat format, CancellationToken ct = default)
     {
         return await MutateAsync(dataSetKey, RosterPart.Teams, roster =>
         {
-            if (roster.ActiveTeam is null) return (false, false);
-            roster.ActiveTeam = null;
+            if (roster.ActiveNumber(format) is null) return (false, false);
+            roster.SetActiveNumber(format, null);
             return (true, true);
         }, ct).ConfigureAwait(false);
     }
@@ -910,13 +1009,14 @@ public sealed class RosterRepository
     /// チームのメンバー（チームで持たせた持ち物つき）と、どのチームにも入っていない登録ポケモンの順。
     /// 返す構成は登録データの写しで、呼び出し側で値を変えても登録データは変わらない（<see cref="ToBuild"/>）。
     /// </summary>
-    public async Task<IReadOnlyList<RosterChoiceGroup>> ChoiceGroupsAsync(string dataSetKey, PokemonDataSet data, CancellationToken ct = default)
+    public async Task<IReadOnlyList<RosterChoiceGroup>> ChoiceGroupsAsync(string dataSetKey, PokemonDataSet data, BattleFormat format, CancellationToken ct = default)
     {
         var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
         var byId = ById(roster.Pokemon);
         var groups = new List<RosterChoiceGroup>();
         var inTeam = new HashSet<int>();
-        foreach (var team in roster.Teams.OrderBy(t => t.Number))
+        var activeNumber = roster.ActiveNumber(format);
+        foreach (var team in roster.Teams.Where(t => t.BattleFormat == format).OrderBy(t => t.Number))
         {
             var choices = new List<RosterChoice>();
             foreach (var slot in team.Slots)
@@ -924,10 +1024,10 @@ public sealed class RosterRepository
                 if (!byId.TryGetValue(slot.EntryId, out var entry)) continue;
                 inTeam.Add(entry.Id);
                 var item = slot.ItemId is { } iid ? data.FindItem(iid) : null;
-                choices.Add(new RosterChoice($"t{team.Number}-{entry.Id}", entry, item));
+                choices.Add(new RosterChoice($"{ChoiceKeyPrefix(format)}{team.Number}-{entry.Id}", entry, item));
             }
             if (choices.Count > 0)
-                groups.Add(new RosterChoiceGroup($"チーム{team.Number}{(roster.ActiveTeam == team.Number ? "（使用中）" : "")}", choices));
+                groups.Add(new RosterChoiceGroup($"チーム{team.Number}{(activeNumber == team.Number ? "（使用中）" : "")}", choices));
         }
         var others = roster.Pokemon
             .Where(p => !inTeam.Contains(p.Id))
@@ -937,12 +1037,14 @@ public sealed class RosterRepository
         return groups;
     }
 
-    /// <summary>使用中チームのメンバー（登録ポケモンと持ち物）。</summary>
-    public async Task<IReadOnlyList<(RegisteredPokemon Entry, Item? Item)>> ActiveTeamMembersAsync(string dataSetKey, PokemonDataSet data, CancellationToken ct = default)
+    /// <summary>「登録から選ぶ」の選択キーの先頭（バトル形式ごとに分ける。同じ番号のチームがシングルとダブルにあっても、キーが重ならない）。</summary>
+    public static string ChoiceKeyPrefix(BattleFormat format) => format == BattleFormat.Doubles ? "d" : "s";
+
+    /// <summary>そのバトル形式の使用中チームのメンバー（登録ポケモンと持ち物）。</summary>
+    public async Task<IReadOnlyList<(RegisteredPokemon Entry, Item? Item)>> ActiveTeamMembersAsync(string dataSetKey, PokemonDataSet data, BattleFormat format, CancellationToken ct = default)
     {
         var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
-        if (roster.ActiveTeam is not { } n) return Array.Empty<(RegisteredPokemon, Item?)>();
-        var team = roster.Teams.FirstOrDefault(t => t.Number == n);
+        var team = roster.ActiveTeamOf(format);
         if (team is null) return Array.Empty<(RegisteredPokemon, Item?)>();
         var byId = ById(roster.Pokemon);
         return team.Slots
@@ -955,9 +1057,9 @@ public sealed class RosterRepository
     /// 登録 ID で指定した育成ポケモンの構成を返す（使用チームにいれば、チームで持たせた持ち物つき）。登録が無ければ null。
     /// 同じポケモンを別の育成で複数登録しているとき、どの 1 体かを登録 ID で指定するために使う。
     /// </summary>
-    public async Task<PokemonBuild?> BuildForEntryAsync(string dataSetKey, PokemonDataSet data, int entryId, CancellationToken ct = default)
+    public async Task<PokemonBuild?> BuildForEntryAsync(string dataSetKey, PokemonDataSet data, int entryId, BattleFormat format, CancellationToken ct = default)
     {
-        var members = await ActiveTeamMembersAsync(dataSetKey, data, ct).ConfigureAwait(false);
+        var members = await ActiveTeamMembersAsync(dataSetKey, data, format, ct).ConfigureAwait(false);
         var member = members.FirstOrDefault(m => m.Entry.Id == entryId);
         if (member.Entry is not null) return ToBuild(member.Entry, data, member.Item);
         var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
@@ -969,9 +1071,9 @@ public sealed class RosterRepository
     /// 使用中チームから、指定ポケモンの構成を返す（<see cref="Text.DamageCommandOptions.BuildProvider"/> 用）。
     /// 同じポケモンが複数いるときは先頭。
     /// </summary>
-    public async Task<Func<Pokemon, bool, PokemonBuild?>> ActiveTeamBuildProviderAsync(string dataSetKey, PokemonDataSet data, CancellationToken ct = default)
+    public async Task<Func<Pokemon, bool, PokemonBuild?>> ActiveTeamBuildProviderAsync(string dataSetKey, PokemonDataSet data, BattleFormat format, CancellationToken ct = default)
     {
-        var members = await ActiveTeamMembersAsync(dataSetKey, data, ct).ConfigureAwait(false);
+        var members = await ActiveTeamMembersAsync(dataSetKey, data, format, ct).ConfigureAwait(false);
         var builds = new Dictionary<int, PokemonBuild>();
         foreach (var (entry, item) in members)
         {
@@ -986,9 +1088,9 @@ public sealed class RosterRepository
     /// 次にほかの登録（持ち物なし。メガシンカ後はメガストーン）。登録が無いポケモンは null。
     /// チャットの dmg・calc・faster で、育成ポケモンを登録済みに限るために使う。
     /// </summary>
-    public async Task<Func<Pokemon, bool, PokemonBuild?>> RegisteredBuildProviderAsync(string dataSetKey, PokemonDataSet data, CancellationToken ct = default)
+    public async Task<Func<Pokemon, bool, PokemonBuild?>> RegisteredBuildProviderAsync(string dataSetKey, PokemonDataSet data, BattleFormat format, CancellationToken ct = default)
     {
-        var members = await ActiveTeamMembersAsync(dataSetKey, data, ct).ConfigureAwait(false);
+        var members = await ActiveTeamMembersAsync(dataSetKey, data, format, ct).ConfigureAwait(false);
         var builds = new Dictionary<int, PokemonBuild>();
         foreach (var (entry, item) in members)
         {
@@ -1004,6 +1106,23 @@ public sealed class RosterRepository
         return (pokemon, _) => builds.GetValueOrDefault(pokemon.Id);
     }
 }
+
+/// <summary><see cref="RosterRepository.MoveTeamAsync"/> の結果。</summary>
+public enum TeamMoveStatus
+{
+    /// <summary>移した。</summary>
+    Moved,
+    /// <summary>移すチームが無い。</summary>
+    NotFound,
+    /// <summary>移す先に、同じ番号のチームが既にある（何も変えない）。</summary>
+    Occupied,
+    /// <summary>形式も番号も変わらない（何も変えない）。</summary>
+    Unchanged,
+}
+
+/// <param name="Number">移した先（移そうとした先）のチーム番号。</param>
+/// <param name="WasActive">移したチームが、移す前の形式で使用中だった（その使用中は解除した）。</param>
+public sealed record TeamMoveResult(TeamMoveStatus Status, int Number, bool WasActive);
 
 /// <summary>試合を終えた結果（履歴に移した記録と、移した数）。</summary>
 public sealed record EndMatchResult(RivalMatch? Match, int Moved);

@@ -110,11 +110,19 @@ try {
   check("GET /api/maintenance は通常（off）を返し、キャッシュさせない", maint.status === 200 && maint.json?.state === "off" && maint.json?.message === "", maint.text);
 
   // チームの PUT → GET（revision は共通）
-  const teams = [{ Number: 1, Slots: [slot(1, 275), slot(2)] }, { Number: 2, Slots: [slot(2)], Format: "Doubles" }, { Number: 3, Slots: [slot(3)], Format: "Singles" }];
-  const put2 = await req("PUT", T, key, { baseRevision: 1, dataSets: { champions: { teams, activeTeam: 2 } } });
+  // チームは (形式, 番号) で 1 つ。同じ番号をシングルとダブルの両方に作れる（Format 省略はシングル。保存すると Singles と書く）
+  const teams = [
+    { Number: 1, Slots: [slot(1, 275), slot(2)], Format: "Singles" },
+    { Number: 1, Slots: [slot(3)], Format: "Doubles" },
+    { Number: 2, Slots: [slot(2)], Format: "Doubles" },
+    { Number: 3, Slots: [slot(3)], Format: "Singles" },
+  ];
+  const sentTeams = teams.map((t, i) => (i === 0 ? { Number: t.Number, Slots: t.Slots } : t));   // 1 つ目は Format 省略で送る
+  const activeTeams = { Singles: 3, Doubles: 2 };
+  const put2 = await req("PUT", T, key, { baseRevision: 1, dataSets: { champions: { teams: sentTeams, activeTeams } } });
   check("PUT my-team は 200 / revision 2（ゲームのキーは大文字小文字を区別しない）", put2.status === 200 && put2.json?.revision === 2, put2.text);
   const gotT = await req("GET", T, key);
-  check("GET my-team で保存した内容が返る", gotT.json?.revision === 2 && same(gotT.json?.dataSets?.Champions?.teams, teams) && gotT.json?.dataSets?.Champions?.activeTeam === 2 && gotT.json?.dataSets?.champions === undefined, gotT.text);
+  check("GET my-team で保存した内容が返る（形式ごとの使用中・同じ番号の 2 チーム・Format 省略は Singles）", gotT.json?.revision === 2 && same(gotT.json?.dataSets?.Champions?.teams, teams) && same(gotT.json?.dataSets?.Champions?.activeTeams, activeTeams) && gotT.json?.dataSets?.Champions?.activeTeam === undefined && gotT.json?.dataSets?.champions === undefined, gotT.text);
   check("GET my-pokemon も revision 2", (await req("GET", P, key)).json?.revision === 2);
 
   // 別のキーからは見えない
@@ -124,7 +132,8 @@ try {
   // 競合（409 は現在の内容を返す）
   const staleP = await req("PUT", P, key, { baseRevision: 1, dataSets: { Champions: { pokemon: [] } } });
   check("古い baseRevision の PUT my-pokemon は 409 で現在の内容を返す", staleP.status === 409 && staleP.json?.revision === 2 && same(staleP.json?.dataSets?.Champions?.pokemon, mons), staleP.text);
-  const staleT = await req("PUT", T, key, { baseRevision: 0, dataSets: { Champions: { teams: [], activeTeam: null } } });
+  const none = { Singles: null, Doubles: null };
+  const staleT = await req("PUT", T, key, { baseRevision: 0, dataSets: { Champions: { teams: [], activeTeams: none } } });
   check("古い baseRevision の PUT my-team は 409 で現在の内容を返す", staleT.status === 409 && staleT.json?.revision === 2 && same(staleT.json?.dataSets?.Champions?.teams, teams), staleT.text);
 
   // チームの検証（400・何も変わらない）
@@ -132,18 +141,29 @@ try {
     const r = await req("PUT", T, key, { baseRevision: 2, dataSets });
     check(`${name} は 400`, r.status === 400 && typeof r.json?.message === "string", r.text);
   };
-  await badTeam("登録に無いポケモン ID", { Champions: { teams: [{ Number: 1, Slots: [slot(99)] }], activeTeam: null } });
-  await badTeam("7 体のチーム", { Champions: { teams: [{ Number: 1, Slots: [1, 2, 3, 4, 5, 6, 7].map((i) => slot(i)) }], activeTeam: null } });
-  await badTeam("存在しない使用中チーム", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeam: 5 } });
-  await badTeam("同じチーム番号が 2 つ", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }, { Number: 1, Slots: [slot(2)] }], activeTeam: null } });
-  await badTeam("同じポケモンが 2 回", { Champions: { teams: [{ Number: 1, Slots: [slot(1), slot(1)] }], activeTeam: null } });
-  await badTeam("知らないバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Triples" }], activeTeam: null } });
-  await badTeam("小文字のバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "doubles" }], activeTeam: null } });
-  await badTeam("文字列でないバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: 2 }], activeTeam: null } });
-  await badTeam("空のチーム", { Champions: { teams: [{ Number: 1, Slots: [] }], activeTeam: null } });
-  await badTeam("登録の無いゲームのチーム", { Gen9: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeam: null } });
-  const r400 = await req("PUT", T, key, { baseRevision: 2, dataSets: { Champions: { teams: [{ Number: 1, Slots: [slot(99)] }], activeTeam: null } } });
+  await badTeam("登録に無いポケモン ID", { Champions: { teams: [{ Number: 1, Slots: [slot(99)] }], activeTeams: none } });
+  await badTeam("7 体のチーム", { Champions: { teams: [{ Number: 1, Slots: [1, 2, 3, 4, 5, 6, 7].map((i) => slot(i)) }], activeTeams: none } });
+  await badTeam("存在しない使用中チーム", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeams: { Singles: 5, Doubles: null } } });
+  await badTeam("他の形式にしかない番号を使用中にする", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Singles" }], activeTeams: { Singles: null, Doubles: 1 } } });
+  await badTeam("同じ形式に同じチーム番号が 2 つ", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }, { Number: 1, Slots: [slot(2)] }], activeTeams: none } });
+  await badTeam("同じ形式（片方は Format 省略）に同じチーム番号が 2 つ", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Singles" }, { Number: 1, Slots: [slot(2)] }], activeTeams: none } });
+  await badTeam("ダブルに同じチーム番号が 2 つ", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Doubles" }, { Number: 1, Slots: [slot(2)], Format: "Doubles" }], activeTeams: none } });
+  await badTeam("activeTeams が無い（古い版の activeTeam だけ）", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeam: 1 } });
+  await badTeam("activeTeams が配列", { Champions: { teams: [], activeTeams: [] } });
+  await badTeam("activeTeams に知らない形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeams: { Triples: 1 } } });
+  await badTeam("activeTeams の値が番号でない", { Champions: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeams: { Singles: "1" } } });
+  await badTeam("同じポケモンが 2 回", { Champions: { teams: [{ Number: 1, Slots: [slot(1), slot(1)] }], activeTeams: none } });
+  await badTeam("知らないバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Triples" }], activeTeams: none } });
+  await badTeam("小文字のバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "doubles" }], activeTeams: none } });
+  await badTeam("文字列でないバトル形式", { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: 2 }], activeTeams: none } });
+  await badTeam("空のチーム", { Champions: { teams: [{ Number: 1, Slots: [] }], activeTeams: none } });
+  await badTeam("登録の無いゲームのチーム", { Gen9: { teams: [{ Number: 1, Slots: [slot(1)] }], activeTeams: none } });
+  const r400 = await req("PUT", T, key, { baseRevision: 2, dataSets: { Champions: { teams: [{ Number: 1, Slots: [slot(99)] }], activeTeams: none } } });
   check("400 のメッセージに理由（登録に無いポケモン）", (r400.json?.message ?? "").includes("登録に無い"), r400.text);
+  const rDup = await req("PUT", T, key, { baseRevision: 2, dataSets: { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Doubles" }, { Number: 1, Slots: [slot(2)], Format: "Doubles" }], activeTeams: none } } });
+  check("同じ番号の重複は duplicate_team で、どの形式かを示す", rDup.json?.error === "duplicate_team" && (rDup.json?.message ?? "").includes("ダブルのチーム1"), rDup.text);
+  const rActive = await req("PUT", T, key, { baseRevision: 2, dataSets: { Champions: { teams: [{ Number: 1, Slots: [slot(1)], Format: "Singles" }], activeTeams: { Singles: null, Doubles: 1 } } } });
+  check("他の形式の番号を使用中にすると unknown_active_team", rActive.json?.error === "unknown_active_team", rActive.text);
 
   // 本文の検証
   check("JSON でない本文は 400", (await req("PUT", P, key, "{not json")).status === 400);
@@ -180,9 +200,10 @@ try {
   check("ポケモンを消す PUT は 200 / revision 3", put3.status === 200 && put3.json?.revision === 3, put3.text);
   const afterRemove = await req("GET", T, key);
   const ch = afterRemove.json?.dataSets?.Champions;
-  check("消したポケモンがチームから外れる", same(ch?.teams?.find((t) => t.Number === 1)?.Slots, [slot(1, 275)]), afterRemove.text);
-  check("0 体になったチームが消える", ch?.teams?.length === 2 && !ch.teams.some((t) => t.Number === 2), afterRemove.text);
-  check("使用中のチームが消えたら使用中を解除", ch?.activeTeam === null, afterRemove.text);
+  check("消したポケモンがチームから外れる", same(ch?.teams?.find((t) => t.Number === 1 && t.Format === "Singles")?.Slots, [slot(1, 275)]), afterRemove.text);
+  check("0 体になったチームが消える", ch?.teams?.length === 3 && !ch.teams.some((t) => t.Number === 2), afterRemove.text);
+  check("使用中のチームが消えたら、その形式の使用中だけを解除（もう片方の形式は残る）", same(ch?.activeTeams, { Singles: 3, Doubles: null }), afterRemove.text);
+  check("同じ番号のもう片方の形式のチームは残る", same(ch?.teams?.find((t) => t.Number === 1 && t.Format === "Doubles")?.Slots, [slot(3)]), afterRemove.text);
   check("チームの変更も同じ revision 3", afterRemove.json?.revision === 3);
   const afterRemoveP = await req("GET", P, key);
   check("消した ID は使い回さない（nextId は 4 のまま）", afterRemoveP.json?.dataSets?.Champions?.nextId === 4, afterRemoveP.text);
@@ -193,7 +214,7 @@ try {
   const both = await req("GET", P, key);
   check("書かなかったゲームのポケモンは変わらない", both.json?.dataSets?.Champions?.pokemon?.length === 2 && both.json?.dataSets?.Gen9?.pokemon?.length === 1, both.text);
   const bothT = await req("GET", T, key);
-  check("書かなかったゲームのチームは変わらない", bothT.json?.dataSets?.Champions?.teams?.length === 2 && same(bothT.json?.dataSets?.Gen9?.teams, []), bothT.text);
+  check("書かなかったゲームのチームは変わらない", bothT.json?.dataSets?.Champions?.teams?.length === 3 && same(bothT.json?.dataSets?.Gen9?.teams, []), bothT.text);
 
   // 相手チーム（/api/my/rival）: 対戦中の相手と試合の履歴
   const rkey = newKey();
@@ -357,7 +378,7 @@ try {
   check("DELETE 後の GET my-team は 410", (await req("GET", T, key)).status === 410);
   check("DELETE 後の GET my-rival は 410", (await req("GET", R, key)).status === 410);
   check("DELETE 後の PUT my-pokemon は 410", (await req("PUT", P, key, { baseRevision: 0, dataSets: { Champions: { pokemon: [] } } })).status === 410);
-  check("DELETE 後の PUT my-team は 410", (await req("PUT", T, key, { baseRevision: 0, dataSets: { Champions: { teams: [], activeTeam: null } } })).status === 410);
+  check("DELETE 後の PUT my-team は 410", (await req("PUT", T, key, { baseRevision: 0, dataSets: { Champions: { teams: [], activeTeams: none } } })).status === 410);
   check("DELETE はもう一度呼んでも 204", (await req("DELETE", K, key)).status === 204);
   // 履歴の量の上限（テストでは合計 1,500 バイト・ゲーム 16 まで）と、古い版のクライアント向けの PUT
   const bkey = newKey();

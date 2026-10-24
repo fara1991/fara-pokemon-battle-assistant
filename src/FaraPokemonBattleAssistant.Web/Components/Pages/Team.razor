@@ -90,7 +90,7 @@ else if (data is not null && roster is not null && dataSet is not null)
             }
             @foreach (var team in VisibleTeams)
             {
-                var isActive = roster.ActiveTeam == team.Number;
+                var isActive = roster.ActiveNumber(App.Format) == team.Number;
                 <div class="card mb-3 @(isActive ? "border-primary" : "")">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">チーム@(team.Number) @(isActive ? "（使用中）" : "")</h5>
@@ -176,7 +176,7 @@ else
 
     /// <summary>使用中のチームが、ほかの形式のチームのとき、そのチーム（使用中は変えないので、一覧に出ない理由を知らせる）。</summary>
     private RosterTeam? ActiveTeamInOtherFormat =>
-        roster?.Teams.FirstOrDefault(t => t.Number == roster.ActiveTeam && t.BattleFormat != App.Format);
+        roster?.Teams.FirstOrDefault(t => t.BattleFormat != App.Format && roster.ActiveNumber(t.BattleFormat) == t.Number);
 
     private bool TeamEntryIsMega =>
         roster?.Pokemon.FirstOrDefault(p => p.Id == s.TeamEntryId) is { } entry && data?.FindPokemon(entry.PokemonId)?.FixedItemId is not null;
@@ -205,7 +205,7 @@ else
         }
         await MutateAsync(async () =>
         {
-            var (team, _, replaced) = await Repo.AddToTeamAsync(key, s.TeamNumber, s.TeamEntryId, s.TeamItem, format);
+            var (team, _, replaced) = await Repo.AddToTeamAsync(key, format, s.TeamNumber, s.TeamEntryId, s.TeamItem);
             Show($"チーム{team.Number} に{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）", false);
         });
     }
@@ -213,10 +213,11 @@ else
     private async Task RemoveFromTeamAsync(int teamNo, int entryId)
     {
         var key = App.DataSetKey;
+        var format = App.Format;
         await MutateAsync(async () =>
         {
-            await Repo.RemoveFromTeamAsync(key, teamNo, e => e.Id == entryId);
-            if ((await Repo.GetAsync()).For(key).Teams.All(t => t.Number != teamNo))
+            await Repo.RemoveFromTeamAsync(key, format, teamNo, e => e.Id == entryId);
+            if ((await Repo.GetAsync()).For(key).FindTeam(format, teamNo) is null)
                 Show($"チーム{teamNo} は 0 体になったので削除しました", false);
         });
     }
@@ -228,7 +229,7 @@ else
         if (!await ConfirmAsync($"チーム{teamNo} を削除します（登録したポケモンは残ります）。よろしいですか？")) return;
         await MutateAsync(async () =>
         {
-            await Repo.RemoveTeamAsync(key, teamNo);
+            await Repo.RemoveTeamAsync(key, App.Format, teamNo);
             Show($"チーム{teamNo} を削除しました", false);
         });
     }
@@ -238,7 +239,7 @@ else
         var key = App.DataSetKey;
         await MutateAsync(async () =>
         {
-            await Repo.ClearActiveTeamAsync(key);
+            await Repo.ClearActiveTeamAsync(key, App.Format);
             Show("使用チームを解除しました", false);
         });
     }
@@ -248,7 +249,7 @@ else
         var key = App.DataSetKey;
         await MutateAsync(async () =>
         {
-            if (await Repo.UseTeamAsync(key, teamNo))
+            if (await Repo.UseTeamAsync(key, App.Format, teamNo))
                 Show($"チーム{teamNo} を使用します", false);
             else
                 Toast.Warning($"チーム{teamNo} はありません（他の場所で削除された可能性があります）");

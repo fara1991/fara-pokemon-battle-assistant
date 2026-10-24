@@ -539,7 +539,7 @@ else if (string.IsNullOrEmpty(loadError))
             if (!IsCurrentGame(data)) { data = null; dataSet = null; usage = null; }
             var loaded = await Catalog.GetDataSetAsync(key);
             var loadedUsage = await loaded.GetUsageAsync(App.Format);
-            var (groups, groupsError) = await RosterReading.ChoiceGroupsAsync(Repo, key, loaded);
+            var (groups, groupsError) = await RosterReading.ChoiceGroupsAsync(Repo, key, loaded, App.Format);
             var loadedRivals = await ReadRivalsAsync(key);
             if (version != loadVersion || IsDisposed) return;
             dataSet = info;

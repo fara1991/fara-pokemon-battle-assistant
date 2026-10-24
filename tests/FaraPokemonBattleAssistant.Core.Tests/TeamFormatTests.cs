@@ -12,18 +12,6 @@ public class TeamFormatTests
     private const string Ds = "Champions";
     private static readonly string Key = RemoteRosterStore.GenerateKey();
 
-    private static async Task<(PokeCommand Command, RosterRepository Repo)> NewAsync()
-    {
-        var data = await TestData.Catalog().GetDataSetAsync(Ds);
-        var repo = new RosterRepository(new MemoryRosterStore());
-        await repo.AddPokemonAsync(Ds, data.Pokemon.First(p => p.Name == "マニューラ"), new StatSet { Attack = 32 }, data.Natures.First(), null);
-        await repo.AddPokemonAsync(Ds, data.Pokemon.First(p => p.Name == "ガブリアス"), new StatSet { Speed = 32 }, data.Natures.First(), null);
-        return (new PokeCommand(TestData.Catalog(), repo), repo);
-    }
-
-    private static async Task<Team> TeamAsync(RosterRepository repo, int number) =>
-        (await repo.GetAsync()).For(Ds).Teams.Single(t => t.Number == number);
-
     // ---- 表記の読み書き
 
     [Theory]
@@ -89,9 +77,9 @@ public class TeamFormatTests
             r.Teams.Add(new Team { Number = 2, Slots = { new TeamSlot { EntryId = 1 } }, Format = "Triples" });
         });
         var repo = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
-        await repo.AddToTeamAsync(Ds, 3, 1, null);   // 別のチームの操作で、チーム全体を保存し直す
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 3, 1, null);   // 別のチームの操作で、チーム全体を保存し直す
         var saved = server.State.For(Ds).Teams.OrderBy(t => t.Number).ToList();
-        Assert.Equal(new[] { "Doubles", "Singles", null }, saved.Select(t => t.Format).ToArray());
+        Assert.Equal(new[] { "Doubles", "Singles", "Singles" }, saved.Select(t => t.Format).ToArray());
     }
 
     [Theory]
@@ -145,147 +133,5 @@ public class TeamFormatTests
         Assert.Contains("\"Format\":\"Doubles\"", json);
         Assert.Contains("\"Future\"", json);
         Assert.DoesNotContain("BattleFormat", json);   // 読み取り専用の読み替えは保存しない
-    }
-
-    // ---- コマンド
-
-    [Fact]
-    public async Task Add_with_a_trailing_format_word_makes_a_doubles_team()
-    {
-        var (command, repo) = await NewAsync();
-        var added = await command.ExecuteAsync("!pokech add -t 1 1 ダブル");
-        Assert.True(added.Success, added.Message);
-        Assert.Contains("ダブル", added.Message);
-        Assert.Equal(BattleFormat.Doubles, (await TeamAsync(repo, 1)).BattleFormat);
-        Assert.Null((await TeamAsync(repo, 1)).Slots.Single().ItemId);   // 「ダブル」を持ち物として読まない
-    }
-
-    [Fact]
-    public async Task Add_with_an_item_and_a_format_reads_both()
-    {
-        var (command, repo) = await NewAsync();
-        var added = await command.ExecuteAsync("!pokech add -t 2 2 こだわりスカーフ ダブル");
-        Assert.True(added.Success, added.Message);
-        var team = await TeamAsync(repo, 2);
-        Assert.Equal(BattleFormat.Doubles, team.BattleFormat);
-        Assert.NotNull(team.Slots.Single().ItemId);
-    }
-
-    [Fact]
-    public async Task Add_without_a_format_keeps_singles_and_does_not_reset_an_existing_format()
-    {
-        var (command, repo) = await NewAsync();
-        Assert.True((await command.ExecuteAsync("!pokech add -t 1 1")).Success);
-        Assert.Equal(BattleFormat.Singles, (await TeamAsync(repo, 1)).BattleFormat);
-        Assert.DoesNotContain("ダブル", (await command.ExecuteAsync("!pokech add -t 1 2")).Message);
-
-        Assert.True((await command.ExecuteAsync("!pokech set -t 1 ダブル")).Success);
-        // 形式を書かずに追加しても、ダブルのまま
-        var again = await command.ExecuteAsync("!pokech add -t 1 2");
-        Assert.True(again.Success, again.Message);
-        Assert.Equal(BattleFormat.Doubles, (await TeamAsync(repo, 1)).BattleFormat);
-    }
-
-    [Fact]
-    public async Task Set_changes_the_format_back_and_forth()
-    {
-        var (command, repo) = await NewAsync();
-        await command.ExecuteAsync("!pokech add -t 1 1");
-        var toDoubles = await command.ExecuteAsync("!pokech set -t 1 ダブル");
-        Assert.True(toDoubles.Success, toDoubles.Message);
-        Assert.Contains("ダブル", toDoubles.Message);
-        Assert.Equal(BattleFormat.Doubles, (await TeamAsync(repo, 1)).BattleFormat);
-        var toSingles = await command.ExecuteAsync("!pokech set -t 1 シングル");
-        Assert.True(toSingles.Success, toSingles.Message);
-        Assert.Equal(BattleFormat.Singles, (await TeamAsync(repo, 1)).BattleFormat);
-        Assert.Equal("Singles", (await TeamAsync(repo, 1)).Format);
-    }
-
-    [Theory]
-    [InlineData("!pokech set -t")]
-    [InlineData("!pokech set -t 1")]
-    [InlineData("!pokech set -t 1 トリプル")]
-    [InlineData("!pokech set -t x ダブル")]
-    [InlineData("!pokech set -t 1 ダブル 余分")]
-    public async Task Set_explains_the_usage_for_bad_input(string input)
-    {
-        var (command, repo) = await NewAsync();
-        await command.ExecuteAsync("!pokech add -t 1 1");
-        var result = await command.ExecuteAsync(input);
-        Assert.False(result.Success);
-        Assert.Contains("set -t", result.Message);
-        Assert.Equal(BattleFormat.Singles, (await TeamAsync(repo, 1)).BattleFormat);
-    }
-
-    [Fact]
-    public async Task Set_for_a_missing_team_fails()
-    {
-        var (command, _) = await NewAsync();
-        var result = await command.ExecuteAsync("!pokech set -t 9 ダブル");
-        Assert.False(result.Success);
-        Assert.Contains("チーム9", result.Message);
-    }
-
-    [Fact]
-    public async Task Only_streamer_and_moderators_can_change_the_format()
-    {
-        var (command, repo) = await NewAsync();
-        await command.ExecuteAsync("!pokech add -t 1 1");
-        var denied = await command.ExecuteAsync("!pokech set -t 1 ダブル", new PokeCommandOptions { AllowMutations = false });
-        Assert.False(denied.Success);
-        Assert.Equal(BattleFormat.Singles, (await TeamAsync(repo, 1)).BattleFormat);
-        var deniedAdd = await command.ExecuteAsync("!pokech add -t 2 1 ダブル", new PokeCommandOptions { AllowMutations = false });
-        Assert.False(deniedAdd.Success);
-        Assert.DoesNotContain((await repo.GetAsync()).For(Ds).Teams, t => t.Number == 2);
-    }
-
-    [Fact]
-    public async Task Ls_and_detail_show_doubles_only()
-    {
-        var (command, _) = await NewAsync();
-        await command.ExecuteAsync("!pokech add -t 1 1");
-        await command.ExecuteAsync("!pokech add -t 2 2 ダブル");
-        var list = (await command.ExecuteAsync("!pokech ls -t")).Message;
-        Assert.Contains("チーム2(ダブル)", list);
-        Assert.DoesNotContain("チーム1(ダブル)", list);
-        Assert.Contains("(ダブル)", (await command.ExecuteAsync("!pokech detail -t 2")).Message);
-        Assert.DoesNotContain("(ダブル)", (await command.ExecuteAsync("!pokech detail -t 1")).Message);
-    }
-
-    [Fact]
-    public async Task Help_mentions_the_format()
-    {
-        Assert.Contains("ダブル", PokeCommand.Usage("pokech"));
-        var (command, _) = await NewAsync();
-        Assert.Contains("set -t", (await command.ExecuteAsync("!pokech help")).Message);
-    }
-
-    // ---- クラウド（共有）
-
-    [Fact]
-    public async Task Format_survives_a_round_trip_through_the_cloud()
-    {
-        var server = new FakeRosterServer { ExpectedKey = Key };
-        var data = await TestData.Catalog().GetDataSetAsync(Ds);
-        var repo = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
-        var entry = await repo.AddPokemonAsync(Ds, data.Pokemon.First(p => p.Name == "ガブリアス"), new StatSet(), data.Natures.First(), null);
-        await repo.AddToTeamAsync(Ds, 1, entry.Id, null, BattleFormat.Doubles);
-        Assert.Equal("Doubles", server.State.For(Ds).Teams.Single().Format);
-
-        // 別の端末（新しく読み込んだリポジトリ）でも、ダブルのまま
-        var other = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
-        Assert.Equal(BattleFormat.Doubles, (await other.GetAsync()).For(Ds).Teams.Single().BattleFormat);
-
-        // 形式を変えて、別のチームの操作をしても、変えた形式が消えない
-        Assert.True(await other.SetTeamFormatAsync(Ds, 1, BattleFormat.Singles));
-        await other.AddToTeamAsync(Ds, 2, entry.Id, null);
-        Assert.Equal("Singles", server.State.For(Ds).Teams.First(t => t.Number == 1).Format);
-    }
-
-    [Fact]
-    public async Task Repository_set_format_returns_false_for_a_missing_team()
-    {
-        var (_, repo) = await NewAsync();
-        Assert.False(await repo.SetTeamFormatAsync(Ds, 5, BattleFormat.Doubles));
     }
 }

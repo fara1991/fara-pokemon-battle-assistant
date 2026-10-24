@@ -578,9 +578,9 @@ public sealed partial class PokeCommand
         var scanText = $"{args[0]} {args[1]} {args[2]} {args[damageIndex]}";
         args.RemoveAt(damageIndex);
 
-        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
+        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, options.Format, ct).ConfigureAwait(false);
         var typedAttacker = args.Count > 0 ? args[0] : "";
-        var (attackerError, attackerProvider) = await ResolveRegisteredAttackerAsync(ds, data, "scan", args, provider, ct).ConfigureAwait(false);
+        var (attackerError, attackerProvider) = await ResolveRegisteredAttackerAsync(ds, data, "scan", args, provider, options.Format, ct).ConfigureAwait(false);
         if (attackerError is not null) return Fail(attackerError);
         provider = attackerProvider;
         if (args.Count > 0 && typedAttacker != args[0] && scanText.StartsWith(typedAttacker, StringComparison.Ordinal)) scanText = args[0] + scanText[typedAttacker.Length..];

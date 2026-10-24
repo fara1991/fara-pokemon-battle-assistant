@@ -500,12 +500,12 @@ public sealed class CloudSync : IRosterStore
 /// <summary>使用中チームを読む（計算機・素早さ比較用）。クラウドに届かなくてもページは動くように、エラーは文で返す。</summary>
 public static class RosterReading
 {
-    /// <summary>「登録から選ぶ」用に、登録済みの構成をチームごとに読む。</summary>
-    public static async Task<(IReadOnlyList<RosterChoiceGroup> Groups, string Error)> ChoiceGroupsAsync(RosterRepository repo, string dataSetKey, PokemonDataSet data)
+    /// <summary>「登録から選ぶ」用に、登録済みの構成を、そのバトル形式のチームごとに読む。</summary>
+    public static async Task<(IReadOnlyList<RosterChoiceGroup> Groups, string Error)> ChoiceGroupsAsync(RosterRepository repo, string dataSetKey, PokemonDataSet data, BattleFormat format)
     {
         try
         {
-            return (await repo.ChoiceGroupsAsync(dataSetKey, data), "");
+            return (await repo.ChoiceGroupsAsync(dataSetKey, data, format), "");
         }
         catch (Exception ex) when (ex is RosterUnavailableException or HttpRequestException)
         {
@@ -514,11 +514,11 @@ public static class RosterReading
     }
 
     public static async Task<(IReadOnlyList<(RegisteredPokemon Entry, Item? Item)> Members, string Error)> ActiveTeamMembersAsync(
-        RosterRepository repo, string dataSetKey, PokemonDataSet data)
+        RosterRepository repo, string dataSetKey, PokemonDataSet data, BattleFormat format)
     {
         try
         {
-            return (await repo.ActiveTeamMembersAsync(dataSetKey, data), "");
+            return (await repo.ActiveTeamMembersAsync(dataSetKey, data, format), "");
         }
         catch (Exception ex) when (ex is RosterUnavailableException or HttpRequestException)
         {

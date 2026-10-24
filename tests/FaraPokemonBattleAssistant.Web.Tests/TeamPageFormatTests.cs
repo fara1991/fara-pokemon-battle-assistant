@@ -96,7 +96,7 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         (await repo.GetAsync()).For(Ds).Teams.FirstOrDefault(t => t.Number == number);
 
     private async Task AddTeamAsync(int number, int entryId, BattleFormat format) =>
-        await repo.AddToTeamAsync(Ds, number, entryId, null, format);
+        await repo.AddToTeamAsync(Ds, format, number, entryId, null);
 
     /// <summary>チーム一覧の見出し（「チーム1」「チーム2（使用中）」…）。追加フォームの見出しは含めない。</summary>
     private static List<string> TeamHeadings(IRenderedComponent<TeamPage> cut) =>
@@ -198,12 +198,12 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         var cut = await OpenAsync(BattleFormat.Singles, async id =>
         {
             await AddTeamAsync(2, id, BattleFormat.Doubles);
-            await repo.UseTeamAsync(Ds, 2);
+            await repo.UseTeamAsync(Ds, BattleFormat.Doubles, 2);
         });
 
         Assert.Empty(TeamHeadings(cut));
         Assert.Contains("使用中のチーム2 はダブルのチームです", cut.Find(".team-active-hidden").TextContent);
-        Assert.Equal(2, (await repo.GetAsync()).For(Ds).ActiveTeam);
+        Assert.Equal(2, (await repo.GetAsync()).For(Ds).ActiveNumber(BattleFormat.Doubles));
 
         await app.SetFormatAsync(BattleFormat.Doubles);
         cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム2 （使用中）" }, TeamHeadings(cut)));

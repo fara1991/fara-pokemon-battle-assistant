@@ -330,10 +330,11 @@ else if (string.IsNullOrEmpty(loadError))
         // ゲームを素早く切り替えたとき、古い読み込みが後から終わって別のゲームのデータで上書きしないよう、
         // 読み込み中の値は変数に持ち、最新の読み込みのときだけ、まとめて画面の値にする
         var key = App.DataSetKey;
+        var format = App.Format;   // 使用中のチーム・選べるチームは、画面上部のバトル形式のもの
         var info = App.DataSet;
         var loaded = await Catalog.GetDataSetAsync(key);
-        var (members, membersError) = await RosterReading.ActiveTeamMembersAsync(Repo, key, loaded);
-        var (groups, groupsError) = await RosterReading.ChoiceGroupsAsync(Repo, key, loaded);
+        var (members, membersError) = await RosterReading.ActiveTeamMembersAsync(Repo, key, loaded, format);
+        var (groups, groupsError) = await RosterReading.ChoiceGroupsAsync(Repo, key, loaded, format);
         if (version != loadVersion || IsDisposed) return;
         dataSet = info;
         data = loaded;

@@ -126,13 +126,27 @@ internal sealed class FakeRosterServer : HttpMessageHandler
             else
             {
                 var teams = value!["teams"].Deserialize<List<Team>>()!;
-                var active = value["activeTeam"]?.GetValue<int>();
+                var actives = value["activeTeams"]?.AsObject();
                 var ids = roster.Pokemon.Select(p => p.Id).ToHashSet();
-                if (teams.Any(t => t.Slots.Count is 0 or > 6 || t.Slots.Any(slot => !ids.Contains(slot.EntryId)))
-                    || (active is { } n && teams.All(t => t.Number != n)))
+                // 本物のサーバーと同じ検証: 形式ごとの番号の重複・空のチーム・登録に無いポケモン・存在しない使用中は 400
+                if (actives is null)
+                    return Json(HttpStatusCode.BadRequest, """{"error":"invalid_active_teams","message":"activeTeams を指定してください"}""");
+                if (teams.GroupBy(t => t.Key).Any(g => g.Count() > 1))
+                    return Json(HttpStatusCode.BadRequest, """{"error":"duplicate_team","message":"同じチームが 2 つあります"}""");
+                if (teams.Any(t => t.Slots.Count is 0 or > 6 || t.Slots.Any(slot => !ids.Contains(slot.EntryId))))
                     return Json(HttpStatusCode.BadRequest, """{"error":"unknown_pokemon","message":"チーム1に、登録に無いポケモン（Id 99）が入っています"}""");
-                roster.Teams = teams.OrderBy(t => t.Number).ToList();
-                roster.ActiveTeam = active;
+                var activeNumbers = new Dictionary<string, int?>();
+                foreach (var (format, number) in actives)
+                {
+                    if (number is null) continue;
+                    var n = number.GetValue<int>();
+                    if (!teams.Any(t => TeamFormats.Name(t.BattleFormat) == format && t.Number == n))
+                        return Json(HttpStatusCode.BadRequest, """{"error":"unknown_active_team","message":"使用中のチームがありません"}""");
+                    activeNumbers[format] = n;
+                }
+                roster.Teams = teams.Select(t => { t.Format = TeamFormats.Name(t.BattleFormat); return t; })
+                    .OrderBy(t => t.Number).ThenBy(t => t.BattleFormat).ToList();
+                roster.ActiveTeams = activeNumbers;
             }
         }
         RosterJson = JsonNode.Parse(RosterRepository.Serialize(state))!.ToJsonString();
@@ -227,7 +241,15 @@ internal sealed class FakeRosterServer : HttpMessageHandler
                 ? new JsonObject { ["nextId"] = roster.NextRivalId, ["rivals"] = JsonSerializer.SerializeToNode(roster.Rivals), ["nextMatchId"] = roster.NextMatchId, ["history"] = JsonSerializer.SerializeToNode(history) }
                 : pokemon
                 ? new JsonObject { ["nextId"] = roster.NextId, ["pokemon"] = JsonSerializer.SerializeToNode(roster.Pokemon) }
-                : new JsonObject { ["teams"] = JsonSerializer.SerializeToNode(roster.Teams), ["activeTeam"] = roster.ActiveTeam };
+                : new JsonObject
+                {
+                    ["teams"] = JsonSerializer.SerializeToNode(roster.Teams.OrderBy(t => t.Number).ThenBy(t => t.BattleFormat).ToList()),
+                    ["activeTeams"] = new JsonObject
+                    {
+                        ["Singles"] = roster.ActiveNumber(BattleFormat.Singles),
+                        ["Doubles"] = roster.ActiveNumber(BattleFormat.Doubles),
+                    },
+                };
         }
         return Json(status, new JsonObject { ["revision"] = Revision, ["dataSets"] = dataSets }.ToJsonString());
     }

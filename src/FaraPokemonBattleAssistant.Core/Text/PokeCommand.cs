@@ -8,6 +8,10 @@ namespace FaraPokemonBattleAssistant.Core.Text;
 
 public sealed class PokeCommandOptions
 {
+    /// <summary>
+    /// 登録してある形式（<c>format set</c>）。形式を書かなかったコマンド（add -t / rm -t / use -t / ls・detail -t / dmg / scan / faster など）が使う形式。
+    /// 登録していなければ既定のシングル。使用率・ダブルの計算の形式も、これ（<c>-f</c> やコマンド内のダブルで上書きできる）。
+    /// </summary>
     public BattleFormat Format { get; set; } = BattleFormat.Singles;
     public int MaxLength { get; set; } = 480;
     /// <summary>登録・削除などの変更系コマンドを許可するか（ボット側で配信者本人とモデレーターだけ true にする想定）。</summary>
@@ -132,6 +136,7 @@ public sealed partial class PokeCommand
         var isRival = args.Count > 0 && (args[0].Equals("-r", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--rival", StringComparison.OrdinalIgnoreCase));
         var isHistory = args.Count > 0 && (args[0].Equals("-h", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--history", StringComparison.OrdinalIgnoreCase));
         if (isTeam || isPokemon || isRival || isHistory) args.RemoveAt(0);
+        BattleFormat? optFormat = null;   // 形式オプション（-f）はまだ読まない。省略時の形式は options.Format
         // ヘルプと参照専用データセットの拒否はデータ本体を使わないので、データセットを読み込む前に返す
         if (sub is "help")
             return Ok(CommandList(await _catalog.GetDataSetsAsync(ct).ConfigureAwait(false)));
@@ -141,10 +146,10 @@ public sealed partial class PokeCommand
 
         switch (sub)
         {
-            case "add" when isTeam: return await AddTeamAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "add" when isTeam: return await AddTeamAsync(ds, data, args, optFormat, options, ct).ConfigureAwait(false);
             case "add" when isPokemon: return await AddAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "add" when isRival: return await AddRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
-            case "set" when isTeam: return await SetTeamFormatAsync(ds, args, options, ct).ConfigureAwait(false);
+            case "set" when isTeam: return await SetTeamFormatAsync(ds, args, optFormat, options, ct).ConfigureAwait(false);
             case "set" when isPokemon: return await SetMyAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "set" when isRival: return await SetRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "ls" when isRival: return await ListRivalsAsync(ds, data, ct).ConfigureAwait(false);
@@ -154,14 +159,14 @@ public sealed partial class PokeCommand
             case "rm" when isRival: return await RemoveRivalAsync(ds, data, args, options, ct).ConfigureAwait(false);
             case "rm" when isHistory: return await RemoveHistoryAsync(ds, args, options, ct).ConfigureAwait(false);
             case "clear" when isRival: return await ClearRivalsAsync(ds, args, options, ct).ConfigureAwait(false);
-            case "ls" when isTeam: return await ListTeamsAsync(ds, ct).ConfigureAwait(false);
+            case "ls" when isTeam: return await ListTeamsAsync(ds, args, optFormat, ct).ConfigureAwait(false);
             case "ls" when isPokemon: return await ListAsync(ds, data, args, ct).ConfigureAwait(false);
-            case "detail" when isTeam: return await MoreTeamAsync(ds, data, args, ct).ConfigureAwait(false);
+            case "detail" when isTeam: return await MoreTeamAsync(ds, data, args, optFormat, options, ct).ConfigureAwait(false);
             case "detail" when isPokemon: return await MoreAsync(ds, data, args, ct).ConfigureAwait(false);
-            case "rm" when isTeam: return await RemoveTeamAsync(ds, data, args, options, ct).ConfigureAwait(false);
+            case "rm" when isTeam: return await RemoveTeamAsync(ds, data, args, optFormat, options, ct).ConfigureAwait(false);
             case "rm" when isPokemon: return await RemoveAsync(ds, args, options, ct).ConfigureAwait(false);
-            case "unuse" or "release" or "clear" when isTeam: return await UnuseTeamAsync(ds, options, ct).ConfigureAwait(false);
-            case "use" when isTeam: return await UseTeamAsync(ds, args, options, ct).ConfigureAwait(false);
+            case "unuse" or "release" or "clear" when isTeam: return await UnuseTeamAsync(ds, args, optFormat, options, ct).ConfigureAwait(false);
+            case "use" when isTeam: return await UseTeamAsync(ds, args, optFormat, options, ct).ConfigureAwait(false);
             case "add" or "set" or "ls" or "detail" or "rm" or "use" or "unuse" or "release" or "clear" when args.Count > 0 && args[0].StartsWith('-'):
                 // 存在しないオプション（-p など）
                 return Fail($"「{args[0]}」というオプションはありません。対象は -m（育成ポケモン）・-t（自分チーム）・-r（相手チーム）・-h（履歴）のどれかで付けてください（例: !{ds.CommandPrefix} {sub} -m）");
@@ -237,8 +242,8 @@ public sealed partial class PokeCommand
         if (entry is null) return Fail($"登録ID {id} はありません");
         var build = RosterRepository.ToBuild(entry, data);
         if (build is null) return Fail($"#{id} {entry.PokemonName} は現在のデータに存在しません");
-        var teams = roster.Teams.Where(t => t.Slots.Any(s => s.EntryId == id)).Select(t => t.Number).ToList();
-        var teamText = teams.Count > 0 ? $" チーム{string.Join(",", teams)}" : "";
+        var teams = roster.Teams.Where(t => t.Slots.Any(s => s.EntryId == id)).Select(t => TeamNames.Full(t.BattleFormat, t.Number)).ToList();
+        var teamText = teams.Count > 0 ? $" {string.Join("・", teams)}" : "";
         return Ok($"#{entry.Id} {Describe(entry, build)}{teamText}");
     }
 
@@ -249,22 +254,43 @@ public sealed partial class PokeCommand
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == id);
         if (entry is null) return Fail($"登録ID {id} はありません");
-        var teamsBefore = roster.Teams.Select(t => t.Number).ToList();
+        var teamsBefore = roster.Teams.Select(t => t.Key).ToList();
         await _roster.RemovePokemonAsync(ds.Key, id, ct).ConfigureAwait(false);
-        var deleted = teamsBefore.Except(roster.Teams.Select(t => t.Number)).ToList();
-        var note = deleted.Count > 0 ? $"。0 体になった{string.Join("・", deleted.Select(n => $"チーム{n}"))}を削除しました" : "";
+        var deleted = teamsBefore.Except(roster.Teams.Select(t => t.Key)).ToList();
+        var note = deleted.Count > 0 ? $"。0 体になった{string.Join("・", deleted.Select(t => TeamNames.Full(t.Format, t.Number)))}を削除しました" : "";
         return Ok($"#{id} {entry.PokemonName} を削除しました（チームからも外しました{note}）");
     }
 
     // ------------------------------------------------------------------ チーム
 
-    private async Task<DamageCommandResult> AddTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
+    /// <summary>チーム番号は、シングルとダブルで別々に数える。ほかの形式のチームを指す書き方（-f）の案内用に、反対の形式を返す。</summary>
+    private static BattleFormat OtherFormat(BattleFormat format) => format == BattleFormat.Doubles ? BattleFormat.Singles : BattleFormat.Doubles;
+
+    /// <summary>そのチーム番号が反対の形式にあるときの案内（無ければ空）。形式を間違えたときに、その場で気づけるようにする。</summary>
+    private static string OtherFormatHint(DataSetRoster roster, BattleFormat format, int number)
+    {
+        var other = OtherFormat(format);
+        return roster.FindTeam(other, number) is null
+            ? ""
+            : $"（{TeamNames.Full(other, number)}はあります。{TeamFormats.Label(other)}は -f {TeamFormats.Label(other)} を付けて指定）";
+    }
+
+    private static string MissingTeam(DataSetRoster roster, BattleFormat format, int number) =>
+        $"{TeamNames.Full(format, number)}はありません{OtherFormatHint(roster, format, number)}";
+
+    private async Task<DamageCommandResult> AddTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
-        // 最後の言葉が「シングル」「ダブル」なら、チームのバトル形式の指定（持ち物の名前としては読まない）
-        args = TeamFormats.SplitTrailingFormat(args, 2, out var format);
-        if (args.Count < 2 || !int.TryParse(args[0], out var teamNo) || !int.TryParse(args[1], out var entryId))
-            return Fail($"書式: !{ds.CommandPrefix} add -t チーム番号 登録ID [持ち物] [シングル|ダブル]");
+        // 古い書き方: 最後の言葉が「シングル」「ダブル」なら、形式の指定（持ち物の名前としては読まない）。-f と食い違えば断る
+        args = TeamFormats.SplitTrailingFormat(args, 2, out var trailing);
+        if (trailing is { } word)
+        {
+            if (optFormat is { } given && given != word) return Fail("形式が 2 つ書かれています（-f と末尾の語が食い違っています）");
+            optFormat = word;
+        }
+        var format = optFormat ?? options.Format;
+        if (args.Count < 2 || !int.TryParse(args[0], out var teamNo) || !int.TryParse(args[1], out var entryId) || teamNo < 1)
+            return Fail($"書式: !{ds.CommandPrefix} add -t チーム番号 登録ID [持ち物] [-f シングル|ダブル]（形式を書かないときは登録した形式。登録は format set）");
         Item? item = null;
         if (args.Count > 2)
         {
@@ -281,89 +307,136 @@ public sealed partial class PokeCommand
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var entry = roster.Pokemon.FirstOrDefault(e => e.Id == entryId);
         if (entry is null) return Fail($"登録ID {entryId} はありません");
-        var (team, _, replaced) = await _roster.AddToTeamAsync(ds.Key, teamNo, entryId, item, format, ct).ConfigureAwait(false);
+        var (team, _, replaced) = await _roster.AddToTeamAsync(ds.Key, format, teamNo, entryId, item, ct).ConfigureAwait(false);
         var itemText = item is null ? "持ち物なし" : $"@{item.Name}";
-        var formatText = team.BattleFormat == BattleFormat.Doubles ? "・ダブル" : "";
-        return Ok($"チーム{team.Number} に #{entry.Id} {entry.PokemonName}({itemText}) を{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6{formatText}）");
+        // 形式を書かなかったとき、反対の形式に同じ番号のチームがあれば、どちらに足したかを添える
+        var hint = optFormat is null ? OtherFormatHint(roster, format, teamNo) : "";
+        return Ok($"{TeamNames.Full(format, team.Number)} に #{entry.Id} {entry.PokemonName}({itemText}) を{(replaced ? "更新" : "追加")}しました（{team.Slots.Count}/6）{hint}");
     }
 
-    /// <summary><c>set -t 番号 シングル|ダブル</c>: チームのバトル形式を変える。</summary>
-    private async Task<DamageCommandResult> SetTeamFormatAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
+    /// <summary>
+    /// <c>set -t 番号 シングル|ダブル [新しい番号]</c>: チームを別の形式へ移す（-f で今の形式を書くと、同じ形式の中での番号の付け替えもできる）。
+    /// 移す先に同じ番号のチームがあれば、何も変えずに断る（番号は自動では振り替えない）。
+    /// </summary>
+    private async Task<DamageCommandResult> SetTeamFormatAsync(DataSetInfo ds, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
-        if (args.Count != 2 || !int.TryParse(args[0], out var teamNo) || !TeamFormats.TryParseWord(args[1], out var format))
-            return Fail($"書式: !{ds.CommandPrefix} set -t チーム番号 シングル|ダブル");
-        return await _roster.SetTeamFormatAsync(ds.Key, teamNo, format, ct).ConfigureAwait(false)
-            ? Ok($"チーム{teamNo} を{TeamFormats.Label(format)}用にしました")
-            : Fail($"チーム{teamNo} はありません");
+        var usage = $"書式: !{ds.CommandPrefix} set -t チーム番号 移す先の形式(シングル|ダブル) [新しい番号]（例: set -t 2 ダブル / set -t 2 ダブル 5）";
+        if (args.Count is < 2 or > 3 || !int.TryParse(args[0], out var teamNo) || !TeamFormats.TryParseWord(args[1], out var to))
+            return Fail(usage);
+        int? newNumber = null;
+        if (args.Count == 3)
+        {
+            if (!int.TryParse(args[2], out var parsedNew) || parsedNew < 1) return Fail(usage);
+            newNumber = parsedNew;
+        }
+        // 移す前の形式は、-f で書いたもの。書かなければ、移す先と反対の形式
+        var from = optFormat ?? OtherFormat(to);
+        var result = await _roster.MoveTeamAsync(ds.Key, from, teamNo, to, newNumber, ct).ConfigureAwait(false);
+        switch (result.Status)
+        {
+            case TeamMoveStatus.Moved:
+                return Ok($"{TeamNames.Full(from, teamNo)} を {TeamNames.Full(to, result.Number)} に移しました" +
+                          (result.WasActive ? $"（使用中だったので、{TeamFormats.Label(from)}の使用中は解除しました）" : ""));
+            case TeamMoveStatus.Occupied:
+            {
+                var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
+                var free = Enumerable.Range(1, int.MaxValue - 1).First(n => roster.FindTeam(to, n) is null);
+                return Fail($"{TeamNames.Full(to, result.Number)}が既にあります。空いている番号を指定してください（例: !{ds.CommandPrefix} set -t {teamNo} {TeamFormats.Label(to)} {free}）");
+            }
+            case TeamMoveStatus.Unchanged:
+                return Ok($"{TeamNames.Full(from, teamNo)} はすでに{TeamFormats.Label(to)}です。番号を変えるなら、新しい番号も書いてください（例: set -t {teamNo} -f {TeamFormats.Label(from)} {TeamFormats.Label(to)} 5）");
+            default:
+            {
+                var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
+                // 移す先の形式に、その番号のチームがもうあるなら、移す必要はない（反対の形式には無い）
+                if (from != to && roster.FindTeam(to, teamNo) is not null)
+                    return Fail($"{TeamNames.Full(from, teamNo)}はありません（{TeamNames.Full(to, teamNo)}はすでに{TeamFormats.Label(to)}です）");
+                return Fail(MissingTeam(roster, from, teamNo));
+            }
+        }
     }
 
-    private async Task<DamageCommandResult> RemoveTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
+    private async Task<DamageCommandResult> RemoveTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
+        var format = optFormat ?? options.Format;
         if (args.Count == 0 || !int.TryParse(args[0], out var teamNo))
-            return Fail($"書式: !{ds.CommandPrefix} rm -t チーム番号 [ポケモン名]");
+            return Fail($"書式: !{ds.CommandPrefix} rm -t チーム番号 [ポケモン名] [-f シングル|ダブル]");
+        var name = TeamNames.Full(format, teamNo);
+        var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
+        if (roster.FindTeam(format, teamNo) is null) return Fail(MissingTeam(roster, format, teamNo));
         if (args.Count == 1)
         {
-            return await _roster.RemoveTeamAsync(ds.Key, teamNo, ct).ConfigureAwait(false)
-                ? Ok($"チーム{teamNo} を削除しました")
-                : Fail($"チーム{teamNo} はありません");
+            return await _roster.RemoveTeamAsync(ds.Key, format, teamNo, ct).ConfigureAwait(false)
+                ? Ok($"{name} を削除しました")
+                : Fail(MissingTeam(roster, format, teamNo));
         }
         // 登録 ID（#3 / 3）で指定すると、同じポケモンを複数登録していても、その 1 体だけを外せる
         if (int.TryParse(args[1].TrimStart('#'), out var entryId))
         {
-            var byId = await _roster.RemoveFromTeamAsync(ds.Key, teamNo, e => e.Id == entryId, ct).ConfigureAwait(false);
-            if (!byId) return Fail($"チーム{teamNo} に #{entryId} はいません");
-            var teamLeft = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).Teams.Any(t => t.Number == teamNo);
-            return Ok($"チーム{teamNo} から #{entryId} を外しました" + (teamLeft ? "" : "（0 体になったのでチームを削除しました）"));
+            var byId = await _roster.RemoveFromTeamAsync(ds.Key, format, teamNo, e => e.Id == entryId, ct).ConfigureAwait(false);
+            if (!byId) return Fail($"{name} に #{entryId} はいません");
+            var teamLeft = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).FindTeam(format, teamNo) is not null;
+            return Ok($"{name} から #{entryId} を外しました" + (teamLeft ? "" : "（0 体になったのでチームを削除しました）"));
         }
         var match = DamageCommand.CreatePokemonResolver(data).Resolve(args[1]);
         if (!match.IsResolved) return Fail(NotFound("ポケモン", args[1], match.Candidates.Select(p => p.Name)));
-        var removed = await _roster.RemoveFromTeamAsync(ds.Key, teamNo, e => e.PokemonId == match.Value!.Id, ct).ConfigureAwait(false);
-        if (!removed) return Fail($"チーム{teamNo} に {match.Value!.Name} はいません");
-        var stillThere = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).Teams.Any(t => t.Number == teamNo);
-        return Ok($"チーム{teamNo} から {match.Value!.Name} を外しました" + (stillThere ? "" : "（0 体になったのでチームを削除しました）"));
+        var removed = await _roster.RemoveFromTeamAsync(ds.Key, format, teamNo, e => e.PokemonId == match.Value!.Id, ct).ConfigureAwait(false);
+        if (!removed) return Fail($"{name} に {match.Value!.Name} はいません");
+        var stillThere = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key).FindTeam(format, teamNo) is not null;
+        return Ok($"{name} から {match.Value!.Name} を外しました" + (stillThere ? "" : "（0 体になったのでチームを削除しました）"));
     }
 
-    private async Task<DamageCommandResult> UnuseTeamAsync(DataSetInfo ds, PokeCommandOptions options, CancellationToken ct)
+    private async Task<DamageCommandResult> UnuseTeamAsync(DataSetInfo ds, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("使用チームの変更は配信者・モデレーターのみ行えます");
-        return await _roster.ClearActiveTeamAsync(ds.Key, ct).ConfigureAwait(false)
-            ? Ok("使用チームを解除しました。以降の dmg / scan / faster は使用率に基づく既定値で計算します")
-            : Ok("使用中のチームはありません");
+        if (args.Count > 0) return Fail($"書式: !{ds.CommandPrefix} unuse -t [-f シングル|ダブル]");
+        var format = optFormat ?? options.Format;
+        return await _roster.ClearActiveTeamAsync(ds.Key, format, ct).ConfigureAwait(false)
+            ? Ok($"{TeamFormats.Label(format)}の使用チームを解除しました。以降の {TeamFormats.Label(format)}の dmg / scan / faster は使用率に基づく既定値で計算します")
+            : Ok($"{TeamFormats.Label(format)}の使用中のチームはありません");
     }
 
-    private async Task<DamageCommandResult> UseTeamAsync(DataSetInfo ds, List<string> args, PokeCommandOptions options, CancellationToken ct)
+    private async Task<DamageCommandResult> UseTeamAsync(DataSetInfo ds, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("使用チームの変更は配信者・モデレーターのみ行えます");
-        if (args.Count == 0 || !int.TryParse(args[0], out var teamNo))
-            return Fail($"書式: !{ds.CommandPrefix} use -t チーム番号");
-        return await _roster.UseTeamAsync(ds.Key, teamNo, ct).ConfigureAwait(false)
-            ? Ok($"チーム{teamNo} を使用します。以降の dmg / scan / faster はこのチームの構成で計算します")
-            : Fail($"チーム{teamNo} はありません");
+        if (args.Count != 1 || !int.TryParse(args[0], out var teamNo))
+            return Fail($"書式: !{ds.CommandPrefix} use -t チーム番号 [-f シングル|ダブル]");
+        var format = optFormat ?? options.Format;
+        if (await _roster.UseTeamAsync(ds.Key, format, teamNo, ct).ConfigureAwait(false))
+            return Ok($"{TeamNames.Full(format, teamNo)} を使用します。以降の{TeamFormats.Label(format)}の dmg / scan / faster はこのチームの構成で計算します");
+        return Fail(MissingTeam((await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key), format, teamNo));
     }
 
-    private async Task<DamageCommandResult> ListTeamsAsync(DataSetInfo ds, CancellationToken ct)
+    /// <summary>ls -t: 形式を書いたときはその形式、書かないときはシングルとダブルを並べる。</summary>
+    private async Task<DamageCommandResult> ListTeamsAsync(DataSetInfo ds, List<string> args, BattleFormat? optFormat, CancellationToken ct)
     {
+        if (args.Count > 0) return Fail($"書式: !{ds.CommandPrefix} ls -t [-f シングル|ダブル]（形式を書かないときは両方）");
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         if (roster.Teams.Count == 0) return Ok($"{ds.Name}: チームはありません");
         var byId = roster.Pokemon.ToDictionary(p => p.Id);
-        var parts = roster.Teams.Select(t =>
+        string Section(BattleFormat format)
         {
-            var names = t.Slots.Select(s => byId.TryGetValue(s.EntryId, out var p) ? p.PokemonName : $"#{s.EntryId}?");
-            var active = roster.ActiveTeam == t.Number ? "(使用中)" : "";
-            var format = t.BattleFormat == BattleFormat.Doubles ? "(ダブル)" : "";
-            return $"チーム{t.Number}{active}{format}[{string.Join(",", names)}]";
-        });
-        return Ok($"{ds.Name}: " + string.Join(" ", parts));
+            var active = roster.ActiveNumber(format);
+            var teams = roster.Teams.Where(t => t.BattleFormat == format).OrderBy(t => t.Number).Select(t =>
+            {
+                var names = t.Slots.Select(s => byId.TryGetValue(s.EntryId, out var p) ? p.PokemonName : $"#{s.EntryId}?");
+                return $"チーム{t.Number}{(active == t.Number ? "(使用中)" : "")}[{string.Join(",", names)}]";
+            }).ToList();
+            return $"{TeamFormats.Label(format)}: {(teams.Count == 0 ? "なし" : string.Join(" ", teams))}";
+        }
+        var formats = optFormat is { } one ? new[] { one } : new[] { BattleFormat.Singles, BattleFormat.Doubles };
+        return Ok($"{ds.Name} " + string.Join(" ｜ ", formats.Select(Section)));
     }
 
-    private async Task<DamageCommandResult> MoreTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, CancellationToken ct)
+    private async Task<DamageCommandResult> MoreTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
     {
-        if (args.Count == 0 || !int.TryParse(args[0], out var teamNo)) return Fail($"書式: !{ds.CommandPrefix} detail -t チーム番号");
+        if (args.Count != 1 || !int.TryParse(args[0], out var teamNo)) return Fail($"書式: !{ds.CommandPrefix} detail -t チーム番号 [-f シングル|ダブル]");
+        var format = optFormat ?? options.Format;
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
-        var team = roster.Teams.FirstOrDefault(t => t.Number == teamNo);
-        if (team is null) return Fail($"チーム{teamNo} はありません");
+        var team = roster.FindTeam(format, teamNo);
+        if (team is null) return Fail(MissingTeam(roster, format, teamNo));
         var byId = roster.Pokemon.ToDictionary(p => p.Id);
         var parts = team.Slots.Select(s =>
         {
@@ -371,9 +444,8 @@ public sealed partial class PokeCommand
             var item = s.ItemId is { } iid ? data.FindItem(iid)?.Name : null;
             return $"#{e.Id} {e.PokemonName}({NatureSpace(data, e.Nature)}{e.EVs.ToShortString()}){(item is null ? "" : "@" + item)}";
         });
-        var active = roster.ActiveTeam == teamNo ? "(使用中)" : "";
-        var format = team.BattleFormat == BattleFormat.Doubles ? "(ダブル)" : "";
-        return Ok($"チーム{teamNo}{active}{format}: " + string.Join(" / ", parts));
+        var active = roster.ActiveNumber(format) == teamNo ? "(使用中)" : "";
+        return Ok($"{TeamNames.Full(format, teamNo)}{active}: " + string.Join(" / ", parts));
     }
 
     // ------------------------------------------------------------------ 計算
@@ -403,7 +475,7 @@ public sealed partial class PokeCommand
     /// そうでなければ一覧を出して、登録 ID での指定を案内する。名前が決まらないときは、それぞれのコマンドの案内に任せる。
     /// </summary>
     private async Task<(string? Error, Func<Pokemon, bool, PokemonBuild?> Provider)> ResolveRegisteredAttackerAsync(
-        DataSetInfo ds, PokemonDataSet data, string sub, List<string> args, Func<Pokemon, bool, PokemonBuild?> provider, CancellationToken ct)
+        DataSetInfo ds, PokemonDataSet data, string sub, List<string> args, Func<Pokemon, bool, PokemonBuild?> provider, BattleFormat format, CancellationToken ct)
     {
         if (args.Count == 0) return (null, provider);
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
@@ -411,7 +483,7 @@ public sealed partial class PokeCommand
         {
             var entry = roster.Pokemon.FirstOrDefault(e => e.Id == entryId);
             if (entry is null) return ($"育成ポケモン #{entryId} はありません。!{ds.CommandPrefix} ls -m で登録 ID を確認してください", provider);
-            var build = await _roster.BuildForEntryAsync(ds.Key, data, entryId, ct).ConfigureAwait(false);
+            var build = await _roster.BuildForEntryAsync(ds.Key, data, entryId, format, ct).ConfigureAwait(false);
             if (build is null) return ($"#{entryId} {entry.PokemonName} は現在のデータに存在しません", provider);
             args[0] = data.FindPokemon(entry.PokemonId)?.Name ?? entry.PokemonName;
             return (null, (p, isAttacker) => isAttacker && p.Id == entry.PokemonId ? build.Clone() : provider(p, isAttacker));
@@ -420,7 +492,7 @@ public sealed partial class PokeCommand
         if (!match.IsResolved) return (null, provider);
         var same = roster.Pokemon.Where(e => e.PokemonId == match.Value!.Id).OrderBy(e => e.Id).ToList();
         if (same.Count <= 1) return (null, provider);
-        var team = roster.ActiveTeam is { } active ? roster.Teams.FirstOrDefault(t => t.Number == active) : null;
+        var team = roster.ActiveTeamOf(format);
         if (team is not null && same.Count(e => team.Slots.Any(s => s.EntryId == e.Id)) == 1) return (null, provider);
         return ($"{match.Value!.Name}は育成ポケモンが {same.Count} 体います。どれを使うか、登録 ID で指定してください（例: !{ds.CommandPrefix} {sub} #{same[0].Id} …）\n" + RegisteredList(data, same), provider);
     }
@@ -428,8 +500,8 @@ public sealed partial class PokeCommand
     private async Task<DamageCommandResult> DamageAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (args.Count < 3) return Fail($"書式: !{ds.CommandPrefix} dmg 攻撃側 技±ランク 防御側 [オプション]");
-        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
-        var (attackerError, attackerProvider) = await ResolveRegisteredAttackerAsync(ds, data, "dmg", args, provider, ct).ConfigureAwait(false);
+        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, options.Format, ct).ConfigureAwait(false);
+        var (attackerError, attackerProvider) = await ResolveRegisteredAttackerAsync(ds, data, "dmg", args, provider, options.Format, ct).ConfigureAwait(false);
         if (attackerError is not null) return Fail(attackerError);
         provider = attackerProvider;
         if (RegisteredOnlyError(ds, data, args[0], provider, "攻撃側") is { } notRegistered) return Fail(notRegistered);
@@ -654,8 +726,8 @@ public sealed partial class PokeCommand
     private async Task<DamageCommandResult> DiffAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, PokeCommandOptions options, CancellationToken ct)
     {
         if (args.Count < 2) return Fail($"書式: !{ds.CommandPrefix} faster 自分 相手 [+1 晴れ まひ 自:まひ など]");
-        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, ct).ConfigureAwait(false);
-        var (mineError, mineProvider) = await ResolveRegisteredAttackerAsync(ds, data, "faster", args, provider, ct).ConfigureAwait(false);
+        var provider = await _roster.RegisteredBuildProviderAsync(ds.Key, data, options.Format, ct).ConfigureAwait(false);
+        var (mineError, mineProvider) = await ResolveRegisteredAttackerAsync(ds, data, "faster", args, provider, options.Format, ct).ConfigureAwait(false);
         if (mineError is not null) return Fail(mineError);
         provider = mineProvider;
         var resolver = DamageCommand.CreatePokemonResolver(data);
