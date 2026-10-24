@@ -334,11 +334,11 @@ test("viewport に viewport-fit=cover がある（ノッチ端末で安全領域
 test("ファビコンの link は、生成した全 HTML（本番・develop。home.html・404.html を含む）に残り、参照先のファイルが wwwroot にある（/favicon.ico が無いと 404 になる）", () => {
     const wwwroot = join(here, "..", "src", "FaraPokemonBattleAssistant.Web", "wwwroot");
     const LINKS = [
-        /<link rel="icon" href="\/favicon\.ico\?v=2" sizes="16x16 32x32 48x48" \/>/,
-        /<link rel="icon" href="\/favicon\.svg\?v=2" type="image\/svg\+xml" \/>/,
-        /<link rel="icon" href="\/favicon-32x32\.png\?v=2" type="image\/png" sizes="32x32" \/>/,
-        /<link rel="icon" href="\/favicon-16x16\.png\?v=2" type="image\/png" sizes="16x16" \/>/,
-        /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png\?v=2" \/>/,
+        /<link rel="icon" href="\/favicon\.ico\?v=3" sizes="16x16 32x32 48x48" \/>/,
+        /<link rel="icon" href="\/favicon\.svg\?v=3" type="image\/svg\+xml" \/>/,
+        /<link rel="icon" href="\/favicon-32x32\.png\?v=3" type="image\/png" sizes="32x32" \/>/,
+        /<link rel="icon" href="\/favicon-16x16\.png\?v=3" type="image\/png" sizes="16x16" \/>/,
+        /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png\?v=3" \/>/,
     ];
     for (const [label, result] of [["production", prod], ["develop", dev]]) {
         for (const name of ["home.html", "index.html", "404.html", "damage-calculator.html", "privacy.html"]) {
