@@ -30,7 +30,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                     <div class="row g-2">
                         <div class="col-4">
                             <label class="form-label">チーム番号</label>
-                            <input type="number" class="form-control" min="1" value="@s.TeamNumber" @onchange="@(e => s.TeamNumber = Math.Max(1, ParseId(e.Value)))" />
+                            <input type="number" class="form-control" min="1" max="@RosterLimits.MaxTeamNumber" value="@s.TeamNumber" @onchange="@(e => s.TeamNumber = Math.Clamp(ParseId(e.Value), 1, RosterLimits.MaxTeamNumber))" />
                         </div>
                         <div class="col-12">
                             <label class="form-label">登録ポケモン</label>

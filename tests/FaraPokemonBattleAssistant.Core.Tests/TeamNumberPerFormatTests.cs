@@ -237,7 +237,7 @@ public class TeamNumberPerFormatTests
         // 使用中だったチーム（ダブルで保存されていたチーム2）は、シングルの使用中になる
         Assert.Equal(2, roster.ActiveNumber(BattleFormat.Singles));
         Assert.Null(roster.ActiveNumber(BattleFormat.Doubles));
-        Assert.Null(roster.ActiveTeam);
+        Assert.Null(roster.ActiveTeam);   // 廃止した項目（読み込み時に必ず null）
     }
 
     [Fact]
@@ -260,7 +260,6 @@ public class TeamNumberPerFormatTests
     [Theory]
     [InlineData("""{"Version":2,"DataSets":{"Champions":{"Teams":[{"Number":1,"Format":"Singles","Slots":[{"EntryId":1}]},{"Number":1,"Format":"Doubles","Slots":[{"EntryId":2}]}],"ActiveTeams":null}}}""")]
     [InlineData("""{"Version":2,"DataSets":{"Champions":{"Teams":[{"Number":1,"Format":"Singles","Slots":[{"EntryId":1}]},{"Number":1,"Format":"Doubles","Slots":[{"EntryId":2}]}]}}}""")]
-    [InlineData("""{"DataSets":{"Champions":{"Teams":[{"Number":1,"Format":"Singles","Slots":[{"EntryId":1}]},{"Number":1,"Format":"Doubles","Slots":[{"EntryId":2}]}]}}}""")]
     public void Current_data_without_active_teams_is_never_flattened_to_singles(string json)
     {
         // 世代 2 以上（または世代の無い）データは、ActiveTeams が無くても移行しない（コードで作ったデータが、次に読むときにシングルになって消えないように）
@@ -268,6 +267,87 @@ public class TeamNumberPerFormatTests
         Assert.Equal(2, roster.Teams.Count);
         Assert.Equal(2, roster.FindTeam(BattleFormat.Doubles, 1)!.Slots.Single().EntryId);
         Assert.Equal(1, roster.FindTeam(BattleFormat.Singles, 1)!.Slots.Single().EntryId);
+    }
+
+    [Fact]
+    public void Data_without_a_version_and_active_teams_is_read_as_legacy()
+    {
+        // Version の無い古いデータは、Worker と同じく ActiveTeams の有無も見て、世代 1 として読み替える
+        var json = """{"DataSets":{"Champions":{"Teams":[{"Number":1,"Slots":[{"EntryId":1}]},{"Number":2,"Format":"Doubles","Slots":[{"EntryId":2}]}],"ActiveTeam":2}}}""";
+        var roster = RosterRepository.Deserialize(json).For(Ds);
+        Assert.All(roster.Teams, t => Assert.Equal(BattleFormat.Singles, t.BattleFormat));
+        Assert.Equal(2, roster.ActiveNumber(BattleFormat.Singles));
+        // ActiveTeams があれば、Version が無くても新しい形
+        var current = """{"DataSets":{"Champions":{"Teams":[{"Number":2,"Format":"Doubles","Slots":[{"EntryId":2}]}],"ActiveTeams":{"Doubles":2}}}}""";
+        var kept = RosterRepository.Deserialize(current).For(Ds);
+        Assert.Equal(BattleFormat.Doubles, kept.Teams.Single().BattleFormat);
+        Assert.Equal(2, kept.ActiveNumber(BattleFormat.Doubles));
+    }
+
+    private static JsonNode StoredActive(MemoryRosterStore store) => JsonNode.Parse(store.Json!)!["DataSets"]![Ds]!["ActiveTeams"]!;
+
+    [Fact]
+    public async Task Stored_active_numbers_never_outlive_their_team()
+    {
+        var store = new MemoryRosterStore();
+        var (repo, a, b) = await NewAsync(store);
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, a.Id, null);
+        await repo.AddToTeamAsync(Ds, BattleFormat.Doubles, 1, b.Id, null);
+        await repo.UseTeamAsync(Ds, BattleFormat.Singles, 1);
+        await repo.UseTeamAsync(Ds, BattleFormat.Doubles, 1);
+
+        // 形式の移動: 移す前の形式の使用中は保存データからも消え、同じ番号を作り直しても使用中に戻らない
+        await repo.MoveTeamAsync(Ds, BattleFormat.Singles, 1, BattleFormat.Doubles, 7);
+        Assert.Null(StoredActive(store)["Singles"]);
+        Assert.Equal(1, StoredActive(store)["Doubles"]!.GetValue<int>());   // 移した先の使用中は変えない
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, a.Id, null);
+        Assert.Null((await repo.GetAsync()).For(Ds).ActiveNumber(BattleFormat.Singles));
+
+        // 同じ形式の中の番号の付け替え
+        await repo.UseTeamAsync(Ds, BattleFormat.Doubles, 7);
+        await repo.MoveTeamAsync(Ds, BattleFormat.Doubles, 7, BattleFormat.Doubles, 9);
+        Assert.Null(StoredActive(store)["Doubles"]);
+
+        // チームごと削除
+        await repo.UseTeamAsync(Ds, BattleFormat.Singles, 1);
+        await repo.RemoveTeamAsync(Ds, BattleFormat.Singles, 1);
+        Assert.Null(StoredActive(store)["Singles"]);
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, b.Id, null);
+        Assert.Null((await repo.GetAsync()).For(Ds).ActiveNumber(BattleFormat.Singles));
+
+        // 0 体になって消えたチーム（rm -t N 名前 / ポケモンの削除）
+        await repo.UseTeamAsync(Ds, BattleFormat.Singles, 1);
+        await repo.RemoveFromTeamAsync(Ds, BattleFormat.Singles, 1, e => e.Id == b.Id);
+        Assert.Null(StoredActive(store)["Singles"]);
+        await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, a.Id, null);
+        Assert.Null((await repo.GetAsync()).For(Ds).ActiveNumber(BattleFormat.Singles));
+    }
+
+    [Fact]
+    public void RemoveEmptyTeams_clears_the_stored_number()
+    {
+        var roster = new DataSetRoster { ActiveTeams = new Dictionary<string, int?>() };
+        roster.Teams.Add(new Team { Number = 2, Format = "Doubles" });
+        roster.SetActiveNumber(BattleFormat.Doubles, 2);
+        RosterRepository.RemoveEmptyTeams(roster);
+        var stored = JsonNode.Parse(RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = roster } }))!["DataSets"]![Ds]!["ActiveTeams"]!;
+        Assert.Null(stored["Doubles"]);
+        roster.Teams.Add(new Team { Number = 2, Format = "Doubles", Slots = { new TeamSlot { EntryId = 1 } } });
+        Assert.Null(roster.ActiveNumber(BattleFormat.Doubles));   // 作り直しても使用中に戻らない
+    }
+
+    [Fact]
+    public void Team_number_limit_matches_the_worker()
+    {
+        Assert.Equal(2147483646, RosterLimits.MaxTeamNumber);
+        Assert.True(RosterLimits.TryParseTeamNumber("2147483646", out var max));
+        Assert.Equal(2147483646, max);
+        Assert.False(RosterLimits.TryParseTeamNumber("2147483647", out _));
+        Assert.False(RosterLimits.TryParseTeamNumber("0", out _));
+        Assert.False(RosterLimits.TryParseTeamNumber("x", out _));
+        // Worker の MAX_ID と同じ値であること（片方だけ変えると落ちる）
+        var js = File.ReadAllText(Path.Combine(TestData.RepositoryRoot, "worker", "index.js"));
+        Assert.Contains($"const MAX_ID = {RosterLimits.MaxTeamNumber};", js);
     }
 
     [Fact]

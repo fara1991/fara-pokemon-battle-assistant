@@ -170,7 +170,13 @@ public sealed partial class PokeCommand
             var kept = new List<string>();
             foreach (var a in args)
             {
-                if (TeamFormats.TryParseWord(a, out var word) && a.Length > 1) bareFormat = word;
+                if (TeamFormats.TryParseWord(a, out var word) && a.Length > 1)
+                {
+                    // -f とコマンドの中の言葉（ダブル など）、または言葉どうしが食い違っていたら、どちらかを選ばず断る
+                    if (bareFormat is { } already && already != word)
+                        return Fail("形式が 2 つ書かれています（-f とコマンドの中の シングル / ダブル が食い違っています。どちらか 1 つにしてください）");
+                    bareFormat = word;
+                }
                 else kept.Add(a);
             }
             if (kept.Count != args.Count) args = kept;
@@ -330,7 +336,7 @@ public sealed partial class PokeCommand
             optFormat = word;
         }
         var format = optFormat ?? options.Format;
-        if (args.Count < 2 || !int.TryParse(args[0], out var teamNo) || !int.TryParse(args[1], out var entryId) || teamNo < 1)
+        if (args.Count < 2 || !RosterLimits.TryParseTeamNumber(args[0], out var teamNo) || !int.TryParse(args[1], out var entryId))
             return Fail($"書式: !{ds.CommandPrefix} add -t チーム番号 登録ID [持ち物] [-f シングル|ダブル]（形式を書かないときは登録した形式。登録は format set）");
         Item? item = null;
         if (args.Count > 2)
@@ -363,12 +369,12 @@ public sealed partial class PokeCommand
     {
         if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
         var usage = $"書式: !{ds.CommandPrefix} set -t チーム番号 移す先の形式(シングル|ダブル) [新しい番号]（例: set -t 2 ダブル / set -t 2 ダブル 5）";
-        if (args.Count is < 2 or > 3 || !int.TryParse(args[0], out var teamNo) || !TeamFormats.TryParseWord(args[1], out var to))
+        if (args.Count is < 2 or > 3 || !RosterLimits.TryParseTeamNumber(args[0], out var teamNo) || !TeamFormats.TryParseWord(args[1], out var to))
             return Fail(usage);
         int? newNumber = null;
         if (args.Count == 3)
         {
-            if (!int.TryParse(args[2], out var parsedNew) || parsedNew < 1) return Fail(usage);
+            if (!RosterLimits.TryParseTeamNumber(args[2], out var parsedNew)) return Fail(usage);
             newNumber = parsedNew;
         }
         // 移す前の形式は、-f で書いたもの。書かなければ、移す先と反対の形式
@@ -402,7 +408,7 @@ public sealed partial class PokeCommand
     {
         if (!options.AllowMutations) return Fail("チーム編集は配信者・モデレーターのみ行えます");
         var format = optFormat ?? options.Format;
-        if (args.Count == 0 || !int.TryParse(args[0], out var teamNo))
+        if (args.Count == 0 || !RosterLimits.TryParseTeamNumber(args[0], out var teamNo))
             return Fail($"書式: !{ds.CommandPrefix} rm -t チーム番号 [ポケモン名] [-f シングル|ダブル]");
         var name = TeamNames.Full(format, teamNo);
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
@@ -442,7 +448,7 @@ public sealed partial class PokeCommand
     private async Task<DamageCommandResult> UseTeamAsync(DataSetInfo ds, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
     {
         if (!options.AllowMutations) return Fail("使用チームの変更は配信者・モデレーターのみ行えます");
-        if (args.Count != 1 || !int.TryParse(args[0], out var teamNo))
+        if (args.Count != 1 || !RosterLimits.TryParseTeamNumber(args[0], out var teamNo))
             return Fail($"書式: !{ds.CommandPrefix} use -t チーム番号 [-f シングル|ダブル]");
         var format = optFormat ?? options.Format;
         if (await _roster.UseTeamAsync(ds.Key, format, teamNo, ct).ConfigureAwait(false))
@@ -473,7 +479,7 @@ public sealed partial class PokeCommand
 
     private async Task<DamageCommandResult> MoreTeamAsync(DataSetInfo ds, PokemonDataSet data, List<string> args, BattleFormat? optFormat, PokeCommandOptions options, CancellationToken ct)
     {
-        if (args.Count != 1 || !int.TryParse(args[0], out var teamNo)) return Fail($"書式: !{ds.CommandPrefix} detail -t チーム番号 [-f シングル|ダブル]");
+        if (args.Count != 1 || !RosterLimits.TryParseTeamNumber(args[0], out var teamNo)) return Fail($"書式: !{ds.CommandPrefix} detail -t チーム番号 [-f シングル|ダブル]");
         var format = optFormat ?? options.Format;
         var roster = (await _roster.GetAsync(ct).ConfigureAwait(false)).For(ds.Key);
         var team = roster.FindTeam(format, teamNo);

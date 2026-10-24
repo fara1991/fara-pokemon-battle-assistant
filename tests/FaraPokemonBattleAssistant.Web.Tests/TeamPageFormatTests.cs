@@ -210,6 +210,19 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_team_number_input_is_limited_like_the_cloud()
+    {
+        var cut = await OpenAsync(BattleFormat.Singles);
+        Assert.Equal("2147483646", cut.Find("input[type=number]").GetAttribute("max"));
+        cut.Find("input[type=number]").Change("2147483647");
+        Assert.Equal("2147483646", cut.Find("input[type=number]").GetAttribute("value"));
+        await ClickAddAsync(cut);
+        Assert.NotNull(await StoredTeamAsync(BattleFormat.Singles, 2147483646));
+        cut.Find("input[type=number]").Change("0");
+        Assert.Equal("1", cut.Find("input[type=number]").GetAttribute("value"));
+    }
+
+    [Fact]
     public async Task A_number_not_used_by_another_format_can_be_added()
     {
         var cut = await OpenAsync(BattleFormat.Singles);

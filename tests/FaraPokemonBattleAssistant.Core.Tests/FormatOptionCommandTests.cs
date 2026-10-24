@@ -386,6 +386,34 @@ public class FormatOptionCommandTests
         Assert.DoesNotContain("-f ダブル を付けて", result.Message);
     }
 
+    [Theory]
+    [InlineData("!pokech dmg ガブリアス じしん リザードン -f シングル ダブル")]
+    [InlineData("!pokech dmg ガブリアス じしん リザードン ダブル -f シングル")]
+    [InlineData("!pokech dmg ガブリアス じしん リザードン --format double シングル")]
+    [InlineData("!pokech dmg ガブリアス じしん リザードン シングル ダブル")]
+    [InlineData("!pokech faster ガブリアス ガブリアス -f ダブル シングル")]
+    public async Task Conflicting_formats_in_a_calculation_are_an_error(string input)
+    {
+        var (command, _) = await TwoBuildsAsync();
+        var result = await command.ExecuteAsync(input);
+        Assert.False(result.Success);
+        Assert.Contains("形式が 2 つ書かれています", result.Message);
+        // 同じ形式を重ねて書くのは問題ない
+        Assert.True((await command.ExecuteAsync("!pokech dmg ガブリアス じしん リザードン -f ダブル ダブル")).Success);
+    }
+
+    [Fact]
+    public async Task Team_numbers_above_the_cloud_limit_are_refused_in_commands()
+    {
+        var (command, repo) = await NewAsync();
+        foreach (var input in new[] { "!pokech add -t 2147483647 1", "!pokech use -t 2147483647", "!pokech rm -t 2147483647", "!pokech detail -t 2147483647", "!pokech set -t 1 ダブル 2147483647" })
+            Assert.False((await command.ExecuteAsync(input)).Success, input);
+        Assert.Empty((await RosterAsync(repo)).Teams);
+        Assert.True((await command.ExecuteAsync("!pokech add -t 2147483646 1")).Success);
+        Assert.NotNull((await RosterAsync(repo)).FindTeam(BattleFormat.Singles, 2147483646));
+        Assert.False((await command.ExecuteAsync("!pokech set -t 2147483646 ダブル 2147483647")).Success);
+    }
+
     [Fact]
     public async Task Team_changes_need_streamer_or_moderator()
     {

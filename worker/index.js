@@ -316,7 +316,7 @@ function validateTeams(key, value, pokemonIds) {
   const { teams, activeTeams } = value;
   if (!Array.isArray(teams)) invalid("invalid_teams", `${key}.teams は配列にしてください`);
   if (!isPlainObject(activeTeams))
-    invalid("invalid_active_teams", `${key}.activeTeams は {"Singles": 番号か null, "Doubles": 番号か null} にしてください（古い版のサイトの可能性があります。再読み込みしてください）`);
+    invalid("invalid_active_teams", `${key}.activeTeams は {"Singles": 番号か null, "Doubles": 番号か null} にしてください（古い版のクライアントの可能性があります。サイトの再読み込み、または BOT の更新をしてください）`);
   const keys = new Set();
   for (const t of teams) {
     if (!isPlainObject(t)) invalid("invalid_team", `${key}.teams の要素はオブジェクトにしてください`);
