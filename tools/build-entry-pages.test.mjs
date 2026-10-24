@@ -354,7 +354,7 @@ test("ファビコンの link は、生成した全 HTML（本番・develop。ho
 
 test("OGP: 入口ページ（home.html を含む）に og:image（絶対 URL・版つき）と twitter:card=summary_large_image。type・width・height・alt は SEO-HEAD の外（全ページ共通）で、画像は 1200x630 の PNG", () => {
     const wwwroot = join(here, "..", "src", "FaraPokemonBattleAssistant.Web", "wwwroot");
-    const image = readFileSync(join(wwwroot, "img", "og-v1.png"));
+    const image = readFileSync(join(wwwroot, "og.png"));
     assert.equal(image.subarray(1, 4).toString("latin1"), "PNG");
     assert.equal(image.readUInt32BE(16), 1200);
     assert.equal(image.readUInt32BE(20), 630);
@@ -362,7 +362,7 @@ test("OGP: 入口ページ（home.html を含む）に og:image（絶対 URL・�
         for (const entry of pages) {
             const name = entry.route === "" ? "home.html" : `${entry.route}.html`;
             const html = result.out.get(name);
-            assert.ok(html.includes(`<meta property="og:image" content="${origin}/img/og-v1.png" />`), `${label}/${name} に og:image がありません`);
+            assert.ok(html.includes(`<meta property="og:image" content="${origin}/og.png?v=1" />`), `${label}/${name} に og:image がありません`);
             assert.match(html, /<meta name="twitter:card" content="summary_large_image" \/>/, `${label}/${name} の twitter:card`);
         }
         for (const name of ["home.html", "index.html", "404.html", "damage-calculator.html", "privacy.html"]) {
@@ -377,6 +377,6 @@ test("OGP: 入口ページ（home.html を含む）に og:image（絶対 URL・�
 
 test("OGP: ogImage が無い・/ で始まらない入口ページは検証で止まる", () => {
     assert.throws(() => validateEntries([{ ...battleTerms, ogImage: undefined }]), /ogImage/);
-    assert.throws(() => validateEntries([{ ...battleTerms, ogImage: "img/og-v1.png" }]), /ogImage/);
+    assert.throws(() => validateEntries([{ ...battleTerms, ogImage: "og.png" }]), /ogImage/);
     assert.doesNotThrow(() => validateEntries([battleTerms]));
 });

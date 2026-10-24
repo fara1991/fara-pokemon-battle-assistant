@@ -1,6 +1,6 @@
 [
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "",
     "title": "ホーム | Pokémon Battle Assistant",
     "heading": "Pokémon Battle Assistant",
@@ -12,7 +12,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "damage-calculator",
     "title": "ダメージ計算機 | Pokémon Battle Assistant",
     "heading": "ダメージ計算機",
@@ -24,7 +24,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "speed-comparison",
     "title": "素早さ比較 | Pokémon Battle Assistant",
     "heading": "素早さ比較",
@@ -35,7 +35,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "type-chart",
     "title": "タイプ相性表 | Pokémon Battle Assistant",
     "heading": "タイプ相性表",
@@ -47,7 +47,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "pokemon-list",
     "title": "ポケモン一覧 | Pokémon Battle Assistant",
     "heading": "ポケモン一覧",
@@ -58,7 +58,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "move-list",
     "title": "わざ一覧 | Pokémon Battle Assistant",
     "heading": "わざ一覧",
@@ -69,7 +69,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "battle-terms",
     "title": "用語・略語 | Pokémon Battle Assistant",
     "heading": "用語・略語",
@@ -81,7 +81,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "chat-commands",
     "title": "チャットコマンド | Pokémon Battle Assistant",
     "heading": "チャットコマンド",
@@ -93,7 +93,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "report",
     "title": "問い合わせ | Pokémon Battle Assistant",
     "heading": "問い合わせ",
@@ -105,7 +105,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "privacy",
     "title": "プライバシーポリシー | Pokémon Battle Assistant",
     "heading": "プライバシーポリシー",
@@ -117,7 +117,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "copyright",
     "title": "権利表記 | Pokémon Battle Assistant",
     "heading": "権利表記",
@@ -129,7 +129,7 @@
     ]
   },
   {
-    "ogImage": "/img/og-v1.png",
+    "ogImage": "/og.png?v=1",
     "route": "changelog",
     "title": "更新履歴 | Pokémon Battle Assistant",
     "heading": "更新履歴",

@@ -64,8 +64,8 @@ jobs:
           test -f artifacts/web/wwwroot/favicon.ico
           grep -q 'href="/favicon.ico?v=3"' artifacts/web/wwwroot/home.html
           grep -q 'href="/favicon.ico?v=3"' artifacts/web/wwwroot/404.html
-          test -f artifacts/web/wwwroot/img/og-v1.png
-          grep -q '<meta property="og:image" content="https://pokemon.fara-labs.com/img/og-v1.png" />' artifacts/web/wwwroot/home.html
+          test -f artifacts/web/wwwroot/og.png
+          grep -q '<meta property="og:image" content="https://pokemon.fara-labs.com/og.png?v=1" />' artifacts/web/wwwroot/home.html
           grep -q '<meta name="twitter:card" content="summary_large_image" />' artifacts/web/wwwroot/home.html
           grep -q '<meta property="og:image:width" content="1200" />' artifacts/web/wwwroot/home.html
 
