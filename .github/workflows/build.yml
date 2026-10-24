@@ -62,8 +62,12 @@ jobs:
           grep -q '<title>Pokémon Battle Assistant</title>' artifacts/web/wwwroot/index.html
           ! grep -q 'entry-static' artifacts/web/wwwroot/index.html
           test -f artifacts/web/wwwroot/favicon.ico
-          grep -q 'href="/favicon.ico"' artifacts/web/wwwroot/home.html
-          grep -q 'href="/favicon.ico"' artifacts/web/wwwroot/404.html
+          grep -q 'href="/favicon.ico?v=2"' artifacts/web/wwwroot/home.html
+          grep -q 'href="/favicon.ico?v=2"' artifacts/web/wwwroot/404.html
+          test -f artifacts/web/wwwroot/img/og-v1.png
+          grep -q '<meta property="og:image" content="https://pokemon.fara-labs.com/img/og-v1.png" />' artifacts/web/wwwroot/home.html
+          grep -q '<meta name="twitter:card" content="summary_large_image" />' artifacts/web/wwwroot/home.html
+          grep -q '<meta property="og:image:width" content="1200" />' artifacts/web/wwwroot/home.html
 
       - name: Pack Core
         run: dotnet pack src/FaraPokemonBattleAssistant.Core --configuration Release --no-build --output artifacts/nuget

@@ -68,6 +68,7 @@ export function validateEntries(entries) {
         for (const key of ["title", "heading", "label", "description"]) {
             if (typeof entry[key] !== "string" || entry[key].trim() === "") throw new Error(`${where}: ${key} がありません`);
         }
+        if (typeof entry.ogImage !== "string" || !entry.ogImage.startsWith("/")) throw new Error(`${where}: ogImage（/ で始まる画像のパス）がありません`);
         if (!Array.isArray(entry.paragraphs) || entry.paragraphs.length === 0) throw new Error(`${where}: paragraphs がありません`);
     }
 }
@@ -78,6 +79,7 @@ export function toKitPages(entries) {
         path: entry.route === "" ? "/" : `/${entry.route}`,
         title: entry.title,
         description: entry.description,
+        ogImage: entry.ogImage,
         bodyHtml: buildBody(entry, entries),
     }));
 }

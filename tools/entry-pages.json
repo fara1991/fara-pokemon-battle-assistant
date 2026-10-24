@@ -1,5 +1,6 @@
 [
   {
+    "ogImage": "/img/og-v1.png",
     "route": "",
     "title": "ホーム | Pokémon Battle Assistant",
     "heading": "Pokémon Battle Assistant",
@@ -11,6 +12,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "damage-calculator",
     "title": "ダメージ計算機 | Pokémon Battle Assistant",
     "heading": "ダメージ計算機",
@@ -22,6 +24,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "speed-comparison",
     "title": "素早さ比較 | Pokémon Battle Assistant",
     "heading": "素早さ比較",
@@ -32,6 +35,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "type-chart",
     "title": "タイプ相性表 | Pokémon Battle Assistant",
     "heading": "タイプ相性表",
@@ -43,6 +47,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "pokemon-list",
     "title": "ポケモン一覧 | Pokémon Battle Assistant",
     "heading": "ポケモン一覧",
@@ -53,6 +58,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "move-list",
     "title": "わざ一覧 | Pokémon Battle Assistant",
     "heading": "わざ一覧",
@@ -63,6 +69,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "battle-terms",
     "title": "用語・略語 | Pokémon Battle Assistant",
     "heading": "用語・略語",
@@ -74,6 +81,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "chat-commands",
     "title": "チャットコマンド | Pokémon Battle Assistant",
     "heading": "チャットコマンド",
@@ -85,6 +93,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "report",
     "title": "問い合わせ | Pokémon Battle Assistant",
     "heading": "問い合わせ",
@@ -96,6 +105,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "privacy",
     "title": "プライバシーポリシー | Pokémon Battle Assistant",
     "heading": "プライバシーポリシー",
@@ -107,6 +117,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "copyright",
     "title": "権利表記 | Pokémon Battle Assistant",
     "heading": "権利表記",
@@ -118,6 +129,7 @@
     ]
   },
   {
+    "ogImage": "/img/og-v1.png",
     "route": "changelog",
     "title": "更新履歴 | Pokémon Battle Assistant",
     "heading": "更新履歴",
