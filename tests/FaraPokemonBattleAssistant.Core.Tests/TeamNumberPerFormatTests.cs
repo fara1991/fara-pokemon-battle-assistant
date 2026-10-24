@@ -133,7 +133,7 @@ public class TeamNumberPerFormatTests
         await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, ids[6], null);
     }
 
-    // ---- 「登録から選ぶ」
+    // ---- 「登録チームから選ぶ」
 
     [Fact]
     public async Task Choice_groups_and_active_members_use_only_the_given_format()
@@ -146,14 +146,14 @@ public class TeamNumberPerFormatTests
         await repo.UseTeamAsync(Ds, BattleFormat.Doubles, 1);
 
         var singles = await repo.ChoiceGroupsAsync(Ds, data, BattleFormat.Singles);
-        Assert.Equal(new[] { "チーム1（使用中）", "チームに入っていない登録" }, singles.Select(g => g.Label));
+        Assert.Equal(new[] { "チーム1（使用中）" }, singles.Select(g => g.Label));
         Assert.Equal($"s1-{a.Id}", singles[0].Choices.Single().Key);
         var doubles = await repo.ChoiceGroupsAsync(Ds, data, BattleFormat.Doubles);
-        Assert.Equal(new[] { "チーム1（使用中）", "チームに入っていない登録" }, doubles.Select(g => g.Label));
+        Assert.Equal(new[] { "チーム1（使用中）" }, doubles.Select(g => g.Label));
         Assert.Equal($"d1-{b.Id}", doubles[0].Choices.Single().Key);   // 同じ番号でも、キーは形式ごとに別
-        // 他の形式のチームに入っているだけのポケモンは、「チームに入っていない登録」に出る
-        Assert.Equal(b.Id, singles[1].Choices.Single().Entry.Id);
-        Assert.Equal(a.Id, doubles[1].Choices.Single().Entry.Id);
+        // 他の形式のチームに入っているだけのポケモンは、出さない
+        Assert.Equal(a.Id, singles.SelectMany(g => g.Choices).Single().Entry.Id);
+        Assert.Equal(b.Id, doubles.SelectMany(g => g.Choices).Single().Entry.Id);
 
         Assert.Equal(a.Id, Assert.Single(await repo.ActiveTeamMembersAsync(Ds, data, BattleFormat.Singles)).Entry.Id);
         Assert.Equal(b.Id, Assert.Single(await repo.ActiveTeamMembersAsync(Ds, data, BattleFormat.Doubles)).Entry.Id);

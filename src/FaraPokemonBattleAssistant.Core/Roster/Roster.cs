@@ -137,7 +137,7 @@ public sealed class RegisteredPokemon
     }
 }
 
-/// <summary>「登録から選ぶ」の 1 件（登録ポケモンと、チームで持たせた持ち物）。</summary>
+/// <summary>「登録チームから選ぶ」の 1 件（登録ポケモンと、チームで持たせた持ち物）。</summary>
 public sealed record RosterChoice(string Key, RegisteredPokemon Entry, Item? Item)
 {
     public string Label => $"#{Entry.Id} {Entry.PokemonName}{(Item is null ? "" : " @" + Item.Name)}";
@@ -1032,8 +1032,8 @@ public sealed class RosterRepository
     }
 
     /// <summary>
-    /// 計算機・素早さ比較の「登録から選ぶ」用に、登録済みの構成をチームごとにまとめて返す。
-    /// チームのメンバー（チームで持たせた持ち物つき）と、どのチームにも入っていない登録ポケモンの順。
+    /// 計算機・素早さ比較の「登録チームから選ぶ」用に、そのバトル形式の登録チームのメンバーを、チームごとにまとめて返す。
+    /// 使用中のチームを先頭に、残りは番号順。チームに入っていない育成ポケモンは含めない（選びたいときは育成ポケモンのページから）。
     /// 返す構成は登録データの写しで、呼び出し側で値を変えても登録データは変わらない（<see cref="ToBuild"/>）。
     /// </summary>
     public async Task<IReadOnlyList<RosterChoiceGroup>> ChoiceGroupsAsync(string dataSetKey, PokemonDataSet data, BattleFormat format, CancellationToken ct = default)
@@ -1041,30 +1041,23 @@ public sealed class RosterRepository
         var roster = (await GetAsync(ct).ConfigureAwait(false)).For(dataSetKey);
         var byId = ById(roster.Pokemon);
         var groups = new List<RosterChoiceGroup>();
-        var inTeam = new HashSet<int>();
         var activeNumber = roster.ActiveNumber(format);
-        foreach (var team in roster.Teams.Where(t => t.BattleFormat == format).OrderBy(t => t.Number))
+        foreach (var team in roster.Teams.Where(t => t.BattleFormat == format).OrderBy(t => t.Number == activeNumber ? 0 : 1).ThenBy(t => t.Number))
         {
             var choices = new List<RosterChoice>();
             foreach (var slot in team.Slots)
             {
                 if (!byId.TryGetValue(slot.EntryId, out var entry)) continue;
-                inTeam.Add(entry.Id);
                 var item = slot.ItemId is { } iid ? data.FindItem(iid) : null;
                 choices.Add(new RosterChoice($"{ChoiceKeyPrefix(format)}{team.Number}-{entry.Id}", entry, item));
             }
             if (choices.Count > 0)
                 groups.Add(new RosterChoiceGroup($"チーム{team.Number}{(activeNumber == team.Number ? "（使用中）" : "")}", choices));
         }
-        var others = roster.Pokemon
-            .Where(p => !inTeam.Contains(p.Id))
-            .Select(p => new RosterChoice($"r{p.Id}", p, p.ItemId is { } iid ? data.FindItem(iid) : null))
-            .ToList();
-        if (others.Count > 0) groups.Add(new RosterChoiceGroup("チームに入っていない登録", others));
         return groups;
     }
 
-    /// <summary>「登録から選ぶ」の選択キーの先頭（バトル形式ごとに分ける。同じ番号のチームがシングルとダブルにあっても、キーが重ならない）。</summary>
+    /// <summary>「登録チームから選ぶ」の選択キーの先頭（バトル形式ごとに分ける。同じ番号のチームがシングルとダブルにあっても、キーが重ならない）。</summary>
     public static string ChoiceKeyPrefix(BattleFormat format) => format == BattleFormat.Doubles ? "d" : "s";
 
     /// <summary>そのバトル形式の使用中チームのメンバー（登録ポケモンと持ち物）。</summary>

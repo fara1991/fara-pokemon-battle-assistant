@@ -524,7 +524,7 @@ else if (string.IsNullOrEmpty(loadError))
         RefreshMoves();
     }
 
-    /// <summary>「登録したポケモンから選ぶ」の候補を、今の登録データから作り直す（コマンドで登録・削除したあとにも呼ぶ）。</summary>
+    /// <summary>「登録チームから選ぶ」の候補を、今の登録データから作り直す（コマンドで登録・削除したあとにも呼ぶ）。</summary>
     /// <returns>読み込めたか。読み込めなかったときは候補を今のまま残す（一時的な失敗で、選んでいた攻撃側を外さないため）。</returns>
     private async Task<bool> RefreshRegisteredAsync()
     {

@@ -101,7 +101,7 @@ public class DamagePageStateTests
         Assert.All(s.Defenders, x => Assert.Null(x));
         Assert.All(s.Moves, x => Assert.Null(x));
         Assert.All(s.AttackerRosterKeys, x => Assert.Null(x));
-        // 「登録から選ぶ」と Z 技のスイッチは、ゲームを切り替えても（これまでどおり）残る
+        // 「登録チームから選ぶ」と Z 技のスイッチは、ゲームを切り替えても（これまでどおり）残る
         Assert.True(s.ZMoves[1]);
         Assert.True(s.UseRosterAttackers[1]);
         Assert.Equal(0, s.AttackerIndex);
