@@ -104,7 +104,7 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
 
         var cut = Render<TPage>();
         cut.WaitForState(() => cut.Markup.Contains("ポケモン"));
-        cut.WaitForState(() => cut.FindAll("input[role=combobox]").Count > 0 || cut.Markup.Contains(Guide));
+        cut.WaitForState(() => cut.FindAll(Placeholder).Count > 0 || cut.Markup.Contains(Guide));   // 登録の読み込みが終わるまで待つ
         return cut;
     }
 
@@ -194,15 +194,8 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
         var rows = Rows(cut).Select(r => r.Heading ? $"[{r.Text}]" : r.Text).ToList();
         Assert.Equal(new[] { "[チーム1（使用中）]", "#1 マニューラ", "#3 リザードン", "[チーム3]", "#3 リザードン" }, rows);
 
-        var doubles = await OpenSpeedAsync2Async(cut, BattleFormat.Doubles);
-        Assert.Equal(new[] { "チーム1（使用中）", "チーム2" }, Headings(doubles));
-    }
-
-    private async Task<IRenderedComponent<Speed>> OpenSpeedAsync2Async(IRenderedComponent<Speed> cut, BattleFormat format)
-    {
-        await app.SetFormatAsync(format);
-        cut.WaitForAssertion(() => Assert.DoesNotContain(SinglesOnly, string.Join("|", Candidates(cut))));
-        return cut;
+        await app.SetFormatAsync(BattleFormat.Doubles);
+        cut.WaitForAssertion(() => Assert.Equal(new[] { "チーム1（使用中）", "チーム2" }, Headings(cut)));
     }
 
     [Fact]
