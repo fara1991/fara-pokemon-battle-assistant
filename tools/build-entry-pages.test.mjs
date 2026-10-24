@@ -330,3 +330,24 @@ test("viewport に viewport-fit=cover がある（ノッチ端末で安全領域
         }
     }
 });
+
+test("ファビコンの link は、生成した全 HTML（本番・develop。home.html・404.html を含む）に残り、参照先のファイルが wwwroot にある（/favicon.ico が無いと 404 になる）", () => {
+    const wwwroot = join(here, "..", "src", "FaraPokemonBattleAssistant.Web", "wwwroot");
+    const LINKS = [
+        /<link rel="icon" href="\/favicon\.ico" sizes="16x16 32x32 48x48" \/>/,
+        /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml" \/>/,
+        /<link rel="icon" href="\/favicon-32x32\.png" type="image\/png" sizes="32x32" \/>/,
+        /<link rel="icon" href="\/favicon-16x16\.png" type="image\/png" sizes="16x16" \/>/,
+        /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png" \/>/,
+    ];
+    for (const [label, result] of [["production", prod], ["develop", dev]]) {
+        for (const name of ["home.html", "index.html", "404.html", "damage-calculator.html", "privacy.html"]) {
+            for (const link of LINKS) assert.match(result.out.get(name), link, `${label}/${name} にファビコンの link がありません`);
+        }
+    }
+    for (const file of ["favicon.ico", "favicon.svg", "favicon-32x32.png", "favicon-16x16.png", "apple-touch-icon.png"]) {
+        assert.ok(readFileSync(join(wwwroot, file)).length > 100, `wwwroot/${file} がありません`);
+    }
+    // SVG は prefers-color-scheme で切り替えない（Safari 非対応。PNG・ICO と見た目をそろえる）
+    assert.doesNotMatch(readFileSync(join(wwwroot, "favicon.svg"), "utf8"), /prefers-color-scheme/);
+});
