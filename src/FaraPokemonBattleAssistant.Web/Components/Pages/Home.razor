@@ -29,42 +29,44 @@
 
 <MudCard Elevation="0" Class="card mt-3">
     <MudCardHeader Class="card-header fw-bold"><CardHeaderContent>機能</CardHeaderContent></MudCardHeader>
+    @* 行き先が 1 つの機能は、カード全体を押せるリンクにする（リンクの名前は機能名だけ。.home-tool-link::after がカード全体を覆う）。
+       行き先が 2 つの「育成ポケモン・自分チーム」だけは、行き先ごとのボタンのまま *@
     <ul class="home-tools home-tools-2col">
-        <li>
-            <div class="home-tool-text"><b>ダメージ計算機</b><p>努力値・性格・持ち物・特性・ランク補正・天候・フィールドなどを指定して、乱数 16 通りのダメージと確定数を出します。受けたダメージから相手の振り方を推定することもできます。</p></div>
-            <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="damage-calculator">開く</MudButton></div>
+        <li class="home-tool-card">
+            <div class="home-tool-text"><a class="home-tool-link" href="damage-calculator">ダメージ計算機</a><p>努力値・性格・持ち物・特性・ランク補正・天候・フィールドなどを指定して、乱数 16 通りのダメージと確定数を出します。受けたダメージから相手の振り方を推定することもできます。</p></div>
+            <span class="home-tool-arrow" aria-hidden="true">→</span>
         </li>
-        <li>
-            <div class="home-tool-text"><b>チャットコマンド</b><p>配信中に <code>!@(App.CommandPrefix) dmg ガブリアス じしん リザードン</code> のように打つと、配信用BOTが結果を 1 行で返します。ブラウザでも試せます。</p></div>
-            <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="chat-commands">コマンドを試す</MudButton></div>
+        <li class="home-tool-card">
+            <div class="home-tool-text"><a class="home-tool-link" href="chat-commands">チャットコマンド</a><p>配信中に <code>!@(App.CommandPrefix) dmg ガブリアス じしん リザードン</code> のように打つと、配信用BOTが結果を 1 行で返します。ブラウザでも試せます。</p></div>
+            <span class="home-tool-arrow" aria-hidden="true">→</span>
         </li>
         <li>
             <div class="home-tool-text"><b>育成ポケモン・自分チーム</b><p>育成済みのポケモンとチームを登録しておくと、計算のときに自分の構成が自動で入ります（<code>!@(App.CommandPrefix) add -m / add -t / use -t</code>）。</p></div>
             <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="my-pokemon">育成ポケモン</MudButton><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="my-team">自分チーム</MudButton></div>
         </li>
-        <li>
-            <div class="home-tool-text"><b>相手チーム</b><p>対戦中の相手を登録して、分かった振り方・性格・特性や推定をダメージ計算に使います。試合を終えると履歴に残ります（<code>!@(App.CommandPrefix) add -r / scan / clear -r</code>）。</p></div>
-            <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="my-rival">開く</MudButton></div>
+        <li class="home-tool-card">
+            <div class="home-tool-text"><a class="home-tool-link" href="my-rival">相手チーム</a><p>対戦中の相手を登録して、分かった振り方・性格・特性や推定をダメージ計算に使います。試合を終えると履歴に残ります（<code>!@(App.CommandPrefix) add -r / scan / clear -r</code>）。</p></div>
+            <span class="home-tool-arrow" aria-hidden="true">→</span>
         </li>
-        <li>
-            <div class="home-tool-text"><b>素早さ比較</b><p>2 体のポケモンの S を比べて、どちらが先に動くかを確認します（チャットでは <code>!@(App.CommandPrefix) faster</code>）。</p></div>
-            <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="speed-comparison">開く</MudButton></div>
+        <li class="home-tool-card">
+            <div class="home-tool-text"><a class="home-tool-link" href="speed-comparison">素早さ比較</a><p>2 体のポケモンの S を比べて、どちらが先に動くかを確認します（チャットでは <code>!@(App.CommandPrefix) faster</code>）。</p></div>
+            <span class="home-tool-arrow" aria-hidden="true">→</span>
         </li>
-        <li>
-            <div class="home-tool-text"><b>タイプ相性表</b><p>18 タイプの相性をアイコンで一覧できます。</p></div>
-            <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="type-chart">開く</MudButton></div>
+        <li class="home-tool-card">
+            <div class="home-tool-text"><a class="home-tool-link" href="type-chart">タイプ相性表</a><p>18 タイプの相性をアイコンで一覧できます。</p></div>
+            <span class="home-tool-arrow" aria-hidden="true">→</span>
         </li>
-        <li>
-            <div class="home-tool-text"><b>ポケモン一覧</b><p>選んでいるゲームのポケモンを全国図鑑順に一覧し、タイプ・特性・覚える技で絞り込んだり、種族値で並べ替えたりできます。</p></div>
-            <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="pokemon-list">開く</MudButton></div>
+        <li class="home-tool-card">
+            <div class="home-tool-text"><a class="home-tool-link" href="pokemon-list">ポケモン一覧</a><p>選んでいるゲームのポケモンを全国図鑑順に一覧し、タイプ・特性・覚える技で絞り込んだり、種族値で並べ替えたりできます。</p></div>
+            <span class="home-tool-arrow" aria-hidden="true">→</span>
         </li>
-        <li>
-            <div class="home-tool-text"><b>わざ一覧</b><p>選んでいるゲームの技を、タイプ・分類・威力・命中・PP・説明とあわせて一覧し、技を選ぶとその技を覚えるポケモンを調べられます。</p></div>
-            <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="move-list">開く</MudButton></div>
+        <li class="home-tool-card">
+            <div class="home-tool-text"><a class="home-tool-link" href="move-list">わざ一覧</a><p>選んでいるゲームの技を、タイプ・分類・威力・命中・PP・説明とあわせて一覧し、技を選ぶとその技を覚えるポケモンを調べられます。</p></div>
+            <span class="home-tool-arrow" aria-hidden="true">→</span>
         </li>
-        <li>
-            <div class="home-tool-text"><b>用語・略語</b><p>H・A・B・C・D・S などの略語と、種族値・努力値・確定数などの用語の意味をまとめています。</p></div>
-            <div class="home-tool-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="battle-terms">開く</MudButton></div>
+        <li class="home-tool-card">
+            <div class="home-tool-text"><a class="home-tool-link" href="battle-terms">用語・略語</a><p>H・A・B・C・D・S などの略語と、種族値・努力値・確定数などの用語の意味をまとめています。</p></div>
+            <span class="home-tool-arrow" aria-hidden="true">→</span>
         </li>
     </ul>
 </MudCard>

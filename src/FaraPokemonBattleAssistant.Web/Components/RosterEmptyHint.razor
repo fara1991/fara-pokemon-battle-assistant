@@ -1,0 +1,12 @@
+@using FaraPokemonBattleAssistant.Core.Roster
+@* この形式の登録チームが無いときの、自分チームでの作成の案内。攻撃側・防御側などの入力欄ごとではなく、ページに 1 回だけ出す。
+   読み込みに失敗したとき（Show = false）は出さない（エラーの帯が出るため）。 *@
+@if (Show && Groups.Count == 0)
+{
+    <Notice Empty="true" Class="mb-3">この形式の登録チームがありません。<a href="my-team">自分チーム</a>で作成すると、「登録チームから選ぶ」で呼び出せます。</Notice>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<RosterChoiceGroup> Groups { get; set; } = Array.Empty<RosterChoiceGroup>();
+    [Parameter] public bool Show { get; set; } = true;
+}

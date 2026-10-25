@@ -2026,9 +2026,18 @@ button.compact-cell {
     font-size: 0.55rem;
 }
 
+/* タイプ名は、アイコンの下に少し間をあけて置く。「フェアリー」など 5 文字の名前も、狭い画面（6 列）でセルの幅に収まる大きさにする */
+.compact-pick {
+    gap: 0.15rem;
+    padding-bottom: 0.25rem;
+}
+
 .compact-pick .compact-name {
-    font-size: 0.68rem;
+    max-width: 100%;
+    font-size: 0.62rem;
     font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
     white-space: nowrap;
 }
 
@@ -2781,9 +2790,17 @@ html.vt-nav .fsk-header {
         flex: 0 0 auto;
     }
 
+    /* 列の最後のカードは、列の下端まで伸ばす（入力が少ないときに、カードの下が大きく空いて左右の高さがずれないように）。
+       中身が長いときは、そのままの高さで列の中がスクロールする */
+    .calc-grid.pane-fill > .calc-col > .card:last-child {
+        flex: 1 0 auto;
+    }
+
+    /* 場の状態・結果のカードは、列の幅いっぱいにする（768px 以上の .calc-side の align-items: start が残ると、中身の幅に縮む） */
     .calc-grid.pane-fill .calc-side {
         display: flex;
         flex-direction: column;
+        align-items: stretch;
         grid-column: auto;
     }
 
@@ -3428,6 +3445,21 @@ html.vt-nav .fsk-header {
 .home-tools .home-tool-text p { margin: 0; font-size: 0.875rem; color: var(--bs-secondary-color); }
 .home-tools .home-tool-actions { flex: none; display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
 
+/* カード全体のリンク: 機能名のリンクの ::after を、カード（li）いっぱいに広げる */
+.home-tools .home-tool-card { position: relative; transition: background-color 0.15s ease; }
+.home-tools .home-tool-card:hover { background: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent); }
+.home-tools .home-tool-link { display: block; font-weight: 700; color: inherit; text-decoration: none; }
+.home-tools .home-tool-link::after { content: ""; position: absolute; inset: 0; }
+.home-tools .home-tool-card:hover .home-tool-link { color: var(--mud-palette-primary); text-decoration: underline; text-underline-offset: 3px; }
+.home-tools .home-tool-link:focus-visible { outline: none; }
+.home-tools .home-tool-link:focus-visible::after { outline: 2px solid var(--mud-palette-primary); outline-offset: -3px; border-radius: 4px; }
+.home-tools .home-tool-arrow { flex: none; color: var(--mud-palette-primary); font-weight: 700; transition: transform 0.15s ease; }
+.home-tools .home-tool-card:hover .home-tool-arrow { transform: translateX(3px); }
+
+@media (prefers-reduced-motion: reduce) {
+    .home-tools .home-tool-card, .home-tools .home-tool-arrow { transition: none; }
+}
+
 @media (min-width: 992px) {
     .home-tools-2col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .home-tools-2col li:nth-child(2) { border-top: 0; }
@@ -3435,7 +3467,7 @@ html.vt-nav .fsk-header {
 }
 
 @media (max-width: 575.98px) {
-    .home-tools li { flex-wrap: wrap; }
+    .home-tools li:not(.home-tool-card) { flex-wrap: wrap; }
     .home-tools .home-tool-actions { justify-content: flex-start; }
 }
 
@@ -3870,13 +3902,19 @@ body {
         overflow: visible;
     }
 
+    /* 本文が短いページでも、フッターが画面の途中に浮かず、画面の下端に来るようにする（本文が伸びて残りを埋める） */
     .fsk-page .mud-main-content {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
         height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
     }
 
     .fsk-page .mud-main-content > main {
         display: block;
+        flex: 1 0 auto;
     }
 
     .fsk-content {

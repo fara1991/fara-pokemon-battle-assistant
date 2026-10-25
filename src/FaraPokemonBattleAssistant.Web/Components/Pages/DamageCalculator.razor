@@ -38,13 +38,14 @@ else if (data is not null && dataSet is not null)
             <strong>相手の振り方を推定</strong><small>受けたダメージ → 相手の@(EvRules.Label(dataSet.EvSystem))・性格を逆算</small>
         </button>
     </div>
+    <RosterEmptyHint Groups="rosterGroups" Show="@(string.IsNullOrEmpty(rosterError))" />
     <div class="calc-grid pane-fill @(s.Result is not null && !s.EstimateMode ? "has-result-bar" : "")">
         <div class="calc-col">
             @if (Doubles) { <SlotPicker Title="自分側" Names="@SlotNames(true)" Selected="s.AttackerIndex" SelectedChanged="SelectAttacker" /> }
             <MudCard Elevation="0" Class="card">
                 <MudCardHeader Class="card-header"><CardHeaderContent><h5>攻撃側@(Doubles ? $"（自分側 {s.AttackerIndex + 1}体目）" : "")</h5></CardHeaderContent></MudCardHeader>
                 <MudCardContent Class="card-body">
-                    <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterAttacker" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
+                    <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterAttacker" />
                     <div class="form-group mb-2">
                         <label>ポケモン <Help Title="ポケモン">名前の一部（ひらがな・ローマ字でも可。例: ie → イエッサン）で絞り込めます。図鑑順に並んでいます。「登録チームから選ぶ」をオンにすると、登録したポケモンだけから選べます。</Help></label>
                         @if (s.UseRosterAttacker && rosterGroups.Count > 0)
@@ -104,7 +105,7 @@ else if (data is not null && dataSet is not null)
             <MudCard Elevation="0" Class="card">
                 <MudCardHeader Class="card-header"><CardHeaderContent><h5>防御側@(Doubles ? $"（相手側 {s.DefenderIndex + 1}体目）" : "")</h5></CardHeaderContent></MudCardHeader>
                 <MudCardContent Class="card-body">
-                    <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterDefender" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
+                    <RosterSwitch Groups="rosterGroups" @bind-Enabled="s.UseRosterDefender" />
                     <div class="form-group mb-2">
                         <label>ポケモン</label>
                         @if (s.UseRosterDefender && rosterGroups.Count > 0)

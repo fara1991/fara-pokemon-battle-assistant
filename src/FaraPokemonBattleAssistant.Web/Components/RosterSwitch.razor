@@ -1,6 +1,6 @@
 @using FaraPokemonBattleAssistant.Core.Roster
 @* 「登録チームから選ぶ」のスイッチ（MudBlazor の MudSwitch）。オンにすると、ポケモンの入力欄の候補が登録済みのポケモンだけになる（RosterPokemonSelect）。
-   この形式の登録チームが無ければスイッチは出さず、自分チームでの作成の案内だけを出す。 *@
+   この形式の登録チームが無ければスイッチは出さない（作成の案内は、ページに 1 回だけ RosterEmptyHint で出す）。 *@
 @if (Groups.Count > 0)
 {
     <div class="roster-switch mb-2">
@@ -8,15 +8,9 @@
         <Help Title="登録チームから選ぶ">オンにすると、ポケモンの候補が登録済みのポケモン（ヘッダーのバトル形式の登録チームのメンバー。チームに入っていない育成ポケモンは出ません）だけになり、選ぶと登録した性格・努力値（ポイント）・特性と、チームで持たせた持ち物が入ります。入れたあとに値を変えても、登録データは変わりません。オフのときは、すべてのポケモンから選べます。</Help>
     </div>
 }
-else if (ShowEmptyHint)
-{
-    <Notice Empty="true" Class="mb-2">この形式の登録チームがありません。<a href="my-team">自分チーム</a>で作成してください。</Notice>
-}
 
 @code {
     [Parameter] public IReadOnlyList<RosterChoiceGroup> Groups { get; set; } = Array.Empty<RosterChoiceGroup>();
     [Parameter] public bool Enabled { get; set; }
     [Parameter] public EventCallback<bool> EnabledChanged { get; set; }
-    /// <summary>登録が無いときに案内を出すか（読み込みに失敗したときは出さない）。</summary>
-    [Parameter] public bool ShowEmptyHint { get; set; } = true;
 }
