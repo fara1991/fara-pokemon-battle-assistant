@@ -72,7 +72,10 @@ jobs:
       - name: Pack Core
         run: dotnet pack src/FaraPokemonBattleAssistant.Core --configuration Release --no-build --output artifacts/nuget
 
+      # 保存するのは develop / master への push と、手動実行のときだけ（作業ブランチ・Pull Request の実行では保存しない。
+      # 成果物の容量はアカウント全体で共有で、上限に達するとほかのサイトの公開まで止まるため）。パッケージを作れることの確認（Pack Core）は毎回行う
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/master'))
         with:
           name: FaraPokemonBattleAssistant.Core-nupkg
           path: artifacts/nuget/*.nupkg
