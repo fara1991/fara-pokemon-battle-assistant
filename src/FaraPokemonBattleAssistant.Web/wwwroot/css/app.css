@@ -2026,9 +2026,18 @@ button.compact-cell {
     font-size: 0.55rem;
 }
 
+/* タイプ名は、アイコンの下に少し間をあけて置く。「フェアリー」など 5 文字の名前も、狭い画面（6 列）でセルの幅に収まる大きさにする */
+.compact-pick {
+    gap: 0.15rem;
+    padding-bottom: 0.25rem;
+}
+
 .compact-pick .compact-name {
-    font-size: 0.68rem;
+    max-width: 100%;
+    font-size: 0.62rem;
     font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
     white-space: nowrap;
 }
 
@@ -2781,9 +2790,17 @@ html.vt-nav .fsk-header {
         flex: 0 0 auto;
     }
 
+    /* 列の最後のカードは、列の下端まで伸ばす（入力が少ないときに、カードの下が大きく空いて左右の高さがずれないように）。
+       中身が長いときは、そのままの高さで列の中がスクロールする */
+    .calc-grid.pane-fill > .calc-col > .card:last-child {
+        flex: 1 0 auto;
+    }
+
+    /* 場の状態・結果のカードは、列の幅いっぱいにする（768px 以上の .calc-side の align-items: start が残ると、中身の幅に縮む） */
     .calc-grid.pane-fill .calc-side {
         display: flex;
         flex-direction: column;
+        align-items: stretch;
         grid-column: auto;
     }
 
@@ -3870,13 +3887,19 @@ body {
         overflow: visible;
     }
 
+    /* 本文が短いページでも、フッターが画面の途中に浮かず、画面の下端に来るようにする（本文が伸びて残りを埋める） */
     .fsk-page .mud-main-content {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
         height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
     }
 
     .fsk-page .mud-main-content > main {
         display: block;
+        flex: 1 0 auto;
     }
 
     .fsk-content {

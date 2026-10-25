@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Bunit;
 using FaraPokemonBattleAssistant.Core.Data;
 using FaraPokemonBattleAssistant.Core.Models;
@@ -214,7 +215,7 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
     {
         var cut = await OpenSpeedAsync(BattleFormat.Singles, withTeams: false);
 
-        Assert.Contains(Guide, cut.Markup);
+        Assert.Single(Regex.Matches(cut.Markup, Guide));   // 左右の入力欄ごとではなく、ページに 1 回だけ
         Assert.Contains("自分チーム", cut.Markup);
         Assert.Empty(cut.FindAll(Placeholder));
         Assert.DoesNotContain(Unassigned, cut.Markup);   // チームに入っていない育成ポケモンは出ない
@@ -261,7 +262,7 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
     {
         var cut = await OpenDamageAsync(BattleFormat.Doubles, withTeams: false);
 
-        Assert.Contains(Guide, cut.Markup);
+        Assert.Single(Regex.Matches(cut.Markup, Guide));   // 攻撃側・防御側ごとではなく、ページに 1 回だけ
         Assert.Empty(cut.FindAll(Placeholder));
         Assert.DoesNotContain(Unassigned, cut.Markup);
     }

@@ -170,7 +170,10 @@ public class MobileLayoutTests
         var css = Read(Web, "wwwroot", "css", "app.css");
         var mobile = Section(css, "@media (max-width: 767.98px) {\n    /* kit は、スマホでも", "/* 対戦画面を出している間は");
         Assert.Contains(".fsk-page.mud-layout {\n        height: auto;\n        min-height: 100vh;\n        overflow: visible;", mobile);
-        Assert.Contains(".fsk-page .mud-main-content {\n        display: block;\n        height: auto;", mobile);
+        Assert.Contains(".fsk-page .mud-main-content {\n        display: flex;\n        flex-direction: column;\n        box-sizing: border-box;\n        height: auto;", mobile);
+        // 本文が短いページでも、フッターが画面の下端に来る（本文の領域を画面の高さ以上にし、main が残りを埋める）
+        Assert.Contains("min-height: 100dvh;", mobile);
+        Assert.Contains(".fsk-page .mud-main-content > main {\n        display: block;\n        flex: 1 0 auto;", mobile);
         Assert.Contains("overflow-y: visible;", mobile);
         Assert.Contains("html.fsk-sidebar-hidden .fsk-page .mud-main-content {\n        margin-left: 0 !important;", mobile);
     }

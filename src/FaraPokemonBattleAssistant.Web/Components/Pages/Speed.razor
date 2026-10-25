@@ -28,6 +28,7 @@
 else if (data is not null && dataSet is not null)
 {
     var both = Doubles ? s.Builds.Take(SlotCount).Count(x => x is not null) >= 2 : s.Builds[0] is not null && s.Builds[1] is not null;
+    <RosterEmptyHint Groups="rosterGroups" Show="@(string.IsNullOrEmpty(rosterError))" />
     <div class="calc-grid pane-fill @(both ? "has-result-bar" : "")">
         <div class="calc-col">
             @if (Doubles) { <SlotPicker Title="自分側" Names="@SlotNames(0)" Selected="s.MineIndex" SelectedChanged="@(i => s.MineIndex = i)" /> }
@@ -456,7 +457,7 @@ else if (string.IsNullOrEmpty(loadError))
         <MudCard Elevation="0" Class="card">
             <MudCardHeader Class="card-header"><CardHeaderContent><h5>@SideTitle(side)</h5></CardHeaderContent></MudCardHeader>
             <MudCardContent Class="card-body">
-                <RosterSwitch Groups="rosterGroups" Enabled="s.UseRoster[side]" EnabledChanged="@(v => s.UseRoster[side] = v)" ShowEmptyHint="@(string.IsNullOrEmpty(rosterError))" />
+                <RosterSwitch Groups="rosterGroups" Enabled="s.UseRoster[side]" EnabledChanged="@(v => s.UseRoster[side] = v)" />
                 <div class="form-group mb-2">
                     <label>ポケモン</label>
                     @if (s.UseRoster[side] && rosterGroups.Count > 0)
