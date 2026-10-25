@@ -3445,6 +3445,21 @@ html.vt-nav .fsk-header {
 .home-tools .home-tool-text p { margin: 0; font-size: 0.875rem; color: var(--bs-secondary-color); }
 .home-tools .home-tool-actions { flex: none; display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
 
+/* カード全体のリンク: 機能名のリンクの ::after を、カード（li）いっぱいに広げる */
+.home-tools .home-tool-card { position: relative; transition: background-color 0.15s ease; }
+.home-tools .home-tool-card:hover { background: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent); }
+.home-tools .home-tool-link { display: block; font-weight: 700; color: inherit; text-decoration: none; }
+.home-tools .home-tool-link::after { content: ""; position: absolute; inset: 0; }
+.home-tools .home-tool-card:hover .home-tool-link { color: var(--mud-palette-primary); text-decoration: underline; text-underline-offset: 3px; }
+.home-tools .home-tool-link:focus-visible { outline: none; }
+.home-tools .home-tool-link:focus-visible::after { outline: 2px solid var(--mud-palette-primary); outline-offset: -3px; border-radius: 4px; }
+.home-tools .home-tool-arrow { flex: none; color: var(--mud-palette-primary); font-weight: 700; transition: transform 0.15s ease; }
+.home-tools .home-tool-card:hover .home-tool-arrow { transform: translateX(3px); }
+
+@media (prefers-reduced-motion: reduce) {
+    .home-tools .home-tool-card, .home-tools .home-tool-arrow { transition: none; }
+}
+
 @media (min-width: 992px) {
     .home-tools-2col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .home-tools-2col li:nth-child(2) { border-top: 0; }
@@ -3452,7 +3467,7 @@ html.vt-nav .fsk-header {
 }
 
 @media (max-width: 575.98px) {
-    .home-tools li { flex-wrap: wrap; }
+    .home-tools li:not(.home-tool-card) { flex-wrap: wrap; }
     .home-tools .home-tool-actions { justify-content: flex-start; }
 }
 
