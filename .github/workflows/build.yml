@@ -76,6 +76,8 @@ jobs:
         with:
           name: FaraPokemonBattleAssistant.Core-nupkg
           path: artifacts/nuget/*.nupkg
+          # 保存期間は 3 日（bot-moderator が CI の .nupkg を参照する手順があるため、既定の 90 日から短縮。docs/bot-integration.md 参照）
+          retention-days: 3
 
   worker:
     # データ共有 API（worker/index.js）を wrangler dev で起動して確認する
