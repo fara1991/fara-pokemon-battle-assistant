@@ -1,8 +1,9 @@
 name: Build and test
 
 on:
+  # PR の間は pull_request の 1 回だけ動かす（作業ブランチへの push では動かさない）。develop・master に入ったときは push で動く
   push:
-    branches-ignore: [gh-pages]
+    branches: [develop, master]
   pull_request:
   workflow_dispatch:
 
