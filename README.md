@@ -276,7 +276,7 @@ CI の `build.yml` の `lint` job（ESLint）と `layout-check` job（計測）�
 - ルートの収集範囲: `Components/**/*.razor` の `@page` だけです（`bin`・`obj` は除く）。`@attribute [Route]`・`.razor.cs`・`.cshtml` でのルート定義、`App.razor` の `AdditionalAssemblies` は取りこぼすので使えません（`tools/build-entry-pages.test.mjs` が見つけると失敗します）。
 - 有効なルートの HTML が無いと、そのページが 404 のステータスで返ります（見た目は Blazor が描くので使えますが、検索には載りません）。公開前に `check:routes` が止めます。
 
-初回だけ、リポジトリの **Settings → Secrets and variables → Actions** に次を登録してください（値は fara-portfolio-site と同じものを使えます）。
+初回だけ、リポジトリの **Settings → Secrets and variables → Actions** に次を登録してください（値は fara-labs と同じものを使えます）。
 
 | タブ | 名前 | 値 |
 |---|---|---|
