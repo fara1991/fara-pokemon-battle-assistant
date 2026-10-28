@@ -3142,7 +3142,7 @@ html.vt-nav .fsk-header {
 @media (max-width: 767.98px) {
     .fsk-sidebar .side-battle { display: none; }
     .top-battle {
-        display: inline-flex; margin: 0 0 0 auto; padding: 0; color: rgba(255, 255, 255, 0.85);
+        display: inline-flex; flex: none; margin: 0 0 0 auto; padding: 0; color: rgba(255, 255, 255, 0.85);
     }
     .top-battle.mud-switch { flex-direction: column; align-items: center; }
     .top-battle .mud-typography, .top-battle .mud-switch-label { font-size: 0.68rem; line-height: 1; white-space: nowrap; color: rgba(255, 255, 255, 0.85); }
@@ -4779,12 +4779,33 @@ html:root {
         min-width: 44px;
         min-height: 44px;
     }
+    /* ブランドは block のまま（inline-flex にすると、text-overflow の …が出ず、右の要素の下まで文字が伸びる）。
+       触れる範囲は、上下に透明な余白（padding）を足して 44px にする（見た目の位置は変えない） */
     .fsk-brand {
-        min-height: 44px;
-        display: inline-flex;
-        align-items: center;
+        padding-block: 12px;
+        margin-block: -12px;
     }
     .mud-drawer .mud-nav-link {
         min-height: 44px;
     }
+}
+
+/* ---- レイアウトレビュー2（360px の 44px）: 説明ボタン・入力欄・ボタン・ツールへのリンクの押せる範囲を 44px 以上にする。
+   説明ボタン（help-btn。17.6px）は、負の余白で周りの並びを動かさずに押せる範囲だけ広げる ---- */
+@media (max-width: 575.98px) {
+    /* 見た目の大きさは変えず、透明な当たり判定（::before）を周りに広げて、押せる範囲を 44px 以上にする */
+    .help-wrap .help-btn.mud-icon-button { position: relative; }
+    .help-wrap .help-btn.mud-icon-button::before {
+        content: "";
+        position: absolute;
+        inset: -13px;
+    }
+    .home-tool-link { min-height: 44px; display: flex; align-items: center; }
+    .form-control,
+    .form-select,
+    .form-control-sm { min-height: 44px; }
+    .mud-button-root.mud-button-outlined,
+    .mud-button-root.mud-button-filled { min-height: 44px; }
+    .dex-type-btn { min-width: 44px; min-height: 44px; }
+    .fsk-footer a:not(.fsk-footer-social) { min-height: 44px; display: inline-flex; align-items: center; }
 }
