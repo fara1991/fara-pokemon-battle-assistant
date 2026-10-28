@@ -250,11 +250,12 @@ try {
   check("my-pokemon の PUT は相手チームを消さない", (await req("PUT", P, rkey, { baseRevision: 2, dataSets: { Champions: { pokemon: [mon(1, "ガブリアス")] } } })).status === 200
     && same((await req("GET", R, rkey)).json?.dataSets?.Champions?.history, history1));
   check("DELETE /api/my/rival は 405", (await req("DELETE", R, rkey)).status === 405);
-  // 次の試合の Id が大きすぎるときは、黙って無視せず 400（何も変えない）
-  const revBefore = (await req("GET", R, rkey)).json?.revision;
-  const bigNext = await req("PUT", R, rkey, { baseRevision: revBefore, dataSets: { Champions: { rivals: [], nextMatchId: 999999 } } });
-  check("nextMatchId が大きすぎる PUT my-rival は 400 invalid_next_match_id", bigNext.status === 400 && bigNext.json?.error === "invalid_next_match_id", bigNext.text);
-  check("400 のときは revision も内容も変わらない", (await req("GET", R, rkey)).json?.revision === revBefore);
+  // 次の試合の Id が大きすぎるときは、400 にせず、その Id だけを無視して保存する（古い版・BOT が遠い値を送っても、相手チームの保存を止めない）
+  const beforeBig = await req("GET", R, rkey);
+  const nmBefore = beforeBig.json?.dataSets?.Champions?.nextMatchId;
+  const bigNext = await req("PUT", R, rkey, { baseRevision: beforeBig.json?.revision, dataSets: { Champions: { rivals: [], nextMatchId: 999999 } } });
+  check("nextMatchId が大きすぎる PUT my-rival は 200 で nextMatchIgnored: true（revision は進む）", bigNext.status === 200 && bigNext.json?.nextMatchIgnored === true && bigNext.json?.revision === beforeBig.json?.revision + 1, bigNext.text);
+  check("無視した nextMatchId は反映されない", (await req("GET", R, rkey)).json?.dataSets?.Champions?.nextMatchId === nmBefore);
 
   // 試合の履歴（/api/my/history。SQLite の表。revision は増えない。テストでは HISTORY_LIMIT=3 で上限を小さくしている）
   const H = "/api/my/history";

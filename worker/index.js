@@ -24,6 +24,7 @@
 //          PUT の応答（409 の本文）にも同じ指定が使える。
 //   PUT    /api/my/rival の history は省略できる。あるときは「次の Id 以降の、まだ無い試合」を足すだけで、消したり置き換えたりはしない
 //          （古い版のクライアントが書き戻しても、履歴が消えない。古い版は履歴を消せない）。足せなかった試合の数は応答の historyIgnored。
+//          "nextMatchId" が今の次の Id から 1,000 を超えて離れているときは、その値だけを無視して（400 にせず）ほかは保存し、応答に nextMatchIgnored: true。
 //          履歴の本体は下の /api/my/history。
 //   GET    /api/my/history?dataSet=K[&limit=n][&before=Id]  → 200 {"total": 件数, "items": [試合…新しい順], "hasMore": bool}
 //   GET    /api/my/history?dataSet=K&id=n                   → 200 {"total": 件数, "item": 試合} / 404
@@ -844,12 +845,6 @@ export class RosterSlot extends DurableObject {
     const s = await this.#read();
     if (s.deleted) return this.#gone();
     if (baseRevision !== s.revision) return plain(409, this.#view("rival", s.revision, s.roster, historyLimit));
-    // 次の試合の Id が大きすぎる依頼は、黙って無視せず、何も変えずに 400 にする（書き込みの前に確かめる）
-    for (const [requested, { nextMatchId }] of Object.entries(values)) {
-      const h = findDataSetKey(s.roster, requested).toLowerCase();
-      if (nextMatchId && nextMatchId > this.#nextId(h) + MAX_ID_JUMP)
-        return plainError(400, "invalid_next_match_id", `nextMatchId は今の次の Id（${this.#nextId(h)}）から ${MAX_ID_JUMP} 以内にしてください`);
-    }
     const matches = [];
     for (const [requested, { rivals, nextId, history, nextMatchId }] of Object.entries(values)) {
       const key = findDataSetKey(s.roster, requested);
@@ -862,11 +857,17 @@ export class RosterSlot extends DurableObject {
     const text = this.#serialize(s.roster);
     if (text === null) return plainTooLarge();
     let ignored = 0;
+    let nextMatchIgnored = false;
     for (const [h, history, nextMatchId] of matches) {
       if (history) ignored += this.#addUnknownMatches(h, history);
+      // 次の試合の Id が次の Id から離れすぎているときは、その Id だけを無視する（相手チームの保存は止めない）
       if (nextMatchId && nextMatchId <= this.#nextId(h) + MAX_ID_JUMP) this.#raiseNextId(h, nextMatchId);
+      else if (nextMatchId) nextMatchIgnored = true;
     }
-    return this.#commit(s.revision, text, ignored > 0 ? { historyIgnored: ignored } : undefined);
+    const extra = {};
+    if (ignored > 0) extra.historyIgnored = ignored;
+    if (nextMatchIgnored) extra.nextMatchIgnored = true;
+    return this.#commit(s.revision, text, Object.keys(extra).length > 0 ? extra : undefined);
   }
 
   /** 古い版が書き戻した試合のうち、足せるものだけを足す。足さなかった試合の数を返す。 */
