@@ -107,6 +107,12 @@ var roster = new RosterRepository(store);
 - `PokeCommand.ExecuteAsync` / `TryExecuteAsync` はこれらの例外を受け止めて「失敗しました: アクセスキーが正しくありません」のような結果を返します（チャットにそのまま返せます）
 - サイトでキーを作り直すと（`DELETE /api/my/access-key`）、古いキーは `KeyRetired` になります。新しいキーを設定し直してください
 - キーの作り直し（サイト側の処理）の API: `RemoteRosterStore.DeleteIfHistoryUnchangedAsync(expect, ct)` は従来どおり（履歴の状態だけを確かめて消す）。登録データの版も確かめるときは、新しいオーバーロード `DeleteIfUnchangedAsync(expect, long? expectRevision, ct)` を使います（`expectRevision` が `null` のときは版を見ない）。違えば `HistoryChangedException` で、`CurrentRevision`（今の版。サーバーが返さなかったときは `null`）と `Current`（今の履歴の状態）が入ります。ボットから作り直しを行う場合は、登録データを読んだ版（`RemoteRosterStore.Revision`）を `expectRevision` に渡してください
+- **アクセスキーの作り直しは `RosterRotation`（`Core/Roster/RosterRotation.cs`）を使ってください**（サイトと同じ処理。版が `null` の 409 も、登録データを写し直してから消す。写し直しは最大 `RosterRotation.MaxRetries`（5）回）。手順は 2 段階です。
+  1. `RosterRotation.PrepareAsync(HttpClient http, string apiBaseUrl, string oldKey, CancellationToken ct = default)` → `RosterRotationPlan`（登録データ・相手チーム・履歴を新しいキーへ写す。古いキーは消さない。失敗したら新しいキーを消して例外 `RosterUnavailableException`）
+  2. 新しいキー（`plan.NewKey`）を保存したあとに、`RosterRotation.FinishAsync(http, apiBaseUrl, plan, ct)` → `RosterRotationResult`（`OldKeyDeleted` が false のときは、`Stop` が `RetriesExhausted`（上限まで変わり続けた）か `Failed`。古いキーは残っています）
+  - 新しいキーを保存できなかったら `RosterRotation.DiscardAsync(http, apiBaseUrl, newKey, ct)` で新しいキーの置き場を消します（`bool` は消せたか）
+  - `apiBaseUrl` は `RemoteRosterStore.ProductionBaseUrl` / `DevelopBaseUrl`。`RosterRotationPlan` は `OldKey`・`NewKey` を持ちますが、`ToString()` には出しません（キーはパスワードと同じ扱い）
+  - ボットの作り直し処理（`PokemonSyncKeyController` の `PrepareRotateAsync` / `FinishRotateAsync`）は、この API に置き換えられます（ボット側の作業）。`RemoteRosterStore.DeleteIfUnchangedAsync` は、これまでどおり直接使えます
 - 確認用サイト（`RemoteRosterStore.DevelopBaseUrl`）は Cloudflare Access の内側なので、`/api/*`（登録データの `/api/my/*` とゲームデータの `/api/game/*`）を Access の **Bypass** にしておく必要があります
 
 ## 3. チャットメッセージをさばく

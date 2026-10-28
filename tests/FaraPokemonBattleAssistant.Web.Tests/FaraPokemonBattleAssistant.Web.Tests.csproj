@@ -23,6 +23,7 @@
   <ItemGroup>
     <!-- データ共有 API の偽サーバー（Core.Tests と共有） -->
     <Compile Include="..\FaraPokemonBattleAssistant.Core.Tests\FakeRosterServer.cs" Link="FakeRosterServer.cs" />
+    <Compile Include="..\FaraPokemonBattleAssistant.Core.Tests\KeyRoutedServer.cs" Link="KeyRoutedServer.cs" />
   </ItemGroup>
 
 </Project>
