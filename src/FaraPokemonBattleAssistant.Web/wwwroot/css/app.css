@@ -2116,6 +2116,20 @@ button.compact-cell {
     }
 }
 
+/* 読み込み中の骨格（スマホ）。一覧・更新履歴が届いて入ると、下のフッターが大きく動く（CLS）。
+   読み込み中は最初の画面の高さを取っておき、フッターを画面の外に置く。届いた後に動くのは画面の外だけになる（PC は枠の中で動かないので対象外） */
+@media (max-width: 767.98px) {
+    .load-skeleton {
+        min-height: 100vh;
+        min-height: 100svh;
+    }
+
+    /* 図鑑の説明文は、データが届くと（ゲーム名・世代の文が入って）3 行になる。読み込み前も 3 行ぶんの高さを取り、届いた後に見出しの下が伸びないようにする */
+    .dex-intro {
+        min-height: 4.5em;
+    }
+}
+
 .dex-row {
     display: grid;
     grid-template-columns: 3.4rem minmax(12.5rem, 1.3fr) 4.6rem minmax(8rem, 2fr) repeat(6, 3rem) 3.6rem;
