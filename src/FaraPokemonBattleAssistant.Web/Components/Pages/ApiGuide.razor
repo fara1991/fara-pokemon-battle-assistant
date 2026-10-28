@@ -28,7 +28,7 @@
                     <tr><td><code>POST /api/my/history</code></td><td>終わった試合を履歴に足します（Id はサーバーが割り当てます）</td></tr>
                     <tr><td><code>DELETE /api/my/history</code></td><td>履歴の 1 試合を消します（新しい N 件を残して消すこともできます）</td></tr>
                     <tr><td><code>PUT /api/my/team</code></td><td>チームと使用中のチーム（<code>activeTeams</code>: シングル・ダブルそれぞれ）を保存します（登録に無いポケモン・7 体以上・同じ形式での同じ番号は受け付けません）</td></tr>
-                    <tr><td><code>DELETE /api/my/access-key</code></td><td>このアクセスキーを使えなくし、データ（履歴も）を消します（アクセスキーの作り直し・データ共有の解除用）</td></tr>
+                    <tr><td><code>DELETE /api/my/access-key</code></td><td>このアクセスキーを使えなくし、データ（履歴も）を消します（アクセスキーの作り直し・データ共有の解除用）。<code>?expect=</code>（履歴の状態）と <code>&amp;revision=</code>（登録データの版）を付けると、写した時点から変わっていないときだけ消し、変わっていれば <code>409</code> を返します</td></tr>
                 </tbody>
             </table>
         </div>

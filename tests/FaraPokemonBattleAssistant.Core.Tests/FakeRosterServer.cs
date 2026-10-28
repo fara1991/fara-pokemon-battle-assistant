@@ -56,17 +56,21 @@ internal sealed class FakeRosterServer : HttpMessageHandler
 
         if (path == "/api/my/access-key")
         {
-            // ?expect=ゲーム:件数:次の Id,…（本物と同じ。履歴の状態が違えば消さずに 409 changed）
-            if (HttpUtility.ParseQueryString(request.RequestUri!.Query)["expect"] is { } expect && !Deleted)
+            // ?expect=ゲーム:件数:次の Id,…・&revision=n（本物と同じ。履歴の状態か版が違えば消さずに 409 changed）
+            var query = HttpUtility.ParseQueryString(request.RequestUri!.Query);
+            if (!Deleted && (query["expect"] is not null || query["revision"] is not null))
             {
                 var current = RosterRepository.Deserialize(RosterJson).DataSets.Where(kv => kv.Value.History.Count > 0)
                     .Select(kv => $"{kv.Key.ToLowerInvariant()}:{kv.Value.History.Count}:{kv.Value.NextMatchId}").OrderBy(x => x, StringComparer.Ordinal).ToList();
-                var wanted = expect.Length == 0 ? new List<string>() : expect.Split(',').OrderBy(x => x, StringComparer.Ordinal).ToList();
-                if (!current.SequenceEqual(wanted))
+                var wanted = query["expect"] is not { } expect ? current
+                    : expect.Length == 0 ? new List<string>() : expect.Split(',').OrderBy(x => x, StringComparer.Ordinal).ToList();
+                var historySame = current.SequenceEqual(wanted);
+                var revisionSame = query["revision"] is not { } rev || rev == Revision.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                if (!historySame || !revisionSame)
                 {
                     var sets = new JsonArray(RosterRepository.Deserialize(RosterJson).DataSets.Where(kv => kv.Value.History.Count > 0)
                         .Select(kv => (JsonNode)new JsonObject { ["dataSet"] = kv.Key.ToLowerInvariant(), ["total"] = kv.Value.History.Count, ["nextId"] = kv.Value.NextMatchId }).ToArray());
-                    return Json(HttpStatusCode.Conflict, new JsonObject { ["error"] = "changed", ["dataSets"] = sets }.ToJsonString());
+                    return Json(HttpStatusCode.Conflict, new JsonObject { ["error"] = "changed", ["dataSets"] = sets, ["revision"] = Revision }.ToJsonString());
                 }
             }
             Revision = 0;

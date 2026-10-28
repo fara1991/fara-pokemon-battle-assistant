@@ -120,12 +120,14 @@
     {
         if (!showDropdown) return;
         // PC ではスクロール枠で切れないよう、画面基準で置く（wwwroot/js/page.js）
+        // 配置できないときは、画面の基準の位置のまま開く（JSException は JS が使えない・回線切れのときの想定内の例外。それ以外は捕まえない）
         try { await JS.InvokeVoidAsync("faraPlaceDropdown", listId); }
         catch (JSException) { }
         if (!scrollPending) return;
         scrollPending = false;
         if (highlight >= 0)
         {
+            // スクロールできないだけなので無視する（JSException は想定内。それ以外は捕まえない）
             try { await JS.InvokeVoidAsync("faraScrollIntoView", ItemId(highlight)); }
             catch (JSException) { }
         }

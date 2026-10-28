@@ -63,10 +63,19 @@ public sealed partial class RemoteRosterStore : IMatchHistory
     /// このアクセスキーを使えなくし、置き場を消す。ただし、履歴の状態が <paramref name="expect"/>（写した時点の状態）と同じときだけ。
     /// 違うときは何も消さずに <see cref="HistoryChangedException"/>（キーの作り直しで、写している間に足された試合を取りこぼさないため）。
     /// </summary>
-    public async Task DeleteIfHistoryUnchangedAsync(IReadOnlyDictionary<string, HistoryTotal> expect, CancellationToken ct = default)
+    public Task DeleteIfHistoryUnchangedAsync(IReadOnlyDictionary<string, HistoryTotal> expect, CancellationToken ct = default) =>
+        DeleteIfUnchangedAsync(expect, null, ct);
+
+    /// <summary>
+    /// <see cref="DeleteIfHistoryUnchangedAsync"/> の版つき版。履歴の状態に加えて、登録データの版（<paramref name="expectRevision"/>）も同じときだけ消す
+    /// （null なら版は見ない）。登録データを写したあとに、古いキーへ別の端末・BOT が登録を書いていたときに消さないため。
+    /// 違うときは <see cref="HistoryChangedException"/>（<see cref="HistoryChangedException.CurrentRevision"/> に今の版）。
+    /// </summary>
+    public async Task DeleteIfUnchangedAsync(IReadOnlyDictionary<string, HistoryTotal> expect, long? expectRevision, CancellationToken ct = default)
     {
         var query = string.Join(",", expect.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key.ToLowerInvariant()}:{kv.Value.Total}:{kv.Value.NextId}"));
-        var uri = new Uri(_accessKeyEndpoint + "?expect=" + Uri.EscapeDataString(query));
+        var revisionQuery = expectRevision is { } rev ? "&revision=" + rev.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+        var uri = new Uri(_accessKeyEndpoint + "?expect=" + Uri.EscapeDataString(query) + revisionQuery);
         using var response = await SendAsync(HttpMethod.Delete, uri, null, ct).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NoContent)
         {
@@ -79,7 +88,7 @@ public sealed partial class RemoteRosterStore : IMatchHistory
             var root = doc.RootElement;
             if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String && error.GetString() == "changed"
                 && root.TryGetProperty("dataSets", out var sets) && sets.ValueKind == JsonValueKind.Array)
-                throw new HistoryChangedException(ReadTotals(sets));
+                throw new HistoryChangedException(ReadTotals(sets), TryGetRevision(root, out var current) ? current : null);
             throw InvalidResponse();
         }
         throw await UnavailableAsync(response, ct).ConfigureAwait(false);
