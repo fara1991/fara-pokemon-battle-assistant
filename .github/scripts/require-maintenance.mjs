@@ -4,12 +4,13 @@
 //   node .github/scripts/require-maintenance.mjs <Worker 名>
 //   必要な環境変数: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID（公開に使っているものと同じ。Workers Scripts の読み取りができること）
 //   SKIP_MAINTENANCE_CHECK=true のときは、確かめずに通す（緊急の修正を、お知らせなしで公開したいとき。ワークフローの手動実行の入力から渡す）
+//   ALLOW_MISSING_WORKER=1（または true）のときだけ、Worker がまだ無い（404）を通す（初回の公開。ワークフローの手動実行の first_publish から渡す）
 //
 // 目的: 本番の公開の前に、お知らせ（notice）を出しておく運用にする。お知らせなしに本番が更新されるのを防ぐ。
 //   notice … 通す（お知らせを出している）
 //   true   … 通す（すでにメンテナンス中。公開をやり直すとき）
 //   false・未設定・そのほか … 止める
-//   Worker がまだ無い（初回の公開。404）… 通す
+//   Worker が無い（404）… 止める。Worker 名やアカウント ID の誤りでも 404 になるので、初回の公開とは見なさない。初回の公開だけ ALLOW_MISSING_WORKER で通す
 //   確認できなかった（通信・権限の問題）… 止める（確かめずに公開しない）
 // 変数は、ダッシュボードで「テキスト」にしておく（シークレットは値を読めないため、確かめられない）。
 
@@ -19,6 +20,11 @@ export function readMaintenanceValue(bindings) {
   if (!binding) return "";
   if (binding.type === "plain_text" && typeof binding.text === "string") return binding.text.trim();
   return binding.type === "secret_text" ? "(secret)" : "";
+}
+
+/** 環境変数の真偽（"1" / "true"。大文字小文字は問わない）。 */
+function isTrue(value) {
+  return ["1", "true"].includes(String(value ?? "").trim().toLowerCase());
 }
 
 /** ログに出す値。改行などを取り、長さを切る（値に改行が入っていても、::error:: の行を偽装されないように）。 */
@@ -74,8 +80,13 @@ export async function run({ workerName, env, fetchImpl, log = console.log, error
     return 1;
   }
   if (settings.missing) {
-    log(`Worker ${workerName} がまだありません（初回の公開）。確認を飛ばして公開します`);
-    return 0;
+    // 404 は既定で止める（Worker 名・アカウント ID の誤りでも 404 になり、確認を飛ばして本番を公開してしまうため）
+    if (isTrue(env.ALLOW_MISSING_WORKER)) {
+      log(`Worker ${workerName} がまだありません（ALLOW_MISSING_WORKER: 初回の公開として確認を飛ばします）`);
+      return 0;
+    }
+    error(`::error::Worker ${workerName} が見つかりません（Cloudflare API が 404）。Worker 名・アカウント ID を確かめてください。初回の公開なら、Run workflow で first_publish を指定して実行してください`);
+    return 1;
   }
   const result = evaluate(readMaintenanceValue(settings.bindings));
   if (result.ok) { log(result.message); return 0; }

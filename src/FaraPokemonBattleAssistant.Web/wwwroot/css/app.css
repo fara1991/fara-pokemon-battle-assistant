@@ -2320,10 +2320,14 @@ button.compact-cell {
 }
 
 /* 登録ページのデータ共有 */
-.sync-card .sync-join { max-width: 32rem; flex: 1 1 20rem; }
+/* 入力欄（MudTextField の .app-field）は親の幅に合わせる。min-width: 0 がないと、狭い幅で 28px ほどに潰れていた */
+.sync-card .sync-join { max-width: 32rem; flex: 1 1 20rem; min-width: 0; flex-wrap: wrap; }
+.sync-card .sync-join > .app-field { flex: 1 1 12rem; min-width: 0; width: auto; }
 @media (max-width: 575.98px) {
     /* スマホではアクセスキーの入力欄を 1 行、ボタンをその下に */
     .sync-card .sync-join { max-width: none; flex: 1 1 100%; flex-direction: column; flex-wrap: nowrap; gap: 0.4rem; }
+    .sync-card .sync-join > .app-field { flex: none; }   /* 縦に並べるとき、flex-basis は高さになるので打ち消す */
+    .sync-card .sync-join > .app-field,
     .sync-card .sync-join > .form-control,
     .sync-card .sync-join > .btn { width: 100%; margin-left: 0; border-radius: var(--bs-border-radius-sm); }
 }
@@ -4756,5 +4760,31 @@ html:root {
     .calc-grid.pane-fill.has-result-bar > .calc-col,
     .calc-grid.pane-fill.has-result-bar > .calc-right {
         padding-bottom: calc(3.5rem + var(--safe-b));
+    }
+}
+
+/* キーボードのフォーカス枠。MudBlazor の outline: none に負けないよう、詳細度を上げて表示する（ヘッダー・ドロワー・スキップリンク） */
+.fsk-header :is(a, button):focus-visible,
+.mud-button-root:focus-visible,
+.fsk-skip-link:focus-visible,
+.mud-nav-link:focus-visible {
+    outline: 2px solid #e879f9;
+    outline-offset: 2px;
+}
+
+/* スマホで押しやすいよう、ヘッダーの操作・ドロワーのリンクは 44px 以上にする（見た目の大きさはそのまま） */
+@media (max-width: 575.98px) {
+    .fsk-header .mud-icon-button,
+    .fsk-header .fsk-theme-switch {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    .fsk-brand {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .mud-drawer .mud-nav-link {
+        min-height: 44px;
     }
 }
