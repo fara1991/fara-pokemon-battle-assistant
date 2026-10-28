@@ -484,15 +484,55 @@ public sealed class DataSetRoster
     /// <summary>大文字小文字だけ違うキーで分かれていたデータを、このゲームのデータに足す（ID は <see cref="RepairIds"/> が直す）。</summary>
     internal void MergeFrom(DataSetRoster other)
     {
-        Pokemon.AddRange(other.Pokemon);
+        // 同じ ID のポケモンは、このゲームのものを残し、other 側は新しい ID へ振り直す（other のチームの枠も、同じ新しい ID を指すように読み替える）。
+        // そのままにすると、枠が別のポケモンを指してしまう。
+        var ownIds = new HashSet<int>(Pokemon.Select(p => p.Id));
+        var taken = new HashSet<int>(ownIds);
+        var next = Math.Max(Math.Max(NextId, other.NextId), taken.Count == 0 ? 1 : taken.Max() + 1);
+        var pokemonMap = new Dictionary<int, int>();
+        foreach (var p in other.Pokemon)
+        {
+            if (!ownIds.Contains(p.Id))
+            {
+                taken.Add(p.Id);
+                Pokemon.Add(p);
+                continue;
+            }
+            while (taken.Contains(next)) next++;
+            pokemonMap[p.Id] = next;
+            p.Id = next;
+            taken.Add(next);
+            next++;
+            Pokemon.Add(p);
+        }
         Rivals.AddRange(other.Rivals);
         History.AddRange(other.History);
-        foreach (var team in other.Teams.Where(t => FindTeam(t.BattleFormat, t.Number) is null)) Teams.Add(team);
-        NextId = Math.Max(NextId, other.NextId);
+
+        // チームは捨てず、同じ番号（形式ごと）のものは、このゲームの最後の番号の次へ振り直して両方残す（片方を捨てない）
+        var teamNumberMap = new Dictionary<(BattleFormat Format, int Number), int>();
+        var conflicts = new List<Team>();
+        foreach (var team in other.Teams)
+        {
+            foreach (var slot in team.Slots)
+                if (pokemonMap.TryGetValue(slot.EntryId, out var mapped)) slot.EntryId = mapped;
+            if (FindTeam(team.BattleFormat, team.Number) is null) Teams.Add(team);
+            else conflicts.Add(team);
+        }
+        foreach (var team in conflicts)
+        {
+            var format = team.BattleFormat;
+            var number = Teams.Where(t => t.BattleFormat == format).Select(t => t.Number).DefaultIfEmpty(0).Max() + 1;
+            teamNumberMap[(format, team.Number)] = number;
+            team.Number = number;
+            Teams.Add(team);
+        }
+
+        NextId = next;
         NextRivalId = Math.Max(NextRivalId, other.NextRivalId);
         NextMatchId = Math.Max(NextMatchId, other.NextMatchId);
         foreach (var format in new[] { BattleFormat.Singles, BattleFormat.Doubles })
-            if (ActiveNumber(format) is null && other.ActiveNumber(format) is { } active) SetActiveNumber(format, active);
+            if (ActiveNumber(format) is null && other.ActiveNumber(format) is { } active)
+                SetActiveNumber(format, teamNumberMap.TryGetValue((format, active), out var renumbered) ? renumbered : active);
     }
 }
 

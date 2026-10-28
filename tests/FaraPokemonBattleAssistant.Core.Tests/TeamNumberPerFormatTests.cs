@@ -413,8 +413,10 @@ public class TeamNumberPerFormatTests
           "champions":{"Teams":[{"Number":1,"Format":"Doubles","Slots":[{"EntryId":2}]},{"Number":1,"Format":"Singles","Slots":[{"EntryId":9}]}],"ActiveTeams":{"Doubles":1}}}}
         """;
         var roster = RosterRepository.Deserialize(json).For(Ds);
-        Assert.Equal(2, roster.Teams.Count);
+        // 同じ形式・同じ番号のチーム（Singles 1 が 2 つ）は捨てず、後のものを次の番号へ振り直して両方残す
+        Assert.Equal(3, roster.Teams.Count);
         Assert.Equal(1, roster.FindTeam(BattleFormat.Singles, 1)!.Slots.Single().EntryId);
+        Assert.Equal(9, roster.FindTeam(BattleFormat.Singles, 2)!.Slots.Single().EntryId);
         Assert.Equal(2, roster.FindTeam(BattleFormat.Doubles, 1)!.Slots.Single().EntryId);
         Assert.Equal(1, roster.ActiveNumber(BattleFormat.Singles));
         Assert.Equal(1, roster.ActiveNumber(BattleFormat.Doubles));
