@@ -4864,22 +4864,25 @@ html body .dex-filters .app-field input.mud-input-slot,
 html body .sync-card .sync-join input.mud-input-slot { box-sizing: border-box; min-height: 44px; }
 /* 「対戦画面」のスイッチ（ヘッダー）: 根の要素（MudSwitch の div）は高さ 24px に固定されていたので、44px にする */
 html body .hdr-battle.mud-input-control { height: 44px; min-height: 44px; }
-html body .hdr-battle.mud-switch,
-html body .top-battle.mud-switch { min-height: 44px; }
+html body .hdr-battle,
+html body .top-battle { min-height: 44px; }
+html body .hdr-battle .mud-switch,
+html body .top-battle .mud-switch { min-height: 44px; }
 
 /* ポケモン一覧（PC）の表: 幅が足りないときは表の枠の中で横にスクロールする。
    行は表の幅（中身の幅）まで伸ばし、先頭の No. は左に固定、右端に影を出して、続きがあることを示す */
-@media (min-width: 768px) {
-    html body .dex-list.pane-scroll {
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    html body .dex-table.pane-scroll {
         background:
             linear-gradient(to left, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 1.25rem) no-repeat right top / 100% 100%,
             var(--glass);
     }
-    html body .dex-list.pane-scroll .dex-head,
-    html body .dex-list.pane-scroll .dex-row { width: max-content; min-width: 100%; }
+    /* 表の幅: 列の最小の幅の合計（約 55rem）まで広げ、足りないときだけ横にスクロールする（fr の列は残りの幅に広がる） */
+    html body .dex-table.pane-scroll .dex-head,
+    html body .dex-table.pane-scroll .dex-row { min-width: 56rem; }
     /* 固定した No. は、行の左の余白（0.6rem）ぶん外へ広げて、スクロールしても文字が枠の端に寄らないようにする */
-    html body .dex-list.pane-scroll .dex-head > .dex-no,
-    html body .dex-list.pane-scroll .dex-row > .dex-no {
+    html body .dex-table.pane-scroll .dex-head > .dex-no,
+    html body .dex-table.pane-scroll .dex-row > .dex-no {
         position: sticky;
         left: 0;
         z-index: 3;
@@ -4888,17 +4891,17 @@ html body .top-battle.mud-switch { min-height: 44px; }
         padding-left: 0.6rem;
         box-shadow: 4px 0 6px -4px rgba(0, 0, 0, 0.3);
     }
-    html body .dex-list.pane-scroll .dex-head > .dex-no { background: var(--app-panel-bg); }
-    html body .dex-list.pane-scroll .dex-row > .dex-no { background: var(--bs-body-bg); }
-    html body .dex-list.pane-scroll .dex-item.selected > .dex-row > .dex-no {
+    html body .dex-table.pane-scroll .dex-head > .dex-no { background: var(--app-panel-bg); }
+    html body .dex-table.pane-scroll .dex-row > .dex-no { background: var(--bs-body-bg); }
+    html body .dex-table.pane-scroll .dex-item.selected > .dex-row > .dex-no {
         background: linear-gradient(var(--bs-primary-bg-subtle), var(--bs-primary-bg-subtle)), var(--bs-body-bg);
     }
-    html body .dex-list.pane-scroll .dex-row:hover > .dex-no {
+    html body .dex-table.pane-scroll .dex-row:hover > .dex-no {
         background: linear-gradient(var(--app-panel-bg), var(--app-panel-bg)), var(--bs-body-bg);
     }
 }
 @media (min-width: 1200px) {
-    html body .dex-list.pane-scroll { background: var(--glass); }
+    html body .dex-table.pane-scroll { background: var(--glass); }
 }
 /* 並べ替えの印（⇅ ▲ ▼）: 9.6px では読めないので 12px 以上 */
 html body .dex-sort-mark { font-size: 0.75rem; }
