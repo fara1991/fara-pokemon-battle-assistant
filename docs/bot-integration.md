@@ -106,6 +106,7 @@ var roster = new RosterRepository(store);
 - クラウドに届かないときは `RosterUnavailableException`（`Reason`: `Network` / `Unauthorized`＝キーが正しくない / `KeyRetired`＝サイトでキーが作り直された / `TooLarge` / `Rejected` / `Server` / `InvalidResponse`）。`Message` はそのまま表示できる日本語で、キーは含みません。やり直しても競合が続くと `RosterConflictException`
 - `PokeCommand.ExecuteAsync` / `TryExecuteAsync` はこれらの例外を受け止めて「失敗しました: アクセスキーが正しくありません」のような結果を返します（チャットにそのまま返せます）
 - サイトでキーを作り直すと（`DELETE /api/my/access-key`）、古いキーは `KeyRetired` になります。新しいキーを設定し直してください
+- キーの作り直し（サイト側の処理）の API: `RemoteRosterStore.DeleteIfHistoryUnchangedAsync(expect, ct)` は従来どおり（履歴の状態だけを確かめて消す）。登録データの版も確かめるときは、新しいオーバーロード `DeleteIfUnchangedAsync(expect, long? expectRevision, ct)` を使います（`expectRevision` が `null` のときは版を見ない）。違えば `HistoryChangedException` で、`CurrentRevision`（今の版。サーバーが返さなかったときは `null`）と `Current`（今の履歴の状態）が入ります。ボットから作り直しを行う場合は、登録データを読んだ版（`RemoteRosterStore.Revision`）を `expectRevision` に渡してください
 - 確認用サイト（`RemoteRosterStore.DevelopBaseUrl`）は Cloudflare Access の内側なので、`/api/*`（登録データの `/api/my/*` とゲームデータの `/api/game/*`）を Access の **Bypass** にしておく必要があります
 
 ## 3. チャットメッセージをさばく

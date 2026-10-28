@@ -36,17 +36,25 @@ public interface IMatchHistory
 public sealed record HistoryTotal(int Total, int NextId);
 
 /// <summary>
-/// キーの作り直しで古いキーを消そうとしたら、写している間に履歴が変わっていた（別の端末・BOT が足した・消した）。何も消されていない。
-/// <see cref="Current"/> は、今の履歴の状態。
+/// キーの作り直しで古いキーを消そうとしたら、写している間に履歴か登録データが変わっていた（別の端末・BOT が足した・消した）。何も消されていない。
+/// <see cref="Current"/> は、今の履歴の状態。<see cref="CurrentRevision"/> は、今の登録データの版（サーバーが返さなかったときは null）。
 /// </summary>
 public sealed class HistoryChangedException : Exception
 {
-    public HistoryChangedException(IReadOnlyDictionary<string, HistoryTotal> current) : base("履歴が変わったため、古いアクセスキーは消しませんでした")
+    public HistoryChangedException(IReadOnlyDictionary<string, HistoryTotal> current) : this(current, null)
+    {
+    }
+
+    public HistoryChangedException(IReadOnlyDictionary<string, HistoryTotal> current, long? currentRevision) : base("履歴か登録データが変わったため、古いアクセスキーは消しませんでした")
     {
         Current = current;
+        CurrentRevision = currentRevision;
     }
 
     public IReadOnlyDictionary<string, HistoryTotal> Current { get; }
+
+    /// <summary>今の登録データの版（サーバーが返したとき）。登録データが写したあとに変わったかを見る。</summary>
+    public long? CurrentRevision { get; }
 }
 
 /// <summary>試合の履歴が上限に達していて、足せない。メッセージはそのまま利用者に見せられる。</summary>

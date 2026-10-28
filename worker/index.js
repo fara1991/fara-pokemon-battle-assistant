@@ -42,13 +42,16 @@
 //          履歴はポケモン・チーム・相手チームとは別の表（SQLite）に 1 試合 1 行で持つ。履歴の変更では revision は増えない。
 //   DELETE /api/my/access-key  → 204（アクセスキーの作り直し・データ共有の解除で、キーを使えなくしてその置き場（履歴も）を消す。以後そのキーは 410）
 //          ?expect=ゲーム:件数:次の Id,ゲーム:件数:次の Id…（履歴のあるゲームだけ。無ければ空）を付けると、今の履歴の状態が同じときだけ消す。
-//          違っていれば何も消さずに 409 {"error": "changed", "dataSets": [...今の状態]}（写している間に、別の端末・BOT が履歴を足した・消したことが分かる。
+//          違っていれば何も消さずに 409 {"error": "changed", "dataSets": [...今の状態], "revision": 今の版}（写している間に、別の端末・BOT が履歴を足した・消したことが分かる。
 //          確認と削除は 1 つの処理なので、その間に別の書き込みは入らない）
+//          &revision=n（登録データの版。任意）を付けると、登録データの版も同じときだけ消す。違えば 409（上と同じ形。dataSets は履歴の今の状態）。
+//          登録データを写してから、その後に古いキーへ書かれた分（ポケモン・チーム・相手チーム）を取りこぼさないため。
+//          付けない古い版のクライアントは、これまでどおり履歴の状態だけを見る（登録データは見ない）。
 //
 // revision は登録データ全体で 1 つ（どの PUT でも増える）。
 // 認証は "Authorization: Bearer <アクセスキー>"。アクセスキーは 256 bit の乱数を base64url（パディングなし・43 文字）にしたもの。
 // サーバーはキーそのものを保存しない。SHA-256(キー) の 16 進を Durable Object の名前にして、キーごとに 1 つの置き場を持つ。
-// キーはログ・エラーメッセージ・URL に出さない（このファイルでは console.* を使わない）。
+// キーはログ・エラーメッセージ・URL に出さない。console.error は例外の名前（name）だけを出す（メッセージ・スタックにはキーが入りうる）。
 //
 // 1 年間アクセスが無い置き場は、Durable Object のアラームで自動的に消す（アクセスすると延長。延長の書き込みは 1 日に 1 回まで）。
 
@@ -155,6 +158,7 @@ async function readBodyLimited(request, limit) {
     if (done) break;
     total += value.byteLength;
     if (total > limit) {
+      // 読み切らないための後始末。キャンセルに失敗しても、上限超えの 413 を返すことに変わりはないので無視する
       await reader.cancel().catch(() => {});
       throw new TooLargeError();
     }
@@ -383,7 +387,9 @@ export default {
     if (url.pathname === "/api/report" || url.pathname === "/api/report/config") {
       try {
         return await handleReport(request, env, "Pokémon Battle Assistant");
-      } catch {
+      } catch (e) {
+        // 想定外の例外だけ。例外の名前のみを記録する（メッセージ・本文の内容は出さない）
+        console.error("report_error", e?.name ?? "unknown");
         return error(500, "internal_error", "サーバーでエラーが発生しました");
       }
     }
@@ -424,7 +430,7 @@ async function handleApi(request, env, url) {
   // Durable Object にはキーを渡さない（名前は SHA-256 のみ）
   const stub = env.ROSTER.get(env.ROSTER.idFromName(await sha256Hex(key)));
 
-  if (url.pathname === "/api/my/access-key") return respond(stub.retire(parseExpect(url)));
+  if (url.pathname === "/api/my/access-key") return respond(stub.retire(parseExpect(url), parseExpectRevision(url)));
   if (url.pathname === "/api/my/history") return handleHistory(request, url, stub);
   const resource = url.pathname === "/api/my/pokemon" ? "pokemon" : url.pathname === "/api/my/rival" ? "rival" : "teams";
   const historyLimit = resource === "rival" ? queryInt(url, "historyLimit", 0, MAX_HISTORY_PER_DATA_SET) : undefined;
@@ -465,6 +471,14 @@ function parseExpect(url) {
   }
   if (new Set(expected.map((e) => e.dataSet)).size !== expected.length) invalid("invalid_query", "expect に同じゲームが 2 回あります");
   return expected;
+}
+
+/** DELETE /api/my/access-key の revision（登録データの版）。無ければ undefined。0 以上の整数でなければ 400。 */
+function parseExpectRevision(url) {
+  const raw = url.searchParams.get("revision");
+  if (raw === null) return undefined;
+  if (!/^\d{1,15}$/.test(raw)) invalid("invalid_query", "revision は 0 以上の整数にしてください");
+  return Number(raw);
 }
 
 /** /api/my/history（試合の履歴）。 */
@@ -1059,20 +1073,25 @@ export class RosterSlot extends DurableObject {
   /**
    * アクセスキーを使えなくし、置き場のデータ（履歴も）を消す。
    * expect（履歴のあるゲームの {dataSet, total, nextId}）が渡されたときは、今の履歴の状態と同じときだけ消す。違えば何も消さずに 409。
+   * expectRevision（登録データの版）が渡されたときは、版も同じときだけ消す（違えば 409。付けない古い版のクライアントは見ない）。
    * （確認と削除は 1 回の呼び出しの中で、その間に別の書き込みは入らない。キーの作り直しで履歴を写したあと、写している間の変化を取りこぼさないため）
    */
-  async retire(expect) {
-    if (expect !== undefined) {
+  async retire(expect, expectRevision) {
+    if (expect !== undefined || expectRevision !== undefined) {
       // すでに消えているキーは、そのまま成功（やり直しで 2 回目の DELETE が来ても）
-      if ((await this.ctx.storage.get("deleted")) === true) return plain(204);
+      const values = await this.ctx.storage.get(["deleted", "revision"]);
+      if (values.get("deleted") === true) return plain(204);
       const current = this.#hasSchema()
         ? this.ctx.storage.sql.exec("SELECT data_set, count, next_id FROM history_meta WHERE count > 0 ORDER BY data_set").toArray()
             .map((r) => ({ dataSet: r.data_set, total: r.count, nextId: r.next_id }))
         : [];
-      const same = current.length === expect.length
-        && expect.every((e) => current.some((c) => c.dataSet === e.dataSet && c.total === e.total && c.nextId === e.nextId));
-      if (!same)
-        return plain(409, { error: "changed", message: "履歴が変わったため、消しませんでした", dataSets: current });
+      const revision = values.get("revision") ?? 0;
+      // 付けられたものだけを見る（付けない古い版のクライアントは、履歴の状態だけ・登録データは見ない）
+      const historySame = expect === undefined || (current.length === expect.length
+        && expect.every((e) => current.some((c) => c.dataSet === e.dataSet && c.total === e.total && c.nextId === e.nextId)));
+      const revisionSame = expectRevision === undefined || revision === expectRevision;
+      if (!historySame || !revisionSame)
+        return plain(409, { error: "changed", message: "登録データか履歴が変わったため、消しませんでした", dataSets: current, revision });
     }
     // 先に「消した印」を書く（deleteAll してから印を書くと、その間に失敗したとき、データだけ消えて印が残らず、
     // 古いキーが空の置き場として使えてしまう）。印以外のデータを消す

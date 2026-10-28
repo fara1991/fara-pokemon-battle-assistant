@@ -1083,6 +1083,7 @@ else if (string.IsNullOrEmpty(loadError))
     {
         s.Input = example;
         ParseText();
+        // フォーカスを移せないだけなので無視する（JSException は JS が使えない・回線切れのときに出る想定内の例外。それ以外は捕まえない）
         try { await JS.InvokeVoidAsync("faraFocus", "cmd-input"); }
         catch (JSException) { }
     }

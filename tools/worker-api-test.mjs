@@ -490,6 +490,30 @@ try {
   check("expect の書式が違うと 400", (await req("DELETE", `${K}?expect=abc`, guardBadKey)).status === 400 && (await req("DELETE", `${K}?expect=a:1:2,a:1:2`, guardBadKey)).status === 400);
   check("書式が違うときは、消えない（まだ使える）", (await req("GET", P, guardBadKey)).status === 200);
 
+  // 登録データの版（revision）。キーの作り直しで登録を写したあと、古いキーへ別の端末が登録を書いたら、消さない
+  const vkey = newKey();
+  const vput = await req("PUT", P, vkey, { baseRevision: 0, dataSets: { Champions: { pokemon: [mon(1, "ガブリアス")] } } });
+  check("版の準備: 登録を 1 件書くと版は 1", vput.status === 200 && vput.json?.revision === 1, vput.text);
+  const vbad = await req("DELETE", `${K}?revision=0`, vkey);
+  check("版が違えば 409 changed（今の版を返す）", vbad.status === 409 && vbad.json?.error === "changed" && vbad.json?.revision === 1, vbad.text);
+  check("版が違って消せなかったあとも、登録は読める", (await req("GET", P, vkey)).json?.dataSets?.Champions?.pokemon?.length === 1);
+  const vhist = await req("DELETE", `${K}?expect=&revision=0`, vkey);
+  check("履歴の状態が同じでも、版が違えば 409", vhist.status === 409 && vhist.json?.revision === 1, vhist.text);
+  check("版の書式が違うと 400（負の数・文字・空）", (await req("DELETE", `${K}?revision=-1`, vkey)).status === 400
+    && (await req("DELETE", `${K}?revision=abc`, vkey)).status === 400 && (await req("DELETE", `${K}?revision=`, vkey)).status === 400);
+  check("書式が違うときは、消えない（まだ使える）", (await req("GET", P, vkey)).status === 200);
+  check("版が同じなら消す（204）", (await req("DELETE", `${K}?revision=1`, vkey)).status === 204);
+  check("消したあとの 2 回目（版の指定あり）も 204", (await req("DELETE", `${K}?revision=1`, vkey)).status === 204);
+  check("消したキーは 410", (await req("GET", P, vkey)).status === 410);
+
+  // 古い版のクライアント（expect だけ）は、登録の版が変わっていても、履歴の状態が同じなら消す（従来どおり）
+  const okey = newKey();
+  await req("POST", H, okey, { dataSet: "Champions", match: { Foes: [] } });
+  await req("PUT", P, okey, { baseRevision: 0, dataSets: { Champions: { pokemon: [mon(1, "ガブリアス")] } } });
+  const ostate = (await req("GET", H, okey)).json?.dataSets?.[0];
+  check("古い版の準備: 履歴 1 件・登録の版 1", ostate?.total === 1 && ostate?.nextId === 2, JSON.stringify(ostate));
+  check("古い版（expect だけ）は、登録の版が変わっていても履歴が同じなら消す（204）", (await req("DELETE", `${K}?expect=${ostate.dataSet}:${ostate.total}:${ostate.nextId}`, okey)).status === 204);
+
   // 1 年アクセスが無い置き場の自動削除（テストでは EXPIRE_MS=5000。アラームで消える）
   const ekey = newKey();
   const rkey2 = newKey();
