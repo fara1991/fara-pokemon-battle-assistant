@@ -4793,13 +4793,6 @@ html:root {
 /* ---- レイアウトレビュー2（360px の 44px）: 説明ボタン・入力欄・ボタン・ツールへのリンクの押せる範囲を 44px 以上にする。
    説明ボタン（help-btn。17.6px）は、負の余白で周りの並びを動かさずに押せる範囲だけ広げる ---- */
 @media (max-width: 575.98px) {
-    /* 見た目の大きさは変えず、透明な当たり判定（::before）を周りに広げて、押せる範囲を 44px 以上にする */
-    .help-wrap .help-btn.mud-icon-button { position: relative; }
-    .help-wrap .help-btn.mud-icon-button::before {
-        content: "";
-        position: absolute;
-        inset: -13px;
-    }
     .home-tool-link { min-height: 44px; display: flex; align-items: center; }
     .form-control,
     .form-select,
@@ -4808,4 +4801,135 @@ html:root {
     .mud-button-root.mud-button-filled { min-height: 44px; }
     .dex-type-btn { min-width: 44px; min-height: 44px; }
     .fsk-footer a:not(.fsk-footer-social) { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+/* ---- レイアウトレビュー3: キーボードのフォーカス枠・押せる大きさ（44px）・表の横スクロール・ヘッダー・計算機の列の高さ。
+   前の規則より後ろに置き、詳細度を上げて効かせる（MudBlazor・Bootstrap の outline: none に負けないように） ---- */
+
+/* フォーカス枠の色（ライトは紫、ダークは明るい桃。どちらの地色の上でも見える） */
+:root { --focus-ring: #7c3aed; }
+[data-bs-theme="dark"] { --focus-ring: #e879f9; }
+
+/* 操作できる部品（リンク・ボタン・要約・切り替え）のフォーカス枠。カードの中のリンクも含む */
+html body :is(a, button, summary, [role="switch"]):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+
+/* ホーム: 機能のカード全体に枠を出す（枠が親の overflow で切れないように、内側に描く） */
+html body .home-tools .home-tool-card:has(.home-tool-link:focus-visible) {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+}
+html body .home-tools .home-tool-link:focus-visible,
+html body .home-tools .home-tool-link:focus-visible::after { outline: none; }
+
+/* 左のメニューの項目: 枠はドロワーの端で切れないように、内側に描く */
+html body .fsk-sidebar .mud-nav-link:focus-visible {
+    outline: 2px solid #e879f9;
+    outline-offset: -2px;
+}
+
+/* 説明ボタン（?）: 見た目は 17.6px のまま、押せる範囲（ボタンの箱）を 44px にする。負の余白で周りの並びは動かさない。
+   丸い枠と地色は ::before に描く（ボタン自身の箱の外は、overflow で当たり判定が効かないため） */
+html body .help-wrap .help-btn.mud-icon-button {
+    position: relative;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 0;
+    padding: 0;
+    margin: -0.825rem;
+    border: 0;
+    background: transparent;
+}
+html body .help-wrap .help-btn.mud-icon-button::before {
+    content: "";
+    position: absolute;
+    inset: 0.825rem;
+    border-radius: 50%;
+    border: 1px solid var(--app-input-border);
+    background: var(--bs-body-bg);
+}
+html body .help-wrap .help-btn.mud-icon-button:hover { background: transparent; }
+html body .help-wrap .help-btn.mud-icon-button:hover::before { background: var(--bs-tertiary-bg); }
+html body .help-wrap .help-btn.mud-icon-button .mud-icon-root { position: relative; z-index: 1; }
+html body .fsk-sidebar .help-wrap .help-btn.mud-icon-button::before { background: transparent; border-color: rgba(255, 255, 255, 0.6); }
+html body .fsk-sidebar .help-wrap .help-btn.mud-icon-button:hover::before { background: rgba(255, 255, 255, 0.15); }
+
+/* 押せる大きさ（44px 以上）: 入力欄・切り替え・タイプ選択ボタン */
+html body .dex-type-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+html body .dex-summary .app-check-row .mud-switch { min-height: 44px; }
+/* 入力欄の高さは枠線と余白を含めて 44px（content-box のままだと、余白ぶん 65px になる） */
+html body .dex-filters .app-field input.mud-input-slot,
+html body .sync-card .sync-join input.mud-input-slot { box-sizing: border-box; min-height: 44px; }
+/* 「対戦画面」のスイッチ（ヘッダー）: 根の要素（MudSwitch の div）は高さ 24px に固定されていたので、44px にする */
+html body .hdr-battle.mud-input-control { height: 44px; min-height: 44px; }
+html body .hdr-battle.mud-switch,
+html body .top-battle.mud-switch { min-height: 44px; }
+
+/* ポケモン一覧（PC）の表: 幅が足りないときは表の枠の中で横にスクロールする。
+   行は表の幅（中身の幅）まで伸ばし、先頭の No. は左に固定、右端に影を出して、続きがあることを示す */
+@media (min-width: 768px) {
+    html body .dex-list.pane-scroll {
+        background:
+            linear-gradient(to left, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 1.25rem) no-repeat right top / 100% 100%,
+            var(--glass);
+    }
+    html body .dex-list.pane-scroll .dex-head,
+    html body .dex-list.pane-scroll .dex-row { width: max-content; min-width: 100%; }
+    /* 固定した No. は、行の左の余白（0.6rem）ぶん外へ広げて、スクロールしても文字が枠の端に寄らないようにする */
+    html body .dex-list.pane-scroll .dex-head > .dex-no,
+    html body .dex-list.pane-scroll .dex-row > .dex-no {
+        position: sticky;
+        left: 0;
+        z-index: 3;
+        box-sizing: border-box;
+        margin-left: -0.6rem;
+        padding-left: 0.6rem;
+        box-shadow: 4px 0 6px -4px rgba(0, 0, 0, 0.3);
+    }
+    html body .dex-list.pane-scroll .dex-head > .dex-no { background: var(--app-panel-bg); }
+    html body .dex-list.pane-scroll .dex-row > .dex-no { background: var(--bs-body-bg); }
+    html body .dex-list.pane-scroll .dex-item.selected > .dex-row > .dex-no {
+        background: linear-gradient(var(--bs-primary-bg-subtle), var(--bs-primary-bg-subtle)), var(--bs-body-bg);
+    }
+    html body .dex-list.pane-scroll .dex-row:hover > .dex-no {
+        background: linear-gradient(var(--app-panel-bg), var(--app-panel-bg)), var(--bs-body-bg);
+    }
+}
+@media (min-width: 1200px) {
+    html body .dex-list.pane-scroll { background: var(--glass); }
+}
+/* 並べ替えの印（⇅ ▲ ▼）: 9.6px では読めないので 12px 以上 */
+html body .dex-sort-mark { font-size: 0.75rem; }
+/* 特性: 名前ごとに折り返す（語中で割れない。区切りの「・」は名前の後ろに付ける） */
+html body .dex-abilities { display: flex; flex-wrap: wrap; }
+html body .dex-ability { white-space: nowrap; }
+html body .dex-ability:not(:last-child)::after { content: "・"; }
+
+/* 覚える技の候補（検索つきの選択欄）: 名前は 1 行、分類と威力は名前の右に続けて置く（3 行に割れないように）。候補の欄は、項目の幅に合わせて少し広げる */
+html body .searchable-select-item .dex-opt-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+html body .searchable-select-item .dex-opt-meta { flex: none; margin-left: auto; white-space: nowrap; }
+html body .dex-filter-grid .dex-select-field .searchable-select-dropdown { min-width: 14rem; }
+html body .dex-filter-grid .dex-select-field:nth-child(even) .searchable-select-dropdown { left: auto; right: 0; }
+
+/* 計算機・素早さ比較（1400px 以上の 3 列）: 列は内容の高さで上にそろえ、長い列だけ列の中でスクロールする（行の高さで止める） */
+@media (min-width: 1400px) {
+    html body .calc-grid.pane-fill { align-items: start; }
+    html body .calc-grid.pane-fill > .calc-col,
+    html body .calc-grid.pane-fill > .calc-right > .calc-col { max-height: 100%; }
+}
+
+/* ヘッダー（スマホ）: 「対戦画面」の文字は 12px 以上、スイッチのトラックは暗い地色の上で見えるように明るくする。
+   ブランドは 390px 以下で少し小さくして、全文に近く読めるようにする */
+@media (max-width: 767.98px) {
+    html body .top-battle .mud-typography,
+    html body .top-battle .mud-switch-label { font-size: 0.75rem; }
+    html body .top-battle .mud-switch-track { background-color: #cbbcf0 !important; opacity: 1; }
+}
+@media (max-width: 575.98px) {
+    html body .fsk-brand { min-height: 44px; }
+}
+@media (max-width: 390px) {
+    html body .fsk-brand { font-size: 0.75rem; letter-spacing: -0.02em; }
 }
