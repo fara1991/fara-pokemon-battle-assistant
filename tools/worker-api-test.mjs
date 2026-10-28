@@ -250,6 +250,11 @@ try {
   check("my-pokemon の PUT は相手チームを消さない", (await req("PUT", P, rkey, { baseRevision: 2, dataSets: { Champions: { pokemon: [mon(1, "ガブリアス")] } } })).status === 200
     && same((await req("GET", R, rkey)).json?.dataSets?.Champions?.history, history1));
   check("DELETE /api/my/rival は 405", (await req("DELETE", R, rkey)).status === 405);
+  // 次の試合の Id が大きすぎるときは、黙って無視せず 400（何も変えない）
+  const revBefore = (await req("GET", R, rkey)).json?.revision;
+  const bigNext = await req("PUT", R, rkey, { baseRevision: revBefore, dataSets: { Champions: { rivals: [], nextMatchId: 999999 } } });
+  check("nextMatchId が大きすぎる PUT my-rival は 400 invalid_next_match_id", bigNext.status === 400 && bigNext.json?.error === "invalid_next_match_id", bigNext.text);
+  check("400 のときは revision も内容も変わらない", (await req("GET", R, rkey)).json?.revision === revBefore);
 
   // 試合の履歴（/api/my/history。SQLite の表。revision は増えない。テストでは HISTORY_LIMIT=3 で上限を小さくしている）
   const H = "/api/my/history";
@@ -407,6 +412,14 @@ try {
   check("空の matches は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: [] })).status === 400);
   check("101 件の matches は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: Array.from({ length: 101 }, () => ({ Foes: [] })) })).status === 400);
   check("matches の中の不正な試合は 400", (await req("POST", H, mkey, { dataSet: "Gen9", matches: [{ Foes: {} }] })).status === 400);
+  // まとめて足すときも ClientId で重複を防ぐ（移し替えをやり直しても二重に記録しない）
+  const cbkey = newKey();
+  const d1 = await req("POST", H, cbkey, { dataSet: "Gen9", matches: [{ ClientId: "m1", Foes: [] }, { ClientId: "m2", Foes: [] }] });
+  check("ClientId 付きのまとめ追加は Id 1・2", d1.status === 201 && same(d1.json?.ids, [1, 2]), d1.text);
+  const d2 = await req("POST", H, cbkey, { dataSet: "Gen9", matches: [{ ClientId: "m1", Foes: [] }, { ClientId: "m2", Foes: [] }] });
+  check("同じまとめ追加のやり直しは足さず、同じ Id を返す（duplicates 2）", d2.status === 201 && same(d2.json?.ids, [1, 2]) && d2.json?.total === 2 && d2.json?.duplicates === 2, d2.text);
+  const d3 = await req("POST", H, cbkey, { dataSet: "Gen9", matches: [{ ClientId: "m3", Foes: [] }, { ClientId: "m3", Foes: [] }] });
+  check("同じ依頼の中の同じ ClientId は 1 件だけ足す", d3.status === 201 && same(d3.json?.ids, [3, 3]) && d3.json?.total === 3, d3.text);
 
   const ikey = newKey();
   await req("POST", H, ikey, { dataSet: "Champions", match: { Foes: [] } });   // Id 1（次の Id は 2）
