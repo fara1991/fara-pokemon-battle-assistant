@@ -92,7 +92,13 @@ body {
     background: var(--app-body-bg);
 }
 
-/* 地の色は .bg-scene（バトルフィールドの背景）が塗る。下の「バトルフィールドの背景」を参照 */
+/* html の地は透明にして、body の色を canvas に伝える（CSS の背景の伝播）。
+   html に地の色があると（kit の html・body の規則）、body の色は伝播せず body の箱に塗られ、
+   z-index: -1 の .bg-scene（バトルフィールドの背景）を覆って、フィールドが見えなくなる。下の「バトルフィールドの背景」を参照 */
+html,
+html[data-bs-theme] {
+    background: transparent;
+}
 
 .btn-primary {
     --bs-btn-bg: #7c3aed;
