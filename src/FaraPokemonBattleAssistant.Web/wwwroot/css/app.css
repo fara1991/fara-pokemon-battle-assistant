@@ -4526,15 +4526,15 @@ html body div.mud-input-slot.mud-input-root:focus-visible {
 
 /* フッター（3 サイト共通の形: サイト名 | 問い合わせ | プライバシーポリシー | © 公開年 Fara ＋ SNS のアイコン）。
    PC はページ全体をスクロールさせない作りなので、フッターは中身の下に固定の 1 行（中身だけがスクロール）、スマホはページの最後に出す */
-.fsk-footer { flex: none; padding: 0.45rem 1rem 0.55rem; border-top: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); font-size: 0.78rem; color: var(--bs-secondary-color, #8b80a8); text-align: center; background: var(--glass-field, transparent); }
+.fsk-footer { flex: none; border-top: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); font-size: 0.78rem; color: var(--bs-secondary-color, #8b80a8); text-align: center; background: var(--glass-field, transparent); }
 .fsk-footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .fsk-footer a:hover { color: var(--bs-primary, #7c3aed); }
-.fsk-footer-line { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.15rem 0.6rem; }
+.fsk-footer-line { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 0.6rem; }
 .fsk-footer-sep { opacity: 0.5; }
 .fsk-footer-socials { display: inline-flex; gap: 0.35rem; margin-left: 0.2rem; align-items: center; }
 /* スマホ・狭い画面: 折り返したとき、行頭・行末に区切りの | が出ないよう、区切りは出さず、項目の間を空ける */
 @media (max-width: 767.98px) {
-    .fsk-footer-line { gap: 0.35rem 0.9rem; }
+    .fsk-footer-line { column-gap: 0.9rem; }
     .fsk-footer-sep { display: none; }
     .fsk-footer-line > * { white-space: nowrap; }   /* 項目（リンク・サイト名・©）は途中で改行しない。折り返しは項目の間だけ */
 }
@@ -4822,7 +4822,6 @@ html:root {
     .mud-button-root.mud-button-outlined,
     .mud-button-root.mud-button-filled { min-height: 44px; }
     .dex-type-btn { min-width: 44px; min-height: 44px; }
-    .fsk-footer a:not(.fsk-footer-social) { min-height: 44px; display: inline-flex; align-items: center; }
 }
 
 /* ---- レイアウトレビュー3: キーボードのフォーカス枠・押せる大きさ（44px）・表の横スクロール・ヘッダー・計算機の列の高さ。

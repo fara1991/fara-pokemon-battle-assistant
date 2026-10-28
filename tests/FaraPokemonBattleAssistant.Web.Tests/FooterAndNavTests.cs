@@ -229,7 +229,7 @@ public class FooterAndNavTests
         var block = css[start..css.IndexOf("\n}\n", start, StringComparison.Ordinal)];
         Assert.Contains(".fsk-footer-sep { display: none; }", block);            // 折り返しても、行頭・行末に | が出ない
         Assert.Contains(".fsk-footer-line > * { white-space: nowrap; }", block);   // 「プライバシーポリシー」などを途中で改行しない（折り返しは項目の間だけ）
-        Assert.Contains("gap: 0.35rem 0.9rem;", block);
+        Assert.Contains("column-gap: 0.9rem;", block);                          // 行間は kit の 22px（row-gap）に任せ、項目の間だけ空ける
         Assert.Contains(".fsk-footer-line { display: flex; flex-wrap: wrap; justify-content: center;", css);   // PC の区切りは残す（規則は変えていない）
         Assert.DoesNotContain(".fsk-footer-sep { display: none; }", css[..start]);
     }

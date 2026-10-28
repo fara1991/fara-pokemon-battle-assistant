@@ -21,7 +21,8 @@ export default {
     { path: "/404.html", name: "404 ページ" },
   ],
   readySelector: ".mud-layout",
-  menuEsc: { buttonSelector: ".fsk-menu-toggle" },
+  // 閉じる手段は、開いたドロワーの中の閉じるボタン（kit v0.7.0 の .fsk-drawer-close）で測る。ドロワーがメニューボタンを覆うため、ボタンだけでは判定できない
+  menuEsc: { buttonSelector: ".fsk-menu-toggle", closeSelector: ".fsk-drawer-close" },
   exclusions: [
     // --- kit の部品（SiteFooter・SocialLinks・skip link）。直すには kit を変える（kit の課題として残す）
     {
