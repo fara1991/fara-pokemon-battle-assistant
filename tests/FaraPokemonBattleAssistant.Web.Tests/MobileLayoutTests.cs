@@ -88,7 +88,7 @@ public class MobileLayoutTests
         var razor = Read(Kit, "Components", "SiteLayout.razor");
         var helper = Section(razor, "private async Task SetSearchSheetAsync(", "private async Task ApplyDesktopStateAsync()");
         Assert.Contains("try { await JS.InvokeVoidAsync(\"faraSiteKit.searchSheet\", open, focus); }", helper);
-        Assert.Contains("catch { /* JS が使えないときは、反映しない */ }", helper);
+        Assert.Contains("catch (Exception ex) when (ex is JSException or JSDisconnectedException)", helper);   // kit v0.5.2: JS の失敗（使えない・回線切れ）だけ受ける
     }
 
     [Fact]
