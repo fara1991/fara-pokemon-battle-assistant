@@ -70,9 +70,9 @@ jobs:
             X-Robots-Tag: noindex, nofollow
           HEADERS
 
-      # --var に渡す前に、文面を確かめる（200 文字まで・改行なし）。空（変更しない）は通す
+      # --var に渡す前に、文面を確かめる（200 文字まで・改行なし）。空（変更しない）は通す。if では外さない（外すと、下の Summary の条件が「skipped」になる）
       - name: Check maintenance message
-        if: ${{ inputs.maintenance_message != '' }}
+        id: message
         run: node .github/scripts/check-maintenance-message.mjs
         env:
           MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
@@ -90,8 +90,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
+      # 文の検査が失敗したら（未検査の文を書かないよう）概要は書かない。公開が失敗しただけなら書く
       - name: Summary (maintenance)
-        if: ${{ always() }}
+        if: ${{ always() && steps.message.outcome == 'success' }}
         shell: bash
         run: |
           msg="$(printf '%s' "$MAINTENANCE_MESSAGE_INPUT" | tr '`' '"')"

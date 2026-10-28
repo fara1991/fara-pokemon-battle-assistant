@@ -486,23 +486,29 @@ public sealed class DataSetRoster
     {
         // 同じ ID のポケモンは、このゲームのものを残し、other 側は新しい ID へ振り直す（other のチームの枠も、同じ新しい ID を指すように読み替える）。
         // そのままにすると、枠が別のポケモンを指してしまう。
-        var ownIds = new HashSet<int>(Pokemon.Select(p => p.Id));
-        var taken = new HashSet<int>(ownIds);
-        var next = Math.Max(Math.Max(NextId, other.NextId), taken.Count == 0 ? 1 : taken.Max() + 1);
+        // 判定は「このゲームにある ID」ではなく「すでに使った ID（このゲームのもの・取り込み済みのもの・振り直した新しい ID）」で行う。
+        // 次に振る ID は、両方の NextId と、両方の今ある最大の ID より後から始める（other.NextId が古くても、振り直した ID が後から来る ID と重ならない）。
+        var taken = new HashSet<int>(Pokemon.Select(p => p.Id));
+        var next = Math.Max(
+            Math.Max(NextId, other.NextId),
+            Math.Max(taken.Count == 0 ? 1 : taken.Max() + 1, other.Pokemon.Count == 0 ? 1 : other.Pokemon.Max(p => p.Id) + 1));
+        // other の ID（元の値）→ 取り込んだ後の ID。同じ ID が other の中で 2 つあるときは、最初のものに合わせる（RenumberDuplicates と同じ）
         var pokemonMap = new Dictionary<int, int>();
         foreach (var p in other.Pokemon)
         {
-            if (!ownIds.Contains(p.Id))
+            var original = p.Id;
+            if (taken.Add(original))
             {
-                taken.Add(p.Id);
-                Pokemon.Add(p);
-                continue;
+                pokemonMap.TryAdd(original, original);
             }
-            while (taken.Contains(next)) next++;
-            pokemonMap[p.Id] = next;
-            p.Id = next;
-            taken.Add(next);
-            next++;
+            else
+            {
+                while (taken.Contains(next)) next++;
+                taken.Add(next);
+                pokemonMap.TryAdd(original, next);
+                p.Id = next;
+                next++;
+            }
             Pokemon.Add(p);
         }
         Rivals.AddRange(other.Rivals);

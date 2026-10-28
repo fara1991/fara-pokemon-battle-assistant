@@ -62,8 +62,15 @@ public sealed class CloudSync : IRosterStore
     /// <summary>データ共有していないときは、ブラウザに保存する履歴の上限。クラウドでは、サーバー側の上限。</summary>
     public int? LocalHistoryLimit => _remote is null ? _local.LocalHistoryLimit : null;
 
-    /// <summary>データ共有中なら、クラウドの試合の履歴の窓口。共有していなければ null（履歴はブラウザの登録データの中）。</summary>
-    public async ValueTask<IMatchHistory?> GetRemoteHistoryAsync(CancellationToken ct = default) => await CurrentRemoteAsync();
+    /// <summary>
+    /// データ共有中なら、クラウドの試合の履歴の窓口。共有していなければ null（履歴はブラウザの登録データの中）。
+    /// 足す・消す（書く）ときは、保存先のキーを読み直してから行う。
+    /// </summary>
+    public async ValueTask<IMatchHistory?> GetRemoteHistoryAsync(CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync();
+        return _remote is null ? null : new RemoteHistory(this);
+    }
 
     // ---- IRosterStore
 
@@ -76,6 +83,13 @@ public sealed class CloudSync : IRosterStore
             var json = await remote.LoadAsync(ct);
             RecordSuccess();
             return json;
+        }
+        catch (RosterUnavailableException ex) when (ex.Reason == RosterUnavailableReason.KeyRetired)
+        {
+            // 別のタブ・端末でキーが作り直されていたら、保存されているキーを読み直して、新しいキーでもう一度だけ読む
+            if (await RereadKeyChangedAsync(remote) is { } next) return await ReadWithAsync(next, ct);
+            RecordError(ex.Message);
+            throw;
         }
         catch (RosterUnavailableException ex)
         {
@@ -105,6 +119,21 @@ public sealed class CloudSync : IRosterStore
             return;
         }
         await SaveRemoteAsync(() => remote.SavePartAsync(state, dataSetKey, part, ct));
+    }
+
+    private async Task<string?> ReadWithAsync(RemoteRosterStore remote, CancellationToken ct)
+    {
+        try
+        {
+            var json = await remote.LoadAsync(ct);
+            RecordSuccess();
+            return json;
+        }
+        catch (RosterUnavailableException ex)
+        {
+            RecordError(ex.Message);
+            throw;
+        }
     }
 
     private async Task SaveRemoteAsync(Func<Task> save)
@@ -173,10 +202,10 @@ public sealed class CloudSync : IRosterStore
         }
         var trimmed = 0;
         if (HasData(local))
-            trimmed = (await MoveToNewKeyAsync(remote, RosterRepository.Serialize(local))).Trimmed;
+            trimmed = (await RosterRotation.CopyToNewKeyAsync(remote, RosterRepository.Serialize(local))).Trimmed;
         else
             await remote.LoadAsync(); // つながるか確かめる
-        await SwitchToAsync(key, remote);
+        await SwitchToNewKeyAsync(key);
         if (trimmed > 0) LastNotice = TrimmedNotice(trimmed);
         await ClearLocalIfUnchangedAsync(localJson);
     }
@@ -210,85 +239,15 @@ public sealed class CloudSync : IRosterStore
     public async Task<bool> RotateAsync()
     {
         await EnsureInitializedAsync();
-        var old = _remote ?? throw new InvalidOperationException("データ共有していません");
-        var key = RemoteRosterStore.GenerateKey();
-        var remote = new RemoteRosterStore(_http, _baseUri, key);
-        var json = await old.LoadAsync();
-        // 相手チームを読めていないと、新しいキーに相手チームと履歴が移らないまま、古い置き場を消してしまう
-        if (old.RivalUnreadable)
-            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
-                "クラウドの相手チームを読み込めなかったため、キーを作り直せません。時間をおいて、もう一度試してください");
-        // 写す登録データの版。古いキーを消すとき、この版のままかを確かめる（読んでから書かれていたら、読み直して写し直す）
-        var copiedRevision = RevisionOf(old);
-        // 登録データ（文書）が空でも、履歴だけがあるゲームがありうるので、履歴の写しは文書の有無によらず行う
-        var (trimmed, copied) = await MoveToNewKeyAsync(remote, json, old);
-        await SwitchToAsync(key, remote);
-        // 写し直すときに、古いキーで空になったゲームも空にできるよう、これまでに写したゲームを覚えておく
-        var rosterKeys = json is null ? new List<string>() : RosterRepository.Deserialize(json).DataSets.Keys.ToList();
-        var expectedHistory = copied;
-        var expectedRevision = copiedRevision;
-        // 古いキーは、履歴と登録データが写した時点の状態のままのときだけ消す。写している間に別の端末・BOT が書いていたら、消さずに、
-        // 登録データは読み直して全部を、履歴は足された分だけを新しいキーへ写して、もう一度試す。確認と削除はサーバーで 1 つの処理なので、
-        // その間に取りこぼしは起きない。写し直しに失敗したら、古いキーは消さずに止める（新しいキーへの切り替えは済んでいる）
-        for (var attempt = 0; attempt < MaxRotateRetries; attempt++)
-        {
-            try
-            {
-                await old.DeleteIfUnchangedAsync(expectedHistory, expectedRevision);
-                if (trimmed > 0) LastNotice = TrimmedNotice(trimmed);
-                return true;
-            }
-            catch (HistoryChangedException changed)
-            {
-                try
-                {
-                    if (changed.CurrentRevision is { } current && current != expectedRevision)
-                    {
-                        var reread = await old.LoadAsync();
-                        // 相手チームを読めないまま写すと、新しいキーの相手チームと履歴を空にしてしまう
-                        if (old.RivalUnreadable)
-                            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
-                                "クラウドの相手チームを読み込めなかったため、写し直せません。時間をおいて、もう一度試してください");
-                        var state = reread is null ? new RosterState() : RosterRepository.Deserialize(reread);
-                        rosterKeys = rosterKeys.Union(state.DataSets.Keys).ToList();
-                        await RewriteRosterAsync(remote, state, rosterKeys);
-                        expectedRevision = RevisionOf(old);
-                    }
-                    trimmed += await CopyNewMatchesAsync(old, remote, expectedHistory, changed.Current);
-                    expectedHistory = changed.Current;
-                }
-                catch (Exception ex) when (ex is RosterUnavailableException or HistoryLimitException or RosterConflictException)
-                {
-                    break;
-                }
-            }
-            catch (RosterUnavailableException)
-            {
-                break;
-            }
-        }
-        if (trimmed > 0) LastNotice = TrimmedNotice(trimmed);
-        return false;
+        if (_remote is null || _key is null) throw new InvalidOperationException("データ共有していません");
+        // 写す（新しいキーの置き場へ）。古いキーは消さない
+        var plan = await RosterRotation.PrepareAsync(_http, _baseUri, _key);
+        await SwitchToNewKeyAsync(plan.NewKey);
+        // 古いキーを消す（写している間の変更は、足された分を写し直してから）
+        var finished = await RosterRotation.FinishAsync(_http, _baseUri, plan);
+        if (finished.TrimmedMatches > 0) LastNotice = TrimmedNotice(finished.TrimmedMatches);
+        return finished.OldKeyDeleted;
     }
-
-    /// <summary>
-    /// 登録データ（ポケモン → チーム → 相手チーム）を、ゲームごとに書き直す。キーを作り直すときに、写したあとで古いキーに書かれた分を反映する。
-    /// 古いキーで空になったゲームは、空として書く（残すと、消したはずのポケモンや相手チームが新しいキーに残る）。
-    /// </summary>
-    private static async Task RewriteRosterAsync(RemoteRosterStore target, RosterState state, IReadOnlyList<string> keys)
-    {
-        foreach (var part in new[] { RosterPart.Pokemon, RosterPart.Teams, RosterPart.Rival })
-            foreach (var key in keys)
-                await target.SavePartAsync(state, key, part);
-        VerifyCopied(state, RosterRepository.Deserialize(await target.LoadAsync()));
-    }
-
-    /// <summary>直近の読み込み（または保存）で分かった登録データの版。</summary>
-    private static long RevisionOf(RemoteRosterStore remote) =>
-        remote.Revision ?? throw new InvalidOperationException("登録データの版を読めていません");
-
-    /// <summary>キーの作り直しで、古いキーを消すのを試す回数（そのたびに、足された分を新しいキーへ写す）。</summary>
-    private const int MaxRotateRetries = 5;
 
     /// <summary>
     /// データ共有をやめる。このアクセスキーのクラウドのデータ（ポケモン・チーム・相手チーム・試合の履歴）をすべて削除し、キーは使えなくなる。
@@ -329,11 +288,6 @@ public sealed class CloudSync : IRosterStore
 
     // ---- 内部
 
-    /// <summary>
-    /// 新しいキーの空の置き場（版 0）にデータを移す（ポケモン → チームの順に 2 回 PUT）。
-    /// 新しいキーはまだ誰も使っていないので、移し終わってから切り替えれば途中の状態は見えない。
-    /// 途中で失敗したら新しいキーは使わずに捨てる（置き場も消しておく）。
-    /// </summary>
     /// <summary>このブラウザの登録データ（JSON）を読む。localStorage を読めなかったときは、データ共有の開始・参加でブラウザのデータを失わないよう、例外にする。</summary>
     private async Task<string?> ReadLocalAsync()
     {
@@ -344,141 +298,49 @@ public sealed class CloudSync : IRosterStore
         return json;
     }
 
-    /// <param name="json">移す登録データ。null（登録データが空）ならつながるかだけ確かめる。</param>
-    /// <param name="copyHistoryFrom">キーの作り直しのとき、古いキーの置き場（履歴を新しいキーへ写す。<paramref name="json"/> には履歴が入っていないため）。データ共有の開始では null（履歴は <paramref name="json"/> の中）。</param>
-    /// <returns>履歴のうち、サーバーの上限（1 試合 64 KB・メモ 500 文字）に収めるため、内容を省いた試合の数と、写した時点の古いキーの履歴の状態。</returns>
-    private static async Task<(int Trimmed, IReadOnlyDictionary<string, HistoryTotal> Totals)> MoveToNewKeyAsync(RemoteRosterStore remote, string? json, RemoteRosterStore? copyHistoryFrom = null)
+    /// <summary>
+    /// 新しいキーへ切り替える。切り替えが効かなかった（キーを保存できなかった）ときだけ、写し終えた新しいキーの置き場を消す。
+    /// 効いていれば新しいキーは使われているので、消さずに例外をそのまま上げる。
+    /// </summary>
+    private async Task SwitchToNewKeyAsync(string key)
     {
         try
         {
-            var trimmed = 0;
-            IReadOnlyDictionary<string, HistoryTotal> totals = new Dictionary<string, HistoryTotal>();
-            if (json is not null)
-            {
-                var source = RosterRepository.Deserialize(json);
-                await remote.SaveAsync(json);
-                trimmed += remote.HistoryTrimmed;
-                // 送った内容が、クラウドに同じ件数で入っているかを、読み直して確かめる（違えば、ブラウザ・古いキーを消す前に中止する）
-                VerifyCopied(source, RosterRepository.Deserialize(await remote.LoadAsync()));
-            }
-            else await remote.LoadAsync(); // つながるか確かめる
-            if (copyHistoryFrom is not null)
-            {
-                var copy = await CopyHistoryAsync(copyHistoryFrom, remote);
-                trimmed += copy.Trimmed;
-                totals = copy.Totals;
-            }
-            return (trimmed, totals);
+            await SwitchToAsync(key, new RemoteRosterStore(_http, _baseUri, key));
         }
         catch
         {
-            try { await remote.DeleteAsync(); } catch (Exception) { /* 消せなくても新しいキーは使わない */ }
+            if (_key != key) await RosterRotation.DiscardAsync(_http, _baseUri, key);
             throw;
         }
     }
 
-    /// <summary>
-    /// 送った登録データ（<paramref name="source"/>・送る前の内容）と、クラウドから読み直した内容（<paramref name="copied"/>）の件数を、ゲームごとに比べる。
-    /// サーバーの規則（登録に無いポケモンを指す枠・同じポケモンの重複・同じチーム番号の重複・枠の上限）で削られたものがあれば、
-    /// 例外にする。呼び出し側は新しいキーを捨て、ブラウザの登録データも古いキーも消さない。0 体のチームは対象外（ポケモンを失わない）。
-    /// </summary>
-    private static void VerifyCopied(RosterState source, RosterState? copied)
+    /// <summary>このブラウザの登録データを消す。読んだあとに別のタブなどで書き換えられていたら、消さずに残し、そのことを知らせる（写していない登録データを失わないため）。</summary>
+    /// <param name="readJson">共有の開始・参加のときに読んだ、このブラウザの登録データ（写した内容）。</param>
+    private async Task ClearLocalIfUnchangedAsync(string? readJson)
     {
-        var problems = new List<string>();
-        foreach (var (key, roster) in source.DataSets)
+        string? now;
+        try
         {
-            var sent = CountRoster(roster);
-            var got = (Pokemon: 0, Teams: 0, Slots: 0);
-            if (copied is not null && copied.DataSets.TryGetValue(key, out var c)) got = CountRoster(c);
-            if (sent != got)
-                problems.Add($"{key}: ポケモン {sent.Pokemon}→{got.Pokemon}、チーム {sent.Teams}→{got.Teams}、枠 {sent.Slots}→{got.Slots}");
+            now = await ReadLocalAsync();
         }
-        if (problems.Count > 0)
-            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
-                "クラウドに写せない内容（登録に無いポケモンを指す枠、同じポケモンの重複、同じ番号のチーム、枠が 7 体以上のチーム など）があったため中止しました。" +
-                "このブラウザのデータと今のアクセスキーは変わっていません。（" + string.Join("・", problems) + "）");
-    }
-
-    private static (int Pokemon, int Teams, int Slots) CountRoster(DataSetRoster roster)
-    {
-        var teams = roster.Teams.Where(t => t.Slots.Count > 0).ToList();
-        return (roster.Pokemon.Count, teams.Count, teams.Sum(t => t.Slots.Count));
-    }
-
-    /// <summary>
-    /// 古いキーの履歴を、全部のゲーム分、新しいキーへ写す。新しいキーに写した件数がそろっていることを確かめる。
-    /// 写している間の変化は、古いキーを消すとき（<see cref="RotateAsync"/>）に、サーバーが写した時点の状態と見比べて検出する。
-    /// </summary>
-    private static async Task<(int Trimmed, IReadOnlyDictionary<string, HistoryTotal> Totals)> CopyHistoryAsync(RemoteRosterStore source, RemoteRosterStore target)
-    {
-        var before = await source.DataSetTotalsAsync();
-        var trimmed = 0;
-        foreach (var (dataSetKey, state) in before)
+        catch (RosterUnavailableException)
         {
-            var matches = await ReadAllHistoryOldestFirstAsync(source, dataSetKey, state.Total, state.NextId);
-            trimmed += await target.AppendManyAsync(dataSetKey, matches);
+            AddNotice("このブラウザの登録データを確かめられなかったため、消さずに残しました（データ共有中は使われません）");
+            return;
         }
-        var copied = await target.DataSetTotalsAsync();
-        if (copied.Count != before.Count || before.Any(x => !copied.TryGetValue(x.Key, out var other) || other.Total != x.Value.Total))
-            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
-                "履歴を新しいアクセスキーへ写せなかったため、中止しました。もう一度試してください");
-        return (trimmed, before);
-    }
-
-    /// <summary>
-    /// 写し終えたあとに、古いキーへ足された試合（写した時点の次の Id 以降）だけを、新しいキーへ足す。足した試合のうち、内容を省いた数を返す。
-    /// </summary>
-    private static async Task<int> CopyNewMatchesAsync(RemoteRosterStore source, RemoteRosterStore target,
-        IReadOnlyDictionary<string, HistoryTotal> previous, IReadOnlyDictionary<string, HistoryTotal> current)
-    {
-        var trimmed = 0;
-        foreach (var (dataSetKey, state) in current)
+        if (now == readJson)
         {
-            var from = previous.TryGetValue(dataSetKey, out var was) ? was.NextId : 1;
-            if (state.NextId <= from) continue;   // 足されていない（消されただけ）
-            var added = new List<RivalMatch>();
-            int? before = state.NextId;   // 今回の状態の次の Id より前だけ（それ以降は、次の回で写す。同じ試合を 2 度写さない）
-            var finished = false;
-            for (var pages = 0; pages <= (state.NextId - from) / 200 + 2 && !finished; pages++)
-            {
-                var page = await source.ListAsync(dataSetKey, 200, before);
-                added.AddRange(page.Items.TakeWhile(m => m.Id >= from));
-                finished = !page.HasMore || page.Items.Count == 0 || page.Items[^1].Id < from;
-                if (!finished) before = page.Items[^1].Id;
-            }
-            if (!finished)   // 読み切れていないまま写すと、残りを失うので、中止する
-                throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "履歴を最後まで読めなかったため、キーを作り直せません。もう一度試してください");
-            added.Reverse();
-            if (added.Count > 0) trimmed += await target.AppendManyAsync(dataSetKey, added);
+            await _local.ClearAsync();
+            return;
         }
-        return trimmed;
+        AddNotice("データ共有を始めている間に、このブラウザに登録データが書き込まれたため、そのデータは消さずに残しました（データ共有中は使われません。内容を確かめて、必要なものは登録し直してください）");
     }
 
     private static string TrimmedNotice(int count) =>
         $"試合の履歴のうち {count} 件は、サーバーの上限（1 試合 64 KB・メモ 500 文字）に収めるため、推定の根拠（スキャンの記録）を省くか、メモを切って移しました";
 
-    /// <summary>1 つのゲームの履歴を（<paramref name="nextId"/> より前の分だけ）全部、古い順に読む（1 回に 200 件ずつ）。サーバーの応答がおかしくて終わらない・途中で切れるときは失敗にする。</summary>
-    private static async Task<List<RivalMatch>> ReadAllHistoryOldestFirstAsync(IMatchHistory source, string dataSetKey, int expectedTotal, int nextId)
-    {
-        var all = new List<RivalMatch>();
-        int? before = nextId;   // 一覧を取った時点の次の Id より前だけ読む（読んでいる間に足された試合は、あとで足された分として写す）
-        for (var pages = 0; pages <= expectedTotal / 200 + 2; pages++)
-        {
-            var page = await source.ListAsync(dataSetKey, 200, before);
-            // 次のページの頼み方（before）は、必ず前より小さくなる（ListAsync が確かめている）。空なのに続きがあるのはおかしい
-            if (page.Items.Count == 0 && page.HasMore) break;
-            all.AddRange(page.Items);
-            if (!page.HasMore || page.Items.Count == 0)
-            {
-                all.Reverse();
-                return all.Count == expectedTotal
-                    ? all
-                    : throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "履歴を最後まで読めなかったため、キーを作り直せません。もう一度試してください");
-            }
-            before = page.Items[^1].Id;
-        }
-        throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "履歴を最後まで読めなかったため、キーを作り直せません。もう一度試してください");
-    }
+    private void AddNotice(string text) => LastNotice = string.IsNullOrEmpty(LastNotice) ? text : LastNotice + " " + text;
 
     private async Task EnsureInitializedAsync()
     {
@@ -488,21 +350,36 @@ public sealed class CloudSync : IRosterStore
     }
 
     /// <summary>
-    /// 今の保存先。データ共有していないときは毎回 localStorage のキーを確かめ、別のタブでデータ共有を始めていたらクラウドに切り替える。
+    /// 今の保存先（読むだけ）。読むときは、保存されているキーを読み直さない（書き込みの前に読み直す）。
+    /// 書くときは、毎回 localStorage のキーを確かめ、別のタブでデータ共有を始めていたらクラウドに切り替える。
     /// </summary>
-    /// <param name="forWrite">保存のとき true。共有の設定を読めなかったときは、ブラウザへ黙って保存先を切り替えず、例外にする（読むだけなら、いまの内容をそのまま返す）。</param>
+    /// <param name="forWrite">保存のとき true。共有の設定を読めなかったときは、ブラウザへ黙って保存先を切り替えず、例外にする。</param>
     private async Task<RemoteRosterStore?> CurrentRemoteAsync(bool forWrite = false)
     {
+        if (!forWrite)
+        {
+            await EnsureInitializedAsync();
+            return _remote;
+        }
         // 毎回、保存されているキーを読み直す（別のタブでキーを作り直した・データ共有を止めたときに、このタブで気付くため）
         _initialized = true;
         await RefreshKeyFromStorageAsync();
-        if (forWrite && _keyReadFailed)
+        if (_keyReadFailed)
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
                 "データ共有の設定をブラウザから読めないため、保存を止めています。ページを再読み込みしてください");
-        if (forWrite && _keyLost)
+        if (_keyLost)
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
                 "データ共有が別のタブ・端末で止められたため、保存を止めています。ページを再読み込みしてください");
         return _remote;
+    }
+
+    /// <summary>
+    /// 保存されているキーを読み直し、今のキーと違う（作り直された）ら、その新しいキーの窓口を返す。同じなら null。
+    /// </summary>
+    private async Task<RemoteRosterStore?> RereadKeyChangedAsync(RemoteRosterStore stale)
+    {
+        await RefreshKeyFromStorageAsync();
+        return _remote is { } next && !ReferenceEquals(next, stale) ? next : null;
     }
 
     /// <summary>localStorage からデータ共有のキーを読めなかったことがあるか（読み直して成功するまで true）。</summary>
@@ -575,30 +452,6 @@ public sealed class CloudSync : IRosterStore
         AfterSwitch();
     }
 
-    /// <summary>このブラウザの登録データを消す。読んだあとに別のタブなどで書き換えられていたら、消さずに残し、そのことを知らせる（写していない登録データを失わないため）。</summary>
-    /// <param name="readJson">共有の開始・参加のときに読んだ、このブラウザの登録データ（写した内容）。</param>
-    private async Task ClearLocalIfUnchangedAsync(string? readJson)
-    {
-        string? now;
-        try
-        {
-            now = await ReadLocalAsync();
-        }
-        catch (RosterUnavailableException)
-        {
-            AddNotice("このブラウザの登録データを確かめられなかったため、消さずに残しました（データ共有中は使われません）");
-            return;
-        }
-        if (now == readJson)
-        {
-            await _local.ClearAsync();
-            return;
-        }
-        AddNotice("データ共有を始めている間に、このブラウザに登録データが書き込まれたため、そのデータは消さずに残しました（データ共有中は使われません。内容を確かめて、必要なものは登録し直してください）");
-    }
-
-    private void AddNotice(string text) => LastNotice = string.IsNullOrEmpty(LastNotice) ? text : LastNotice + " " + text;
-
     private void AfterSwitch()
     {
         _services.GetRequiredService<RosterRepository>().Invalidate();
@@ -620,6 +473,35 @@ public sealed class CloudSync : IRosterStore
 
     private static bool HasData(RosterState state) =>
         state.DataSets.Values.Any(r => r.Pokemon.Count > 0 || r.Teams.Count > 0 || r.Rivals.Count > 0 || r.History.Count > 0);
+
+    /// <summary>
+    /// クラウドの試合の履歴の窓口。読みは今のキーへ（保存先の読み直しはしない）、書き（足す・消す）は、保存先を読み直してから行う
+    /// （別のタブで作り直し・停止があれば、そのとおりに従う）。
+    /// </summary>
+    private sealed class RemoteHistory(CloudSync sync) : IMatchHistory
+    {
+        private RemoteRosterStore Reading() =>
+            sync._remote ?? throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "データ共有が止まっているため、試合の履歴を読めません");
+
+        private async Task<RemoteRosterStore> Writing() =>
+            await sync.CurrentRemoteAsync(forWrite: true) ?? throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "データ共有が止まっているため、試合の履歴を書けません");
+
+        public Task<IReadOnlyDictionary<string, HistoryTotal>> DataSetTotalsAsync(CancellationToken ct = default) => Reading().DataSetTotalsAsync(ct);
+
+        public Task<MatchPage> ListAsync(string dataSetKey, int limit, int? beforeId = null, CancellationToken ct = default) =>
+            Reading().ListAsync(dataSetKey, limit, beforeId, ct);
+
+        public Task<RivalMatch?> GetAsync(string dataSetKey, int id, CancellationToken ct = default) => Reading().GetAsync(dataSetKey, id, ct);
+
+        public async Task<RivalMatch> AppendAsync(string dataSetKey, RivalMatch match, CancellationToken ct = default) =>
+            await (await Writing()).AppendAsync(dataSetKey, match, ct);
+
+        public async Task<bool> RemoveAsync(string dataSetKey, int id, CancellationToken ct = default) =>
+            await (await Writing()).RemoveAsync(dataSetKey, id, ct);
+
+        public async Task<int> TrimAsync(string dataSetKey, int keepLatest, CancellationToken ct = default) =>
+            await (await Writing()).TrimAsync(dataSetKey, keepLatest, ct);
+    }
 }
 
 /// <summary>使用中チームを読む（計算機・素早さ比較用）。クラウドに届かなくてもページは動くように、エラーは文で返す。</summary>

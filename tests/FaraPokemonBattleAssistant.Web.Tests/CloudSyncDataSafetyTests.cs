@@ -13,6 +13,8 @@ internal sealed class FakeJsRuntime : IJSRuntime
     public Dictionary<string, string> Storage { get; } = new();
     /// <summary>true の間、getItem が失敗する（ブラウザが一時的に保存領域を読めない状況）。</summary>
     public bool FailGet { get; set; }
+    /// <summary>true の間、setItem が失敗する（ブラウザの保存領域に書けない状況。アクセスキーを保存できない）。</summary>
+    public bool FailSet { get; set; }
     public List<string> Calls { get; } = new();
 
     public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
@@ -27,6 +29,7 @@ internal sealed class FakeJsRuntime : IJSRuntime
                 if (FailGet) throw new JSException("storage is not available");
                 return new ValueTask<TValue>((TValue)(object?)(Storage.TryGetValue(key, out var v) ? v : null)!);
             case "localStorage.setItem":
+                if (FailSet) throw new JSException("storage quota exceeded");
                 Storage[key] = args![1]?.ToString() ?? "";
                 break;
             case "localStorage.removeItem":

@@ -283,4 +283,28 @@ public class RosterIntegrityTests
             t => t.Number);
         Assert.Equal(new Dictionary<string, int> { ["リザードン"] = 1, ["フシギバナ"] = 2 }, nameByTeam);
     }
+
+    /// <summary>
+    /// 大文字小文字だけ違うキーの片方の NextId が古い（今ある ID より小さい）ときも、振り直した ID が後から来る ID と重ならず、
+    /// チームの枠は、もともとそのポケモンを指していた ID を追って、同じポケモンを指したままになる。
+    /// </summary>
+    [Fact]
+    public void Merging_case_variant_keys_with_a_stale_next_id_does_not_reuse_an_id_or_move_a_slot_to_another_pokemon()
+    {
+        const string json = """
+            {"Version":2,"DataSets":{
+              "Gen9":{"NextId":2,"Pokemon":[{"Id":1,"PokemonId":6,"PokemonName":"リザードン"}]},
+              "gen9":{"NextId":1,"Pokemon":[{"Id":1,"PokemonId":3,"PokemonName":"フシギバナ"},{"Id":2,"PokemonId":9,"PokemonName":"カメックス"}],
+                      "Teams":[{"Number":1,"Slots":[{"EntryId":1},{"EntryId":2}]}]}
+            }}
+            """;
+        var set = Assert.Single(RosterRepository.Deserialize(json).DataSets).Value;
+
+        Assert.Equal(3, set.Pokemon.Count);                                    // 片方を黙って捨てない
+        Assert.Equal(3, set.Pokemon.Select(p => p.Id).Distinct().Count());     // ID は重ならない
+        Assert.True(set.NextId > set.Pokemon.Max(p => p.Id));                  // 次に振る ID は今ある ID より後
+        var team = Assert.Single(set.Teams);
+        var names = team.Slots.Select(s => set.Pokemon.Single(p => p.Id == s.EntryId).PokemonName).ToList();
+        Assert.Equal(new[] { "フシギバナ", "カメックス" }, names);            // 枠は、取り込んだ元のポケモンを指したまま
+    }
 }

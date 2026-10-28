@@ -3,6 +3,7 @@ using FaraPokemonBattleAssistant.Core.Roster;
 using FaraPokemonBattleAssistant.Core.Tests;
 using FaraPokemonBattleAssistant.Web.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Web.Tests;
@@ -237,5 +238,107 @@ public class CloudSyncRaceTests
 
         Assert.False(js.Storage.ContainsKey(LocalKey));
         Assert.Null(sync.LastNotice);
+    }
+
+    [Fact]
+    public async Task Rotation_whose_new_key_cannot_be_saved_removes_the_copied_new_slot_and_keeps_the_old_key()
+    {
+        var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
+        var created = new List<string>();
+        server.OnCreate = (key, _) => created.Add(key);
+        js.FailSet = true;   // 新しいキーを保存できない（ブラウザの保存領域に書けない）
+
+        await Assert.ThrowsAsync<JSException>(() => sync.RotateAsync());
+
+        Assert.Equal(oldKey, sync.Key);
+        Assert.Equal(oldKey, js.Storage[CloudSync.KeyStorageKey]);
+        Assert.False(server.For(oldKey).Deleted);
+        Assert.True(server.For(Assert.Single(created)).Deleted);   // 使われない新しいキーの置き場は消す
+    }
+
+    [Fact]
+    public async Task Starting_sharing_whose_key_cannot_be_saved_removes_the_copied_new_slot_and_keeps_the_browser_data()
+    {
+        var js = new FakeJsRuntime { FailSet = true };
+        js.Storage[LocalKey] = Pokemon("リザードン");
+        var server = new KeyRoutedServer();
+        var created = new List<string>();
+        server.OnCreate = (key, _) => created.Add(key);
+        var sync = NewSync(js, server);
+
+        await Assert.ThrowsAsync<JSException>(() => sync.StartNewAsync());
+
+        Assert.False(sync.IsSyncing);
+        Assert.Equal(Pokemon("リザードン"), js.Storage[LocalKey]);   // ブラウザのデータは残る
+        Assert.True(server.For(Assert.Single(created)).Deleted);
+    }
+
+    [Fact]
+    public async Task A_switch_that_took_effect_is_not_undone_when_a_later_step_fails()
+    {
+        var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
+        var created = new List<string>();
+        server.OnCreate = (key, _) => created.Add(key);
+        var failOnce = true;
+        // キーは保存できた（切り替えは効いた）あとの通知で失敗する。新しいキーは使われているので、消してはいけない
+        sync.Changed += () =>
+        {
+            if (!failOnce) return;
+            failOnce = false;
+            throw new InvalidOperationException("通知で失敗");
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sync.RotateAsync());
+
+        var newKey = Assert.Single(created);
+        Assert.Equal(newKey, sync.Key);
+        Assert.Equal(newKey, js.Storage[CloudSync.KeyStorageKey]);
+        Assert.False(server.For(newKey).Deleted);
+        Assert.Equal("リザードン", server.For(newKey).State.For(Ds).Pokemon.Single().PokemonName);
+    }
+
+    [Fact]
+    public async Task Reading_does_not_reread_the_stored_key_but_writing_does()
+    {
+        var (sync, js, server, key) = await JoinedAsync(WithRival());
+        js.Calls.Clear();
+
+        await sync.LoadAsync();
+        Assert.DoesNotContain("localStorage.getItem", js.Calls);
+
+        await sync.SaveAsync(Pokemon("ガブリアス"));
+        Assert.Contains("localStorage.getItem", js.Calls);
+    }
+
+    [Fact]
+    public async Task A_tab_that_was_not_sharing_gets_a_conflict_instead_of_overwriting_a_key_another_tab_started()
+    {
+        var js = new FakeJsRuntime();
+        var server = new KeyRoutedServer();
+        var key = RemoteRosterStore.GenerateKey();
+        await new RemoteRosterStore(new HttpClient(server), Base, key).SaveAsync(RosterRepository.Serialize(WithRival()));
+        var sync = NewSync(js, server);
+        await sync.InitializeAsync();
+        Assert.False(sync.IsSyncing);
+
+        js.Storage[CloudSync.KeyStorageKey] = key;   // 別のタブでデータ共有を始めた（このタブは読んでいない）
+
+        await Assert.ThrowsAsync<RosterConflictException>(() => sync.SaveAsync(Pokemon("ガブリアス")));
+        Assert.Equal("リザードン", server.For(key).State.For(Ds).Pokemon.Single().PokemonName);   // 上書きしていない
+    }
+
+    [Fact]
+    public async Task A_read_after_another_tab_rotated_the_key_uses_the_new_key()
+    {
+        var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
+        var newKey = RemoteRosterStore.GenerateKey();
+        await new RemoteRosterStore(new HttpClient(server), Base, newKey).SaveAsync(Pokemon("ガブリアス"));
+        await new RemoteRosterStore(new HttpClient(server), Base, oldKey).DeleteAsync();   // 別のタブが作り直して、古いキーを消した
+        js.Storage[CloudSync.KeyStorageKey] = newKey;
+
+        var json = await sync.LoadAsync();
+
+        Assert.Equal("ガブリアス", RosterRepository.Deserialize(json).For(Ds).Pokemon.Single().PokemonName);
+        Assert.Equal(newKey, sync.Key);
     }
 }
