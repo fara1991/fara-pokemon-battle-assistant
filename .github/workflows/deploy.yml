@@ -23,6 +23,10 @@ on:
         description: "お知らせ・メンテナンス画面に出す文（200 文字まで・改行なし）。空 = 変更しない"
         type: string
         default: ""
+      first_publish:
+        description: "本番の初回の公開のときだけ true（Worker fara-pokemon がまだ無いとき。404 のときの確認を通す）。それ以外では付けない"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -81,6 +85,15 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           SKIP_MAINTENANCE_CHECK: ${{ inputs.skip_maintenance_check }}
+          # 初回の公開（Worker がまだ無い）だけ、手動実行で first_publish を true にして通す。404 は既定で止まる
+          ALLOW_MISSING_WORKER: ${{ inputs.first_publish }}
+
+      # --var に渡す前に、文面を確かめる（200 文字まで・改行なし）。空（変更しない）は通す
+      - name: Check maintenance message
+        if: ${{ inputs.maintenance_message != '' }}
+        run: node .github/scripts/check-maintenance-message.mjs
+        env:
+          MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
 
       # push と、何も指定しない手動実行だけ、公開と同時に MAINTENANCE_MODE=true（メンテナンス画面）にする。作業が終わったら、false に戻す（お知らせも一緒に消える）。
       # skip_maintenance_check（緊急の修正）のときは、メンテナンス画面にしない。maintenance_mode を指定したときはその値、maintenance_message だけのときは MAINTENANCE_MODE を渡さない（現在の値を保持）

@@ -233,7 +233,8 @@ npm run test:worker                                      # データ共有 API�
 - Worker の変数 `MAINTENANCE_MODE`（`true` = 全体メンテナンス・503 / `notice` = お知らせ帯 / `false` または未設定 = 通常）と `MAINTENANCE_MESSAGE`（文面）で切り替えます。旧名 `MAINTENANCE` は読みません（残っていても無視。ダッシュボードで削除してかまいません）。
 - 切り替えは **Actions → 対象のワークフロー（確認用は Deploy (develop)、本番は Deploy (production)）→ Run workflow** で、`maintenance_mode`（true / notice / false / 空）と `maintenance_message`（空 = 変更しない）を入れて実行します（スマホの GitHub アプリからも可）。実行ページ下部のジョブサマリーに、設定した値と反映後の現在値が出ます。4 サイトまとめては `external/fara-site-kit/tools/maintenance.mjs`（`docs/maintenance-cli.md`）。
 - 本番の push（master）と、何も指定しない手動実行は、従来どおり、公開の前に `MAINTENANCE_MODE=notice` か `true` かをゲート（`.github/scripts/require-maintenance.mjs`）で確かめ、公開と同時に `--var MAINTENANCE_MODE:true`（メンテナンス画面）にします。`maintenance_mode` を指定した手動実行はゲートを飛ばし、その値を渡します。`maintenance_message` だけの手動実行は `MAINTENANCE_MODE` を変えません。`skip_maintenance_check` は確認を飛ばし、`MAINTENANCE_MODE` を作りも変えもしません。
-- **本番の初回公開**（Worker `fara-pokemon` がまだ無い）: ゲートは Worker の不在（Cloudflare API が 404）を「初回の公開」として通します。master への push（または `maintenance_mode` を空にした手動実行）で、`--var MAINTENANCE_MODE:true` が付くので、**全ページがメンテナンス画面（503）のまま作られます**。確認してから、Actions で `maintenance_mode` に `false` を入れて Run workflow（master）→ 通常公開になります（このとき、その時点の master の内容がすべて公開されます）。
+- **本番の初回公開**（Worker `fara-pokemon` がまだ無い）: ゲートは Worker の不在（Cloudflare API が 404）を**止めます**（Worker 名やアカウント ID の誤りでも 404 になるため、初回と見なさない）。初回の公開は、Actions で **`first_publish` に `true` を入れて** Run workflow（master）してください（`ALLOW_MISSING_WORKER=1` としてゲートに渡し、404 だけを通します）。このとき `--var MAINTENANCE_MODE:true` が付くので、**全ページがメンテナンス画面（503）のまま作られます**。確認してから、Actions で `maintenance_mode` に `false` を入れて Run workflow（master）→ 通常公開になります（このとき、その時点の master の内容がすべて公開されます）。
+- **メンテナンスの文面**（`maintenance_message`）は、Actions の手動実行で、200 文字まで・改行なしです。公開の前に確かめ、超えるときは止まります（`.github/scripts/check-maintenance-message.mjs`）。
 
 
 ### 存在しない URL は 404

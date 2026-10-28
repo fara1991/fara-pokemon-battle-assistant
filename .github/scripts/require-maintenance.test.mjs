@@ -77,10 +77,24 @@ test("run: false・未設定・シークレットのときは止める", async (
   }
 });
 
-test("run: Worker がまだ無い（初回の公開）ときは通す", async () => {
+test("run: Worker が 404 のときは止める（名前・アカウントの誤りでも 404 になるので、初回と見なさない）", async () => {
   const r = await runWith(async () => new Response("", { status: 404 }));
-  assert.equal(r.code, 0);
-  assert.match(r.text, /初回/);
+  assert.equal(r.code, 1);
+  assert.match(r.text, /::error::/);
+  assert.match(r.text, /first_publish/);
+});
+
+test("run: 初回の公開（ALLOW_MISSING_WORKER=1）のときだけ、404 を通す", async () => {
+  for (const v of ["1", "true", "TRUE"]) {
+    const r = await runWith(async () => new Response("", { status: 404 }), { ...ENV, ALLOW_MISSING_WORKER: v });
+    assert.equal(r.code, 0, v);
+    assert.match(r.text, /初回/);
+  }
+  for (const v of ["", "0", "false", "yes"]) {
+    assert.equal((await runWith(async () => new Response("", { status: 404 }), { ...ENV, ALLOW_MISSING_WORKER: v })).code, 1, v);
+  }
+  // 初回でも、存在する Worker の確認は省略しない（404 以外の失敗は止める）
+  assert.equal((await runWith(async () => new Response("", { status: 500 }), { ...ENV, ALLOW_MISSING_WORKER: "1" })).code, 1);
 });
 
 test("run: 確かめられなかったとき（通信・権限）は止める", async () => {
