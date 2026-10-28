@@ -86,7 +86,7 @@ public sealed class CloudSync : IRosterStore
 
     public async Task SaveAsync(string json, CancellationToken ct = default)
     {
-        var remote = await CurrentRemoteAsync();
+        var remote = await CurrentRemoteAsync(forWrite: true);
         if (remote is null)
         {
             await _local.SaveAsync(json, ct);
@@ -98,7 +98,7 @@ public sealed class CloudSync : IRosterStore
     /// <summary>1 つのゲームのポケモンかチームだけを保存する（クラウドでは /api/my/pokemon か /api/my/team だけを呼ぶ）。</summary>
     public async Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default)
     {
-        var remote = await CurrentRemoteAsync();
+        var remote = await CurrentRemoteAsync(forWrite: true);
         if (remote is null)
         {
             await _local.SavePartAsync(state, dataSetKey, part, ct);
@@ -320,8 +320,11 @@ public sealed class CloudSync : IRosterStore
             IReadOnlyDictionary<string, HistoryTotal> totals = new Dictionary<string, HistoryTotal>();
             if (json is not null)
             {
+                var source = RosterRepository.Deserialize(json);
                 await remote.SaveAsync(json);
                 trimmed += remote.HistoryTrimmed;
+                // 送った内容が、クラウドに同じ件数で入っているかを、読み直して確かめる（違えば、ブラウザ・古いキーを消す前に中止する）
+                VerifyCopied(source, RosterRepository.Deserialize(await remote.LoadAsync()));
             }
             else await remote.LoadAsync(); // つながるか確かめる
             if (copyHistoryFrom is not null)
@@ -337,6 +340,34 @@ public sealed class CloudSync : IRosterStore
             try { await remote.DeleteAsync(); } catch (Exception) { /* 消せなくても新しいキーは使わない */ }
             throw;
         }
+    }
+
+    /// <summary>
+    /// 送った登録データ（<paramref name="source"/>・送る前の内容）と、クラウドから読み直した内容（<paramref name="copied"/>）の件数を、ゲームごとに比べる。
+    /// サーバーの規則（登録に無いポケモンを指す枠・同じポケモンの重複・同じチーム番号の重複・枠の上限）で削られたものがあれば、
+    /// 例外にする。呼び出し側は新しいキーを捨て、ブラウザの登録データも古いキーも消さない。0 体のチームは対象外（ポケモンを失わない）。
+    /// </summary>
+    private static void VerifyCopied(RosterState source, RosterState? copied)
+    {
+        var problems = new List<string>();
+        foreach (var (key, roster) in source.DataSets)
+        {
+            var sent = CountRoster(roster);
+            var got = (Pokemon: 0, Teams: 0, Slots: 0);
+            if (copied is not null && copied.DataSets.TryGetValue(key, out var c)) got = CountRoster(c);
+            if (sent != got)
+                problems.Add($"{key}: ポケモン {sent.Pokemon}→{got.Pokemon}、チーム {sent.Teams}→{got.Teams}、枠 {sent.Slots}→{got.Slots}");
+        }
+        if (problems.Count > 0)
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "クラウドに写せない内容（登録に無いポケモンを指す枠、同じポケモンの重複、同じ番号のチーム、枠が 7 体以上のチーム など）があったため中止しました。" +
+                "このブラウザのデータと今のアクセスキーは変わっていません。（" + string.Join("・", problems) + "）");
+    }
+
+    private static (int Pokemon, int Teams, int Slots) CountRoster(DataSetRoster roster)
+    {
+        var teams = roster.Teams.Where(t => t.Slots.Count > 0).ToList();
+        return (roster.Pokemon.Count, teams.Count, teams.Sum(t => t.Slots.Count));
     }
 
     /// <summary>
@@ -424,15 +455,22 @@ public sealed class CloudSync : IRosterStore
     /// <summary>
     /// 今の保存先。データ共有していないときは毎回 localStorage のキーを確かめ、別のタブでデータ共有を始めていたらクラウドに切り替える。
     /// </summary>
-    private async Task<RemoteRosterStore?> CurrentRemoteAsync()
+    /// <param name="forWrite">保存のとき true。共有の設定を読めなかったときは、ブラウザへ黙って保存先を切り替えず、例外にする（読むだけなら、いまの内容をそのまま返す）。</param>
+    private async Task<RemoteRosterStore?> CurrentRemoteAsync(bool forWrite = false)
     {
-        if (!_initialized || _remote is null)
+        if (!_initialized || _remote is null || _keyReadFailed)
         {
             _initialized = true;
             await RefreshKeyFromStorageAsync();
         }
+        if (forWrite && _keyReadFailed)
+            throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
+                "データ共有の設定をブラウザから読めないため、保存を止めています。ページを再読み込みしてください");
         return _remote;
     }
+
+    /// <summary>localStorage からデータ共有のキーを読めなかったことがあるか（読み直して成功するまで true）。</summary>
+    private bool _keyReadFailed;
 
     private async Task RefreshKeyFromStorageAsync()
     {
@@ -440,9 +478,17 @@ public sealed class CloudSync : IRosterStore
         try
         {
             key = await _js.InvokeAsync<string?>("localStorage.getItem", KeyStorageKey);
+            _keyReadFailed = false;
         }
-        catch (JSException)
+        catch (JSException ex)
         {
+            // 失敗を利用者に見せ、読み直すまで保存先を切り替えない（保存は CurrentRemoteAsync が止める）。
+            // 通知は、成功から失敗に変わったときだけ出す（読むたびに Changed を出さない）
+            if (!_keyReadFailed)
+            {
+                _keyReadFailed = true;
+                RecordError($"データ共有の設定を読めませんでした（{ex.Message}）。ページを再読み込みしてください");
+            }
             return;
         }
         if (key is not null && RemoteRosterStore.IsValidKey(key) && key != _key)

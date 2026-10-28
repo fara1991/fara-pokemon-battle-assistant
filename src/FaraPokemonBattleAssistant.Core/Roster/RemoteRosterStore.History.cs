@@ -212,7 +212,10 @@ public sealed partial class RemoteRosterStore : IMatchHistory
         trimmed = false;
         if (node["Memo"]?.GetValue<string>() is { } memo && memo.Length > MaxMemoLength)
         {
-            node["Memo"] = memo[..MaxMemoLength];
+            // 切る位置がサロゲートペア（絵文字など）の途中なら、1 つ手前で切る（途中で切ると、不正な文字になって保存が壊れる）
+            var cut = MaxMemoLength;
+            if (char.IsHighSurrogate(memo[cut - 1])) cut--;
+            node["Memo"] = memo[..cut];
             trimmed = true;
         }
         size = Encoding.UTF8.GetByteCount(node.ToJsonString(ItemOptions));
