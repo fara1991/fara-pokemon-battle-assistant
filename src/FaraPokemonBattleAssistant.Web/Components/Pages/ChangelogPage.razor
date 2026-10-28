@@ -30,7 +30,8 @@
 }
 else if (entries is null)
 {
-    <p class="text-muted">読み込み中…</p>
+    @* 読み込み中は、スマホで最初の画面の高さの骨格を置く（届いた履歴で下のフッターが大きく動かないように。app.css の .load-skeleton） *@
+    <div class="load-skeleton" role="status"><p class="text-muted mb-0">読み込み中…</p></div>
 }
 else
 {
