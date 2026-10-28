@@ -155,7 +155,7 @@ public class ReportFormTests
 
     [Theory]
     [InlineData(413, "", "長すぎ")]
-    [InlineData(429, "<html>Too Many Requests</html>", "入力を確かめて")]   // Cloudflare のレート制限（本文は HTML）。kit 0.3.5 で 429 専用の文は無くなり既定の文になる
+    [InlineData(429, "<html>Too Many Requests</html>", "1 日の送信上限（3 回）に達しました")]   // 本文が HTML（読めない）でも、429 の既定の文（kit v0.8.0 の ReportForm.DescribeFailure）。Worker の message と同じ文
     [InlineData(503, "not json", "受け付けていません")]
     [InlineData(502, null, "失敗")]
     [InlineData(500, "{\"message\":\"\"}", "失敗")]            // 空の文は使わない

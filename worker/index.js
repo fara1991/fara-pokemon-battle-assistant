@@ -58,6 +58,8 @@
 import { DurableObject } from "cloudflare:workers";
 // Worker の共有 JS（報告の受け口・メンテナンス表示）は kit（external/fara-site-kit。CLAUDE.md・docs/usage.md）
 import { handleReport } from "../external/fara-site-kit/worker/report.js";
+// 報告の 1 日の送信回数の制限（送信元ごと 3 回まで）の Durable Object。wrangler.jsonc の REPORT_LIMITER（durable_objects・migrations）と対で使う
+export { ReportRateLimiter } from "../external/fara-site-kit/worker/report-rate-limit.js";
 import { getMaintenance, maintenanceResponse } from "../external/fara-site-kit/worker/maintenance.js";
 import { serveHome, redirectHomeAlias } from "./home.js";
 import { teamFormat, upgradeTeamFormats, compareTeams, releaseMissingActiveTeams } from "./teams.js";
