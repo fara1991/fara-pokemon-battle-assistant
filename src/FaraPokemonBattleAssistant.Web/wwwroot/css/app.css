@@ -1325,18 +1325,6 @@ body {
     background: var(--bs-tertiary-bg);
 }
 
-/* スマホで押しやすいように、見た目（18px の丸）は変えず、押せる範囲だけ 44px にする（透明な余白で広げる） */
-@media (pointer: coarse), (max-width: 575.98px) {
-    .help-wrap .help-btn.mud-icon-button {
-        position: relative;
-    }
-    .help-wrap .help-btn.mud-icon-button::before {
-        content: "";
-        position: absolute;
-        inset: -13px;
-    }
-}
-
 .mud-popover.help-popover {
     width: 18rem;
     max-width: 80vw;
@@ -4786,7 +4774,7 @@ html:root {
 
 /* スマホで押しやすいよう、ヘッダーの操作・ドロワーのリンクは 44px 以上にする（見た目の大きさはそのまま） */
 @media (max-width: 575.98px) {
-    .fsk-header .mud-icon-button-root,
+    .fsk-header .mud-icon-button,
     .fsk-header .fsk-theme-switch {
         min-width: 44px;
         min-height: 44px;
