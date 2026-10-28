@@ -27,10 +27,17 @@
     "run_worker_first": ["/", "/home", "/home.html", "/home/", "/api/*"]
   },
   // アクセスキーごとの置き場。SQLite ストレージの Durable Object（無料プランで使える）
+  // REPORT_LIMITER は報告の 1 日の送信回数の制限（kit の ReportRateLimiter。送信元の識別子を、その日の間だけ保存する）
   "durable_objects": {
-    "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
+    "bindings": [
+      { "name": "ROSTER", "class_name": "RosterSlot" },
+      { "name": "REPORT_LIMITER", "class_name": "ReportRateLimiter" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RosterSlot"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RosterSlot"] },
+    { "tag": "v2", "new_sqlite_classes": ["ReportRateLimiter"] }
+  ],
   "workers_dev": false,
   "preview_urls": false,
   "routes": [
@@ -46,11 +53,17 @@
         "not_found_handling": "404-page",
         "run_worker_first": ["/", "/home", "/home.html", "/home/", "/api/*"]
       },
-      // durable_objects はトップレベルから引き継がれないので、環境ごとに書く
+      // durable_objects と migrations はトップレベルから引き継がれないので、環境ごとに書く（REPORT_LIMITER を含む）
       "durable_objects": {
-        "bindings": [{ "name": "ROSTER", "class_name": "RosterSlot" }]
+        "bindings": [
+          { "name": "ROSTER", "class_name": "RosterSlot" },
+          { "name": "REPORT_LIMITER", "class_name": "ReportRateLimiter" }
+        ]
       },
-      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RosterSlot"] }],
+      "migrations": [
+        { "tag": "v1", "new_sqlite_classes": ["RosterSlot"] },
+        { "tag": "v2", "new_sqlite_classes": ["ReportRateLimiter"] }
+      ],
       "workers_dev": false,
       "preview_urls": false,
       "routes": [

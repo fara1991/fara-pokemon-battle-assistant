@@ -180,6 +180,8 @@ submodule が無いと、`npm run check`・`npm run test:report`・`npm run test
 kit のどのコミットを使うかは、このリポジトリの `external/fara-site-kit` が指すコミットで決まります（更新は PR で行う）。
 注意: 報告フォームの画面側は `external/fara-site-kit/src/FaraSiteKit.Razor/wwwroot/js/report.js`（Turnstile）と `ReportFormView`、受け口の Worker 側は `external/fara-site-kit/worker/report.js` です（別のファイル）。
 
+**問い合わせの回数制限（送信元ごと 1 日 3 回まで）**: 受け口は、Turnstile を通った送信を送信元（`CF-Connecting-IP`）ごとに JST の 1 日 3 回まで数え、超えると `429`（「1 日の送信上限（3 回）に達しました。明日もう一度お試しください。」）を返します。数えるのは `REPORT_LIMITER`（Durable Object `ReportRateLimiter`。`wrangler.jsonc` の `durable_objects`・`migrations` の `v2`、本番と `env.develop` の両方）があるときだけです。`worker/index.js` が `ReportRateLimiter` を export します。送信元の IP アドレスは保存せず、秘密鍵つきのハッシュを、その日の間（JST 0 時まで）だけ保存します（kit の `docs/usage.md` 2.2）。配線の検査は `worker/report-limiter.test.mjs`（`npm run test:worker` に含む）。
+
 ## 開発
 
 ```bash
