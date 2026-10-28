@@ -24,6 +24,7 @@
 //          PUT の応答（409 の本文）にも同じ指定が使える。
 //   PUT    /api/my/rival の history は省略できる。あるときは「次の Id 以降の、まだ無い試合」を足すだけで、消したり置き換えたりはしない
 //          （古い版のクライアントが書き戻しても、履歴が消えない。古い版は履歴を消せない）。足せなかった試合の数は応答の historyIgnored。
+//          "nextMatchId" が今の次の Id から 1,000 を超えて離れているときは、その値だけを無視して（400 にせず）ほかは保存し、応答に nextMatchIgnored: true。
 //          履歴の本体は下の /api/my/history。
 //   GET    /api/my/history?dataSet=K[&limit=n][&before=Id]  → 200 {"total": 件数, "items": [試合…新しい順], "hasMore": bool}
 //   GET    /api/my/history?dataSet=K&id=n                   → 200 {"total": 件数, "item": 試合} / 404
@@ -33,7 +34,8 @@
 //          "ClientId"（100 文字まで）を付けると、同じゲームに同じ ClientId の試合がすでにあるとき、足さずに 200 {"id": すでにある試合の Id,
 //          "total": 件数, "duplicate": true} を返す（応答が届かずにやり直しても、二重に記録されない）。試合を消せば、その ClientId はまた使える
 //          "match" の代わりに "matches": [試合…]（100 件まで。データの移し替え用）を送ると、まとめて足す
-//          （古い順に Id を割り当てる。1 つでも上限を超えるなら、何も足さずに 409）→ 201 {"ids": [...], "total": 件数}
+//          （古い順に Id を割り当てる。1 つでも上限を超えるなら、何も足さずに 409）→ 201 {"ids": [...], "total": 件数, "duplicates": 足さなかった数}
+//          各試合に "ClientId" を付けると、POST の match と同じく、同じ ClientId の試合はすでにある分を足さず、その Id を ids に入れる（やり直しても二重に記録しない）
 //          上限: ゲームごとに 10,000 件・アクセスキー 1 つあたりの履歴の合計 64 MB・履歴を持てるゲームは 16 まで。
 //   DELETE /api/my/history?dataSet=K&id=n                   → 204 / 404（1 試合を消す）
 //   DELETE /api/my/history?dataSet=K&keepLatest=n           → 200 {"deleted": 消した数, "total": 件数}（新しい n 件を残して消す）
@@ -56,6 +58,7 @@ import { handleReport } from "../external/fara-site-kit/worker/report.js";
 import { getMaintenance, maintenanceResponse } from "../external/fara-site-kit/worker/maintenance.js";
 import { serveHome, redirectHomeAlias } from "./home.js";
 import { teamFormat, upgradeTeamFormats, compareTeams, releaseMissingActiveTeams } from "./teams.js";
+import { MAX_ID, isPlainObject, isId } from "./ids.js";
 
 /** パス → 使えるメソッド。 */
 const ROUTES = {
@@ -70,8 +73,6 @@ const KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const DATA_SET_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
 /** オブジェクトのキーに使うと、プロトタイプを書き換えてしまう名前（ゲームのキーにはできない）。 */
 const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-/** ID の最大値。クライアント（C#）は int で持つので、次の ID（最大 + 1）も int に収まるようにする。 */
-const MAX_ID = 2147483646;
 /** PUT の本文と、保存する登録データ全体の上限（UTF-8 のバイト数）。 */
 const MAX_BYTES = 256 * 1024;
 /** 1 チームの上限。 */
@@ -166,14 +167,6 @@ async function readBodyLimited(request, limit) {
     offset += c.byteLength;
   }
   return bytes;
-}
-
-function isPlainObject(v) {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-function isId(v) {
-  return Number.isSafeInteger(v) && v >= 1 && v <= MAX_ID;
 }
 
 /** 次に振る ID（最大 + 1）。ID の最大値の次まで。 */
@@ -396,8 +389,9 @@ export default {
     }
     try {
       return await catchInvalid(() => handleApi(request, env, url));
-    } catch {
-      // 詳細（キーを含む可能性がある）は返さない
+    } catch (e) {
+      // 詳細（キーを含む可能性がある）は返さない。記録にも例外の種類（名前）だけを出す（メッセージ・スタックにはキーが入りうる）
+      console.error("api_error", e?.name ?? "unknown");
       return error(500, "internal_error", "サーバーでエラーが発生しました");
     }
   },
@@ -863,11 +857,17 @@ export class RosterSlot extends DurableObject {
     const text = this.#serialize(s.roster);
     if (text === null) return plainTooLarge();
     let ignored = 0;
+    let nextMatchIgnored = false;
     for (const [h, history, nextMatchId] of matches) {
       if (history) ignored += this.#addUnknownMatches(h, history);
+      // 次の試合の Id が次の Id から離れすぎているときは、その Id だけを無視する（相手チームの保存は止めない）
       if (nextMatchId && nextMatchId <= this.#nextId(h) + MAX_ID_JUMP) this.#raiseNextId(h, nextMatchId);
+      else if (nextMatchId) nextMatchIgnored = true;
     }
-    return this.#commit(s.revision, text, ignored > 0 ? { historyIgnored: ignored } : undefined);
+    const extra = {};
+    if (ignored > 0) extra.historyIgnored = ignored;
+    if (nextMatchIgnored) extra.nextMatchIgnored = true;
+    return this.#commit(s.revision, text, Object.keys(extra).length > 0 ? extra : undefined);
   }
 
   /** 古い版が書き戻した試合のうち、足せるものだけを足す。足さなかった試合の数を返す。 */
@@ -986,17 +986,44 @@ export class RosterSlot extends DurableObject {
     if (s.deleted) return this.#gone();
     const h = dataSet.toLowerCase();
     const meta = this.#meta(h);
-    if (meta.count + matches.length > this.#historyLimit)
+    const hasSchema = this.#hasSchema();
+    // 同じ ClientId の試合は足さない（応答が届かずに同じ移し替えをやり直しても、二重に記録しない）。すでにある試合の Id をそのまま返す。
+    // 同じ依頼の中で同じ ClientId が 2 つあるときは、最初のものだけ足す
+    const idByClient = new Map();   // ClientId → 既存の Id（数）か、新しく足す試合の番号（{ fresh }）
+    const fresh = [];               // 新しく足す試合（{ match, clientId }）
+    const ids = [];                 // 依頼の順の Id（数か、{ fresh } の参照。後で Id に直す）
+    for (const m of matches) {
+      const clientId = typeof m.ClientId === "string" ? m.ClientId : null;
+      if (clientId !== null && idByClient.has(clientId)) {
+        ids.push(idByClient.get(clientId));
+        continue;
+      }
+      const existing = clientId !== null && hasSchema
+        ? this.ctx.storage.sql.exec("SELECT id FROM history WHERE data_set = ? AND client_id = ?", h, clientId).toArray()[0]
+        : undefined;
+      if (existing) {
+        idByClient.set(clientId, existing.id);
+        ids.push(existing.id);
+        continue;
+      }
+      const slot = { fresh: fresh.length };
+      if (clientId !== null) idByClient.set(clientId, slot);
+      ids.push(slot);
+      fresh.push({ match: m, clientId });
+    }
+    if (meta.count + fresh.length > this.#historyLimit)
       return plainError(409, "history_limit", `試合の履歴が上限（${this.#historyLimit} 件）を超えます。古い履歴を削除してください`);
-    if (meta.next_id + matches.length - 1 > MAX_ID) return plainError(409, "history_limit", "これ以上、試合の履歴を足せません");
-    const items = matches.map((m, i) => JSON.stringify({ ...m, Id: meta.next_id + i }));
+    if (meta.next_id + fresh.length - 1 > MAX_ID) return plainError(409, "history_limit", "これ以上、試合の履歴を足せません");
+    const items = fresh.map((f, i) => JSON.stringify({ ...f.match, Id: meta.next_id + i }));
     const totals = this.#historyTotals();
     const added = items.reduce((sum, t) => sum + new TextEncoder().encode(t).byteLength, 0);
-    if (totals.bytes + added > this.#historyBytesLimit || (meta.count === 0 && totals.dataSets >= MAX_HISTORY_DATA_SETS))
+    if (totals.bytes + added > this.#historyBytesLimit || (meta.count === 0 && fresh.length > 0 && totals.dataSets >= MAX_HISTORY_DATA_SETS))
       return plainError(409, "history_limit", "試合の履歴の合計サイズ（または履歴を持てるゲームの数）が上限に達しています。古い履歴を削除してください");
-    items.forEach((text, i) => this.#insertMatch(h, meta.next_id + i, text));
+    items.forEach((text, i) => this.#insertMatch(h, meta.next_id + i, text, fresh[i].clientId));
+    // 依頼の中の同じ ClientId（2 つ目以降）の Id を、新しく足した Id で埋める
+    const resolved = ids.map((x) => (typeof x === "object" && x !== null ? meta.next_id + x.fresh : x));
     await this.#touch();
-    return plain(201, { ids: items.map((_, i) => meta.next_id + i), total: meta.count + items.length });
+    return plain(201, { ids: resolved, total: meta.count + fresh.length, duplicates: matches.length - fresh.length });
   }
 
   async removeMatch(dataSet, id) {

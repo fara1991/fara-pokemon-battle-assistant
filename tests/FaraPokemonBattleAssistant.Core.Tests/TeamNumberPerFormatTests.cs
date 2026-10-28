@@ -345,9 +345,9 @@ public class TeamNumberPerFormatTests
         Assert.False(RosterLimits.TryParseTeamNumber("2147483647", out _));
         Assert.False(RosterLimits.TryParseTeamNumber("0", out _));
         Assert.False(RosterLimits.TryParseTeamNumber("x", out _));
-        // Worker の MAX_ID と同じ値であること（片方だけ変えると落ちる）
-        var js = File.ReadAllText(Path.Combine(TestData.RepositoryRoot, "worker", "index.js"));
-        Assert.Contains($"const MAX_ID = {RosterLimits.MaxTeamNumber};", js);
+        // Worker の MAX_ID（worker/ids.js。index.js と teams.js が共有する）と同じ値であること（片方だけ変えると落ちる）
+        var js = File.ReadAllText(Path.Combine(TestData.RepositoryRoot, "worker", "ids.js"));
+        Assert.Contains($"export const MAX_ID = {RosterLimits.MaxTeamNumber};", js);
     }
 
     [Fact]

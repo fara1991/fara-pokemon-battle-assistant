@@ -1,8 +1,7 @@
 // チーム（my-team）のバトル形式ごとの番号と使用中の扱い。Worker（worker/index.js）と動作確認（worker/teams.test.mjs）で使う。
 // チームは (バトル形式, 番号) で 1 つ。番号はシングル（Singles）とダブル（Doubles）で別々に数える。使用中のチームは形式ごとに 1 つ（ActiveTeams）。
 
-const isPlainObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-const isId = (v) => Number.isSafeInteger(v) && v >= 1 && v <= 2147483647;
+import { isPlainObject, isId } from "./ids.js";
 
 /** チームのバトル形式（省略は Singles）。 */
 export function teamFormat(t) {
