@@ -92,3 +92,16 @@ test("ワークフロー: 入力・ゲートの条件と順序・環境変数経
   assert.match(prod, /environment:\n\s+name: production/);
   assert.doesNotMatch(dev, /require-maintenance/);
 });
+
+test("ワークフロー: 初回の公開（first_publish）だけが 404 の確認を通す。文面は --var の前に 200 文字・改行なしを確かめる", () => {
+  const prod = read("deploy.yml");
+  const dev = read("deploy-develop.yml");
+  assert.match(prod, /first_publish:\n\s+description: .*\n\s+type: boolean\n\s+default: false/);
+  assert.match(prod, /ALLOW_MISSING_WORKER: \$\{\{ inputs\.first_publish \}\}/);
+  assert.doesNotMatch(dev, /ALLOW_MISSING_WORKER/);
+  for (const yml of [prod, dev]) {
+    assert.match(yml, /- name: Check maintenance message\n\s+if: \$\{\{ inputs\.maintenance_message != '' \}\}\n\s+run: node \.github\/scripts\/check-maintenance-message\.mjs\n\s+env:\n\s+MAINTENANCE_MESSAGE_INPUT: \$\{\{ inputs\.maintenance_message \}\}/);
+  }
+  const check = prod.indexOf("- name: Check maintenance message");
+  assert.ok(check > prod.indexOf("- name: Require MAINTENANCE_MODE=notice") && check < prod.indexOf("- name: Deploy\n"), "文面の確認は Deploy の前");
+});

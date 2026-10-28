@@ -190,6 +190,22 @@ public class ExactHpTests
         Assert.DoesNotContain(b.Modifiers, m => m.Contains("HP満タン"));
         Assert.Contains(b.Modifiers, m => m.Contains($"防御側の残りHP {almost.MaxHp - 1}/{almost.MaxHp}"));
     }
+
+    /// <summary>連続技でも、単発の技と同じく防御側の残りHPの注記が結果に出る（以前は注記を捨てていた）。</summary>
+    [Fact]
+    public async Task Multi_hit_moves_keep_the_remaining_hp_note()
+    {
+        var data = await TestData.Catalog().GetDataSetAsync("Gen9");
+        var calc = new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart);
+        var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス")) { EVs = new StatSet { Attack = 252 } };
+        var move = data.Moves.First(m => m.Name == "ロックブラスト");
+        var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "カイリュー"));
+        defender.CurrentHp = defender.MaxHp - 1;
+
+        var result = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = defender, HitCountOverride = 2 });
+        Assert.Equal(2, result.Hits);
+        Assert.Contains(result.Modifiers, m => m.Contains($"防御側の残りHP {defender.MaxHp - 1}/{defender.MaxHp}"));
+    }
 }
 
 public class KanaSearchTests

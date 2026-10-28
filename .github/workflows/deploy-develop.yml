@@ -70,6 +70,13 @@ jobs:
             X-Robots-Tag: noindex, nofollow
           HEADERS
 
+      # --var に渡す前に、文面を確かめる（200 文字まで・改行なし）。空（変更しない）は通す
+      - name: Check maintenance message
+        if: ${{ inputs.maintenance_message != '' }}
+        run: node .github/scripts/check-maintenance-message.mjs
+        env:
+          MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
+
       - name: Deploy (develop)
         shell: bash
         run: |

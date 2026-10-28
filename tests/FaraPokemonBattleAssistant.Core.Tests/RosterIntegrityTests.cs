@@ -258,4 +258,29 @@ public class RosterIntegrityTests
         Assert.Empty(set.Teams);
         Assert.Empty(set.History);
     }
+
+    /// <summary>大文字小文字だけ違うゲームのキーを統合するとき、同じ番号のチームを捨てず、枠は同じポケモンを指したままにする。</summary>
+    [Fact]
+    public void Merging_case_variant_keys_keeps_both_teams_and_points_slots_at_the_right_pokemon()
+    {
+        const string json = """
+            {"Version":2,"DataSets":{
+              "Gen9":{"NextId":2,"Pokemon":[{"Id":1,"PokemonId":6,"PokemonName":"リザードン"}],
+                      "Teams":[{"Number":1,"Slots":[{"EntryId":1}]}]},
+              "gen9":{"NextId":2,"Pokemon":[{"Id":1,"PokemonId":3,"PokemonName":"フシギバナ"}],
+                      "Teams":[{"Number":1,"Slots":[{"EntryId":1}]}]}
+            }}
+            """;
+        var state = RosterRepository.Deserialize(json);
+        var set = Assert.Single(state.DataSets).Value;
+
+        Assert.Equal(2, set.Teams.Count);                                      // 同じ番号のチームも捨てない
+        Assert.Equal(2, set.Teams.Select(t => t.Number).Distinct().Count());   // チーム番号は重ならない
+        Assert.Equal(2, set.Pokemon.Select(p => p.Id).Distinct().Count());     // ポケモンの ID も重ならない
+        // 各チームの枠は、そのチームのポケモンを指したまま（ID を振り直しても取り違えない）
+        var nameByTeam = set.Teams.ToDictionary(
+            t => set.Pokemon.Single(p => p.Id == Assert.Single(t.Slots).EntryId).PokemonName,
+            t => t.Number);
+        Assert.Equal(new Dictionary<string, int> { ["リザードン"] = 1, ["フシギバナ"] = 2 }, nameByTeam);
+    }
 }
