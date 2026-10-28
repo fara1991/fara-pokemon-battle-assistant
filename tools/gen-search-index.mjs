@@ -115,7 +115,7 @@ function plain(html) {
 
 /**
  * 問い合わせのページは、kit の ReportFormView が画面を出す（Report.razor には文言が無い）。検索の索引には、kit の画面が出す文言（題名・説明・ラベル・案内）を入れる。
- * 説明の既定・ラベル・送信前の案内は kit（external/fara-site-kit/src/FaraSiteKit.Razor/Components/ReportFormView.razor）と同じ。連絡先の説明は Report.razor の ContactHint
+ * 説明の既定・ラベル・送信前の案内は kit（external/fara-blazor-component/src/FaraBlazorComponent.Razor/Components/ReportFormView.razor）と同じ。連絡先の説明は Report.razor の ContactHint
  */
 function reportFormView(src) {
     if (!src.includes("<ReportFormView")) return null;

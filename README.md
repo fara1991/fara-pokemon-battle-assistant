@@ -14,7 +14,7 @@ fara-pokemon-battle-assistant/
 │   ├── FaraPokemonBattleAssistant.Web/    Blazor WebAssembly（Cloudflare Workers に公開）
 │   │   └── wwwroot/api/game/         ★ ゲームデータ CSV。Web も配信用BOTもこのファイルを読む（公開サイトでは /api/game/... で配られる）
 │   └── FaraPokemonBattleAssistant.Cli/    コマンドをターミナルで試す / 配信用BOT組み込み前の動作確認用
-├── external/fara-site-kit/           共通部品（git submodule。Worker の共有 JS: 報告の受け口・メンテナンス表示）
+├── external/fara-blazor-component/           共通部品（git submodule。Worker の共有 JS: 報告の受け口・メンテナンス表示）
 ├── tests/FaraPokemonBattleAssistant.Core.Tests/
 ├── tools/
 │   ├── sync_data.py                  公開データとポケモン HOME からデータを再生成するスクリプト
@@ -166,9 +166,9 @@ dotnet run --project src/FaraPokemonBattleAssistant.Cli -- "!pokech dmg イエ�
 2. 起動時に `DataCatalog` を 1 つ作る。データ元は公開サイトの URL（`https://pokemon.fara-labs.com/api/game/`）+ ローカルキャッシュ。
 3. `OnMessageReceived` で `!pokech` / `!pokesv` / `!pokess` を見つけたら `PokeCommand.ExecuteAsync` の結果をそのまま `SendMessage`。登録・削除は配信者本人とモデレーターだけに許可する。
 
-## クローンと submodule（共通部品 fara-site-kit）
+## クローンと submodule（共通部品 fara-blazor-component）
 
-Worker の共有 JS（`external/fara-site-kit/worker/`）は [fara-site-kit](https://github.com/fara1991/fara-site-kit) を git submodule で取り込んでいます。
+Worker の共有 JS（`external/fara-blazor-component/worker/`）は [fara-blazor-component](https://github.com/fara1991/fara-blazor-component) を git submodule で取り込んでいます。
 
 ```bash
 git clone --recurse-submodules https://github.com/fara1991/fara-pokemon-battle-assistant.git
@@ -177,8 +177,8 @@ git submodule update --init
 ```
 
 submodule が無いと、`npm run check`・`npm run test:report`・`npm run test:maintenance`・`wrangler deploy --dry-run` が失敗します（`worker/index.js` が kit の import を読むため）。
-kit のどのコミットを使うかは、このリポジトリの `external/fara-site-kit` が指すコミットで決まります（更新は PR で行う）。
-注意: 報告フォームの画面側は `external/fara-site-kit/src/FaraSiteKit.Razor/wwwroot/js/report.js`（Turnstile）と `ReportFormView`、受け口の Worker 側は `external/fara-site-kit/worker/report.js` です（別のファイル）。
+kit のどのコミットを使うかは、このリポジトリの `external/fara-blazor-component` が指すコミットで決まります（更新は PR で行う）。現在は kit の **v1.0.0**（タグ。旧名 fara-site-kit からの改名。移行の手順は kit の `docs/migration-v1.0.0.md`）に固定しています。
+注意: 報告フォームの画面側は `external/fara-blazor-component/src/FaraBlazorComponent.Razor/wwwroot/js/report.js`（Turnstile）と `ReportFormView`、受け口の Worker 側は `external/fara-blazor-component/worker/report.js` です（別のファイル）。
 
 **問い合わせの回数制限（送信元ごと 1 日 3 回まで）**: 受け口は、Turnstile を通った送信を送信元（`CF-Connecting-IP`）ごとに JST の 1 日 3 回まで数え、超えると `429`（「1 日の送信上限（3 回）に達しました。明日もう一度お試しください。」）を返します。数えるのは `REPORT_LIMITER`（Durable Object `ReportRateLimiter`。`wrangler.jsonc` の `durable_objects`・`migrations` の `v2`、本番と `env.develop` の両方）があるときだけです。`worker/index.js` が `ReportRateLimiter` を export します。送信元の IP アドレスは保存せず、秘密鍵つきのハッシュを、その日の間（JST 0 時まで）だけ保存します（kit の `docs/usage.md` 2.2）。配線の検査は `worker/report-limiter.test.mjs`（`npm run test:worker` に含む）。
 
@@ -250,7 +250,7 @@ CI の `build.yml` の `lint` job（ESLint）と `layout-check` job（計測）�
 
 ## 公開（Cloudflare Workers）
 
-`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/`（ホームの本文入りの `home.html`。`worker/home.js`）と `/api/*`（登録データの API `/api/my/*`・報告・メンテナンスの状態・ゲームデータ `/api/game/*`）と、`/home`・`/home.html`・`/home/`（`/` へ 301）だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/", "/home", "/home.html", "/home/", "/api/*"]`）。存在しない URL は `404.html`（404 のステータス。読み込み表示だけ）を返します（下の「存在しない URL は 404」）。入口ページの静的 HTML（`tools/build-entry-pages.mjs` が作る。`battle-terms.html` など）と `_headers`（CSP）は、`publish:web` と `deploy*.yml` の publish の後に作ります（`--dir` は publish の出力の `wwwroot`）。作り方は fara-site-kit（`external/fara-site-kit/build`・`csp`）、サイトの設定は `tools/site.json`、入口ページの本文は `tools/entry-body.mjs`、文言は `tools/entry-pages.json`。ゲームデータは、通常は静的アセットをそのまま返し、メンテナンス中（Worker の変数 `MAINTENANCE_MODE=true`）だけ `503` にします。
+`master` への push（PR のマージ含む）で `deploy.yml` が https://pokemon.fara-labs.com/ に公開します（Worker `fara-pokemon`。設定は `wrangler.jsonc`）。サイト本体は静的アセットで、`/`（ホームの本文入りの `home.html`。`worker/home.js`）と `/api/*`（登録データの API `/api/my/*`・報告・メンテナンスの状態・ゲームデータ `/api/game/*`）と、`/home`・`/home.html`・`/home/`（`/` へ 301）だけ Worker スクリプト（`worker/index.js`）を通ります（`run_worker_first: ["/", "/home", "/home.html", "/home/", "/api/*"]`）。存在しない URL は `404.html`（404 のステータス。読み込み表示だけ）を返します（下の「存在しない URL は 404」）。入口ページの静的 HTML（`tools/build-entry-pages.mjs` が作る。`battle-terms.html` など）と `_headers`（CSP）は、`publish:web` と `deploy*.yml` の publish の後に作ります（`--dir` は publish の出力の `wwwroot`）。作り方は fara-blazor-component（`external/fara-blazor-component/build`・`csp`）、サイトの設定は `tools/site.json`、入口ページの本文は `tools/entry-body.mjs`、文言は `tools/entry-pages.json`。ゲームデータは、通常は静的アセットをそのまま返し、メンテナンス中（Worker の変数 `MAINTENANCE_MODE=true`）だけ `503` にします。
 手動で公開し直すときは **Actions → Deploy (production) → Run workflow**。
 
 `develop` への push（PR のマージ含む）では `deploy-develop.yml` が確認用の https://pokemon-dev.fara-labs.com/ に公開します（Worker `fara-pokemon-dev`。検索エンジンには載らないよう `X-Robots-Tag: noindex` を付けています）。本番には影響しません。
@@ -259,7 +259,7 @@ CI の `build.yml` の `lint` job（ESLint）と `layout-check` job（計測）�
 ### メンテナンス表示（`MAINTENANCE_MODE`）と本番の初回公開
 
 - Worker の変数 `MAINTENANCE_MODE`（`true` = 全体メンテナンス・503 / `notice` = お知らせ帯 / `false` または未設定 = 通常）と `MAINTENANCE_MESSAGE`（文面）で切り替えます。旧名 `MAINTENANCE` は読みません（残っていても無視。ダッシュボードで削除してかまいません）。
-- 切り替えは **Actions → 対象のワークフロー（確認用は Deploy (develop)、本番は Deploy (production)）→ Run workflow** で、`maintenance_mode`（true / notice / false / 空）と `maintenance_message`（空 = 変更しない）を入れて実行します（スマホの GitHub アプリからも可）。実行ページ下部のジョブサマリーに、設定した値と反映後の現在値が出ます。4 サイトまとめては `external/fara-site-kit/tools/maintenance.mjs`（`docs/maintenance-cli.md`）。
+- 切り替えは **Actions → 対象のワークフロー（確認用は Deploy (develop)、本番は Deploy (production)）→ Run workflow** で、`maintenance_mode`（true / notice / false / 空）と `maintenance_message`（空 = 変更しない）を入れて実行します（スマホの GitHub アプリからも可）。実行ページ下部のジョブサマリーに、設定した値と反映後の現在値が出ます。4 サイトまとめては `external/fara-blazor-component/tools/maintenance.mjs`（`docs/maintenance-cli.md`）。
 - 本番の push（master）と、何も指定しない手動実行は、従来どおり、公開の前に `MAINTENANCE_MODE=notice` か `true` かをゲート（`.github/scripts/require-maintenance.mjs`）で確かめ、公開と同時に `--var MAINTENANCE_MODE:true`（メンテナンス画面）にします。`maintenance_mode` を指定した手動実行はゲートを飛ばし、その値を渡します。`maintenance_message` だけの手動実行は `MAINTENANCE_MODE` を変えません。`skip_maintenance_check` は確認を飛ばし、`MAINTENANCE_MODE` を作りも変えもしません。
 - **本番の初回公開**（Worker `fara-pokemon` がまだ無い）: ゲートは Worker の不在（Cloudflare API が 404）を**止めます**（Worker 名やアカウント ID の誤りでも 404 になるため、初回と見なさない）。初回の公開は、Actions で **`first_publish` に `true` を入れて** Run workflow（master）してください（`ALLOW_MISSING_WORKER=1` としてゲートに渡し、404 だけを通します）。このとき `--var MAINTENANCE_MODE:true` が付くので、**全ページがメンテナンス画面（503）のまま作られます**。確認してから、Actions で `maintenance_mode` に `false` を入れて Run workflow（master）→ 通常公開になります（このとき、その時点の master の内容がすべて公開されます）。
 - **メンテナンスの文面**（`maintenance_message`）は、Actions の手動実行で、200 文字まで・改行なしです。公開の前に確かめ、超えるときは止まります（`.github/scripts/check-maintenance-message.mjs`）。

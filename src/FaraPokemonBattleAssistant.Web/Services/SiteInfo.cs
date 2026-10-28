@@ -1,9 +1,9 @@
-using FaraSiteKit.Core;
+using FaraBlazorComponent.Core;
 
 namespace FaraPokemonBattleAssistant.Web.Services;
 
 /// <summary>
-/// このサイトの名前・作者・保存のキー・SNS。共通部品（fara-site-kit の Razor。ヘッダー・フッター・報告フォームなど）が読む SiteOptions に、起動時に入れる（Program.cs）。
+/// このサイトの名前・作者・保存のキー・SNS。共通部品（fara-blazor-component の Razor。ヘッダー・フッター・報告フォームなど）が読む SiteOptions に、起動時に入れる（Program.cs）。
 /// 3 サイト（pokemon・avatar・bot）で、フッターの形を同じにする。
 /// </summary>
 public static class SiteInfo

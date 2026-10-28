@@ -1,6 +1,6 @@
 // deploy.yml / deploy-develop.yml の「Deploy」ステップの run を、実際に bash で動かして、wrangler deploy に渡る --var を固定するテスト。
 //   node --test .github/scripts/deploy-workflow.test.mjs
-// npx は偽物に差し替える（引数を 1 行ずつ出すだけ）。分岐の表は external/fara-site-kit/docs/maintenance-cli.md の「ワークフローの雛形」。
+// npx は偽物に差し替える（引数を 1 行ずつ出すだけ）。分岐の表は external/fara-blazor-component/docs/maintenance-cli.md の「ワークフローの雛形」。
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";

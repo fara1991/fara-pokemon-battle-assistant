@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: develop
-          submodules: true   # Core.Tests が kit（external/fara-site-kit）の csproj を参照する
+          submodules: true   # Core.Tests が kit（external/fara-blazor-component）の csproj を参照する
 
       - uses: actions/setup-python@v5
         with:

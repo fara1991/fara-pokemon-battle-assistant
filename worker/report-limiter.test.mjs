@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ReportRateLimiter } from "../external/fara-site-kit/worker/report-rate-limit.js";
+import { ReportRateLimiter } from "../external/fara-blazor-component/worker/report-rate-limit.js";
 
 const readText = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 // wrangler.jsonc は JSONC（行全体の // コメントだけを使う）。コメントの行を外してから読む
@@ -16,7 +16,7 @@ test("kit の ReportRateLimiter は、クラスとして読める（report-rate-
 });
 
 test("worker/index.js は、ReportRateLimiter を kit から export する（Durable Object のクラスを Worker に公開）", () => {
-  assert.match(readText("worker/index.js"), /^export \{ ReportRateLimiter \} from "\.\.\/external\/fara-site-kit\/worker\/report-rate-limit\.js";$/m);
+  assert.match(readText("worker/index.js"), /^export \{ ReportRateLimiter \} from "\.\.\/external\/fara-blazor-component\/worker\/report-rate-limit\.js";$/m);
 });
 
 for (const [name, env] of Object.entries(environments)) {

@@ -4,14 +4,14 @@ namespace FaraPokemonBattleAssistant.Web.Tests;
 
 /// <summary>
 /// サイドメニューの初期状態（スマホで開いたまま一瞬見えない）と、保存のキーの確認。
-/// レイアウト（ヘッダー・サイドバー・検索欄）は共通部品（fara-site-kit の SiteLayout）が持つ。
+/// レイアウト（ヘッダー・サイドバー・検索欄）は共通部品（fara-blazor-component の SiteLayout）が持つ。
 /// 保存済みの開閉と、スマホかどうかは、最初の描画の前（OnInitialized の同期の部分）で決める（非同期で取ると、開いた状態で描かれてから閉じてしまう）。
-/// SiteLayout 自体の確認は kit のテスト（tests/FaraSiteKit.Razor.Tests）。ここでは、このサイトが正しく使っていることを確かめる。
+/// SiteLayout 自体の確認は kit のテスト（tests/FaraBlazorComponent.Razor.Tests）。ここでは、このサイトが正しく使っていることを確かめる。
 /// </summary>
 public class MainLayoutStartupTests
 {
     private static readonly string Web = FindUpDirectory("src/FaraPokemonBattleAssistant.Web");
-    private static readonly string Kit = FindUpDirectory("external/fara-site-kit/src/FaraSiteKit.Razor");
+    private static readonly string Kit = FindUpDirectory("external/fara-blazor-component/src/FaraBlazorComponent.Razor");
 
     [Fact]
     public void Main_layout_uses_the_shared_site_layout_and_passes_the_site_contents()
@@ -36,7 +36,7 @@ public class MainLayoutStartupTests
         var razor = Read(Path.Combine(Kit, "Components", "SiteLayout.razor"));
         var sync = Section(razor, "protected override void OnInitialized()", "protected override async Task OnAfterRenderAsync(");
         Assert.Contains("JS is IJSInProcessRuntime", sync);
-        Assert.Contains("\"faraSiteKit.watchMobile\"", sync);
+        Assert.Contains("\"faraBlazorComponent.watchMobile\"", sync);
         Assert.Contains("\"localStorage.getItem\"", sync);
         Assert.DoesNotContain("await", sync);
         Assert.Contains("private bool mobileOpen;", razor);
@@ -50,7 +50,7 @@ public class MainLayoutStartupTests
         var razor = Read(Path.Combine(Web, "Shared", "NavMenu.razor"));
         var sync = Section(razor, "protected override void OnInitialized()", "[JSInvokable]");
         Assert.Contains("JS is not IJSInProcessRuntime", sync);
-        Assert.Contains("\"faraSiteKit.watchMobile\"", sync);
+        Assert.Contains("\"faraBlazorComponent.watchMobile\"", sync);
         Assert.DoesNotContain("await", sync);
         var asyncInit = Section(razor, "protected override async Task OnInitializedAsync()", "private Task OnChanged()");
         Assert.DoesNotContain("watchMobile", asyncInit);
@@ -62,14 +62,14 @@ public class MainLayoutStartupTests
         // 違うと、描画の前の反映（theme-init.js）と保存（C#）が別の場所を見る。値は、これまでのキー（ユーザーの保存済みの設定を引き継ぐ）
         Assert.Equal("fara-pokemon-battle-assistant.settings", Services.SiteInfo.StorageKey);
         Assert.Equal("fara-pokemon-battle-assistant.sidebar-hidden", Services.SiteInfo.SidebarKey);
-        var options = new FaraSiteKit.Core.SiteOptions();
+        var options = new FaraBlazorComponent.Core.SiteOptions();
         Services.SiteInfo.Configure(options);
         Assert.Equal(Services.SiteInfo.StorageKey, options.StorageKey);
         Assert.Equal(Services.SiteInfo.SidebarKey, options.SidebarKey);
         var html = Read(Path.Combine(Web, "wwwroot", "index.html"));
         Assert.Contains($"data-storage-key=\"{Services.SiteInfo.StorageKey}\"", html);
         Assert.Contains($"data-sidebar-key=\"{Services.SiteInfo.SidebarKey}\"", html);
-        Assert.Contains("_content/FaraSiteKit.Razor/js/theme-init.js", html);
+        Assert.Contains("_content/FaraBlazorComponent.Razor/js/theme-init.js", html);
         Assert.Equal("/", options.HomeHref);
     }
 
@@ -79,7 +79,7 @@ public class MainLayoutStartupTests
         // 旧い theme-init.js にあった、このサイト固有の処理は、js/site-init.js に残す（head で、描画の前に読む。インラインの script は CSP で使えない）
         var html = Read(Path.Combine(Web, "wwwroot", "index.html"));
         Assert.Contains("<script src=\"js/site-init.js\"></script>", html);
-        Assert.True(html.IndexOf("_content/FaraSiteKit.Razor/js/theme-init.js", StringComparison.Ordinal) < html.IndexOf("js/site-init.js", StringComparison.Ordinal));
+        Assert.True(html.IndexOf("_content/FaraBlazorComponent.Razor/js/theme-init.js", StringComparison.Ordinal) < html.IndexOf("js/site-init.js", StringComparison.Ordinal));
         var js = Read(Path.Combine(Web, "wwwroot", "js", "site-init.js"));
         Assert.Contains("localStorage.removeItem(\"fara-pokemon-assistance.settings\")", js);
         Assert.Contains("localStorage.removeItem(\"fara-pokemon-assistance.roster\")", js);
