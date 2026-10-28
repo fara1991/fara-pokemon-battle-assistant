@@ -103,7 +103,6 @@ public sealed class CachingDataSource : IDataSource
             // 以前の版が SPA のフォールバック（index.html）をデータとして保存していた場合は使わずに取り直す
             if (!HttpDataSource.LooksLikeHtml(cached))
                 return cached;
-            fresh = false;
         }
         if (File.Exists(missingMarker) && DateTime.UtcNow - File.GetLastWriteTimeUtc(missingMarker) < _maxAge)
             return null;

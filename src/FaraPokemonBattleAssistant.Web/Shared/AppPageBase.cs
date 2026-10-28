@@ -82,5 +82,6 @@ public abstract class AppPageBase : ComponentBase, IDisposable
     {
         disposed = true;
         App.Changed -= HandleAppChangedAsync;
+        GC.SuppressFinalize(this);
     }
 }

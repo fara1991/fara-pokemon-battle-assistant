@@ -189,7 +189,33 @@ dotnet run --project src/FaraPokemonBattleAssistant.Web      # https://localhost
 npm ci && npm run preview                                # Cloudflare と同じ動きで http://localhost:8787
 npm run check                                            # dotnet publish + wrangler deploy --dry-run（本番・develop）
 npm run test:worker                                      # データ共有 API（worker/index.js）を wrangler dev で確認
+npm run lint                                             # ESLint（worker/・tools/・.github/scripts/・画面の JS）
+npm run publish:web && npm run layout-check              # 公開の出力を配って、レイアウトを計測（公開はしない）
 ```
+
+### 静的チェック（レイアウト・JavaScript・C#）
+
+CI の `build.yml` の `lint` job（ESLint）と `layout-check` job（計測）でも同じものを動かします。
+
+**レイアウトの計測**（`layout-check.config.mjs`・`tools/layout-check.mjs`。kit の `docs/layout-check.md`）: `publish/wwwroot` を kit の簡易サーバーで配り、11 ページを幅 360〜1440px で開いて、横スクロール・見出し（h1 がちょうど 1 つ）・押せる範囲（44px）・文字の大きさ（12px 以上）・Tab のフォーカスの見える表示を測ります。違反があれば終了コード 1。計測には Chromium が要ります（初回は `npx playwright-core install chromium`）。
+
+- 除外は `exclusions` に、`rule`（ルール名）・`selector`（セレクター）・`reason`（理由。空だと設定エラー）を書きます。`page`（`"/report"` など）を付けると、そのページだけになります。
+- 現在の除外は、次のどれかです。kit の部品（フッターの SNS アイコン・運営者名のリンク・skip link）。MudBlazor の部品（切り替えスイッチ）。押せない状態（入力が空のあいだ無効）の送信ボタン。Tab で入ったときの計測が、Bootstrap の `scroll-behavior: smooth` のスクロール途中を測ること（kit の計測は待たない。`reason` に書いている）。Bootstrap の `.form-control` の影が 0.15s で変わること。ホームのカードは見える表示が `::after` にあること。
+- 直せるものは CSS・Razor で直します。見出しは `<h1 class="h3">` のように、既存の見た目のクラスを付けて h1 にします。
+- 存在しない URL は、kit が HTTP 200 のページだけを測るため計測できません。404 の見た目は `/404.html` で測ります。
+
+**JavaScript（ESLint）**: `eslint` 10.13.0・`globals` 17.13.0 を固定しています。共通のルールは kit の `tools/lint/eslint.config.shared.mjs`（現在の違反は 0 件。違反は直す）。`external/` は kit の CI で見ます。
+
+**C#（アナライザー）**: ルートの `Directory.Build.props` が、kit の `tools/lint/dotnet.editorconfig` を読みます（`EnforceCodeStyleInBuild`・`Microsoft.VisualStudio.Threading.Analyzers` 17.14.15）。ラチェットは次のとおりです。
+
+| 重大度 | ルール | 件数 | 意味 |
+|---|---|---|---|
+| error | CS4014・VSTHRD100・CA1816・IDE0059 | 0 | 新しい違反は止まる |
+| warning | CA1031 | 13 | 一般の例外の catch（起動や描画を止めない、意図した握りつぶし） |
+| warning | CA2000 | 125 | Dispose 漏れ（大半はテストの使い捨てオブジェクト） |
+| warning | VSTHRD003・VSTHRD103・VSTHRD200 | 3・5・14 | 非同期の書き方（同期の待ち・名前の付け方） |
+
+件数は `dotnet build --no-incremental` の、このサイトのファイルの警告（重複を除いた数）です。kit の部品の警告（CA1031・VSTHRD103 の計 4 件）と、コンパイラの警告（CS1573 など）は含みません。kit の `dotnet.editorconfig` は変えません。
 
 ### サイト内検索（ヘッダーの検索欄）
 

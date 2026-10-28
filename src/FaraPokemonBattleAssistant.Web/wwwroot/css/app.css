@@ -2438,7 +2438,7 @@ button.compact-cell {
 .scroll-top { display: none; }
 @media (max-width: 767.98px) {
     .scroll-top {
-        position: fixed; right: 0.9rem; bottom: 1rem; z-index: 1035; width: 2.9rem; height: 2.9rem; padding: 0;
+        position: fixed; right: 0.9rem; bottom: 1rem; z-index: 1090; width: 2.9rem; height: 2.9rem; padding: 0;
         display: flex; align-items: center; justify-content: center;
         border: 1px solid var(--app-card-border); border-radius: 50%; background: var(--bs-primary); color: #fff;
         font-size: 1.3rem; line-height: 1; box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
@@ -4091,7 +4091,7 @@ body {
     background: transparent;
     color: #d8c7f5;
     font: inherit;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
 }
 
 .site-search-list {
@@ -4424,6 +4424,14 @@ body {
 .mud-input-slot::placeholder {
     color: var(--bs-secondary-color);
     opacity: 1;
+}
+
+/* キーボードで入力欄・選択欄に入ったときの見える表示（MudBlazor は、フォーカスした要素そのものの枠の色を変えないため、outline で示す）。
+   MudBlazor の「:focus { outline: 0 }」より強い指定にする（html body を付ける） */
+html body .mud-input > .mud-input-root:focus-visible,
+html body div.mud-input-slot.mud-input-root:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
 }
 
 /* MudBlazor の入力欄・セレクト: 余白を 0 にして（ラベルと同じ高さにそろう）、背景も半透明にする */

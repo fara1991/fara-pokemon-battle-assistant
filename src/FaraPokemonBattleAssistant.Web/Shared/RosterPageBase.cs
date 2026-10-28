@@ -46,6 +46,7 @@ public abstract class RosterPageBase : AppPageBase
     {
         Sync.Changed -= OnSyncChanged;
         base.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     protected override Task OnAppChangedAsync() => LoadAsync();

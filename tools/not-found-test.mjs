@@ -63,7 +63,7 @@ async function withWrangler({ env, port, vars = [], dir, body }) {
   try {
     let ready = false;
     for (let i = 0; i < 120 && !ready; i++) {
-      try { ready = (await fetch(`${base}/api/maintenance`)).status === 200; } catch {}
+      try { ready = (await fetch(`${base}/api/maintenance`)).status === 200; } catch { /* 起動の途中の失敗は、次の確認で見る */ }
       if (!ready) await new Promise((r) => setTimeout(r, 500));
     }
     if (!ready) throw new Error("wrangler dev が起動しませんでした\n" + output);
@@ -71,7 +71,7 @@ async function withWrangler({ env, port, vars = [], dir, body }) {
   } finally {
     // 自分が起動した wrangler だけを PID で止める
     if (process.platform === "win32") spawn("taskkill", ["/pid", String(wrangler.pid), "/T", "/F"], { stdio: "ignore" });
-    else try { process.kill(-wrangler.pid, "SIGTERM"); } catch {}
+    else try { process.kill(-wrangler.pid, "SIGTERM"); } catch { /* すでに止まっていれば何もしない */ }
     await new Promise((r) => setTimeout(r, 1000));
     rmSync(tmp, { recursive: true, force: true });
   }

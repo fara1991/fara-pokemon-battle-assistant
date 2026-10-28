@@ -282,7 +282,7 @@ public class MatchHistoryTests
     [Fact]
     public async Task Data_set_totals_list_the_games_that_have_history()
     {
-        var (server, repo) = NewCloud();
+        var (_, repo) = NewCloud();
         await EndAsync(repo, "1");
         await EndAsync(repo, "2");
         var totals = await ((RemoteRosterStore)(await repo.Store.GetRemoteHistoryAsync())!).DataSetTotalsAsync();
