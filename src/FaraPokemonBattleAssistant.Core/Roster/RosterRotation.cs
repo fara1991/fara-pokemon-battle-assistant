@@ -85,8 +85,14 @@ public static class RosterRotation
     /// <summary>
     /// 作り直しの後半。新しいキーを保存したあとに呼ぶ。古いキーを使えなくし、その置き場を消す。
     /// 写している間に古いキーへ書かれた分（履歴・登録データ）は、消す直前に確かめて、足された分だけを新しいキーへ写す。
-    /// 何度試しても変わり続けたとき、または写し直せなかったときは、古いキーは消さずに止める（<see cref="RosterRotationResult.OldKeyDeleted"/> が false）。
+    /// 何度試しても変わり続けたとき、消す前の確認が通らないまま写し直せなかったときは、古いキーは消さずに止める（<see cref="RosterRotationResult.OldKeyDeleted"/> が false）。
+    /// 古いキーがすでに使えなくなっている（410）ときは、消えているので削除済みとして扱う。
     /// </summary>
+    /// <remarks>
+    /// 古いキーの変更（409）を受けたあとの処理（読み直し・新しいキーへの書き直し・履歴の追加）で失敗したら <see cref="RosterRotationStop.RewriteFailed"/> を返す。
+    /// この時点で新しいキーは古いキーの変更を欠いているので、画面は「新しいキーは不完全」と案内する。
+    /// それ以外の想定外の例外（消す処理の応答の読み取りなど）は、例外を外へ抜けさせず <see cref="RosterRotationStop.Failed"/> にする。
+    /// </remarks>
     public static async Task<RosterRotationResult> FinishAsync(HttpClient http, string apiBaseUrl, RosterRotationPlan plan, CancellationToken ct = default)
     {
         var old = new RemoteRosterStore(http, apiBaseUrl, plan.OldKey);
@@ -103,8 +109,14 @@ public static class RosterRotation
                 await old.DeleteIfUnchangedAsync(expectedHistory, expectedRevision, ct);
                 return new RosterRotationResult(true, trimmed, null);
             }
+            catch (RosterUnavailableException ex) when (ex.Reason == RosterUnavailableReason.KeyRetired)
+            {
+                // 古いキーは、すでに使えなくなっている（消えている）。消せたのと同じ
+                return new RosterRotationResult(true, trimmed, null);
+            }
             catch (HistoryChangedException changed)
             {
+                // 古いキーは消えていない（409）。写し直しの途中で失敗すると、新しいキーは古いキーの変更を欠いたままになる
                 try
                 {
                     // 登録データの版が違う（または版が分からない）ときは、古いキーの登録データを読み直して、新しいキーへ全部写し直す
@@ -117,19 +129,20 @@ public static class RosterRotation
                                 "クラウドの相手チームを読み込めなかったため、写し直せません。時間をおいて、もう一度試してください");
                         var state = reread is null ? new RosterState() : RosterRepository.Deserialize(reread);
                         rosterKeys = rosterKeys.Union(state.DataSets.Keys).ToList();
+                        expectedRevision = RevisionOf(old);   // 書く前に版を取る（読めていないときは、新しいキーへ書かない）
                         await RewriteRosterAsync(remote, state, rosterKeys, ct);
-                        expectedRevision = RevisionOf(old);
                     }
                     trimmed += await CopyNewMatchesAsync(old, remote, expectedHistory, changed.Current, ct);
                     expectedHistory = changed.Current;
                 }
-                catch (Exception ex) when (ex is RosterUnavailableException or HistoryLimitException or RosterConflictException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    return new RosterRotationResult(false, trimmed, RosterRotationStop.Failed);
+                    return new RosterRotationResult(false, trimmed, RosterRotationStop.RewriteFailed);
                 }
             }
-            catch (RosterUnavailableException)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                // 消す処理の通信・応答の失敗（想定外の例外を含む）。例外を外へ抜けさせると、切り替え済みなのに結果が分からなくなる
                 return new RosterRotationResult(false, trimmed, RosterRotationStop.Failed);
             }
         }
@@ -318,6 +331,11 @@ public enum RosterRotationStop
 {
     /// <summary>写している間の変更が続き、<see cref="RosterRotation.MaxRetries"/> 回試しても消せなかった。</summary>
     RetriesExhausted,
-    /// <summary>通信・写し直し・件数の確認などで失敗した。</summary>
+    /// <summary>消す処理の通信・応答などで失敗した（古いキーの変更の写し直しには、まだ進んでいない）。</summary>
     Failed,
+    /// <summary>
+    /// 古いキーの変更を新しいキーへ写している途中で失敗した。新しいキーは古いキーの登録データ・履歴を欠いたままになっている
+    /// （古いキーは消していない。新しいキーを使う前に、古いキーのデータを確かめる必要がある）。
+    /// </summary>
+    RewriteFailed,
 }

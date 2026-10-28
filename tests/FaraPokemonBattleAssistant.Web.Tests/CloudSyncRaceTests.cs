@@ -77,7 +77,7 @@ public class CloudSyncRaceTests
             return null;
         };
 
-        Assert.True(await sync.RotateAsync());
+        Assert.True((await sync.RotateAsync()).OldKeyDeleted);
 
         Assert.True(written);
         Assert.True(old.Deleted);
@@ -100,7 +100,7 @@ public class CloudSyncRaceTests
             return null;
         };
 
-        Assert.True(await sync.RotateAsync());
+        Assert.True((await sync.RotateAsync()).OldKeyDeleted);
 
         Assert.True(cleared);
         Assert.Empty(server.For(sync.Key!).State.For(Ds).Rivals);   // 消した相手チームが、新しいキーに残らない
@@ -123,7 +123,7 @@ public class CloudSyncRaceTests
             return null;
         };
 
-        Assert.False(await sync.RotateAsync());
+        Assert.False((await sync.RotateAsync()).OldKeyDeleted);
 
         Assert.Equal(5, deletes);                                  // 上限（5 回）で止まる
         Assert.False(old.Deleted);                                 // 古いキーは消さない
@@ -164,10 +164,71 @@ public class CloudSyncRaceTests
             return retired && request.Method == HttpMethod.Get ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}") : null;
         };
 
-        Assert.False(await sync.RotateAsync());
+        var result = await sync.RotateAsync();
 
+        Assert.False(result.OldKeyDeleted);
+        Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);   // 写し直しの読み直しに失敗 = 新しいキーは不完全
         Assert.False(old.Deleted);
         Assert.NotEqual(oldKey, sync.Key);
+    }
+
+    [Fact]
+    public async Task Rotation_whose_rewrite_fails_leaves_the_new_key_in_use_and_says_it_is_incomplete()
+    {
+        var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
+        var old = server.For(oldKey);
+        var rewriting = false;
+        // 写し直しの書き込みだけ失敗させる（作り直しの最初のコピーは成功させる）
+        server.OnCreate = (_, bucket) => bucket.Override = request => rewriting && request.Method == HttpMethod.Put
+            ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
+            : null;
+        old.Override = request =>
+        {
+            if (!IsRetire(request)) return null;
+            rewriting = true;
+            // 消す直前に、別の端末が登録を書いた（写し直しに入る）
+            old.WriteFromElsewhere(state => state.For(Ds).Pokemon.Add(new RegisteredPokemon { Id = 2, PokemonId = 445, PokemonName = "ガブリアス" }));
+            return null;
+        };
+
+        var result = await sync.RotateAsync();
+
+        Assert.False(result.OldKeyDeleted);
+        Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);
+        Assert.NotEqual(oldKey, sync.Key);                          // 新しいキーへは切り替わっている
+        Assert.Equal(sync.Key, js.Storage[CloudSync.KeyStorageKey]);
+        Assert.False(old.Deleted);                                  // 古いキーは残っている
+        var message = CloudSync.DescribeRotation(result);
+        Assert.Contains("新しいアクセスキーは不完全", message);
+        Assert.Contains("古いアクセスキーは消していないので、まだ使えます", message);
+    }
+
+    [Fact]
+    public async Task Rotation_whose_old_key_is_already_gone_is_described_as_completed()
+    {
+        var (sync, _, server, oldKey) = await JoinedAsync(WithRival());
+        server.For(oldKey).Override = request => IsRetire(request) ? FakeRosterServer.Json(HttpStatusCode.Gone, "{}") : null;
+
+        var result = await sync.RotateAsync();
+
+        Assert.True(result.OldKeyDeleted);
+        Assert.Contains("作り直しました", CloudSync.DescribeRotation(result));
+        Assert.DoesNotContain("不完全", CloudSync.DescribeRotation(result));
+    }
+
+    [Fact]
+    public async Task Rotation_whose_delete_fails_unexpectedly_returns_a_failure_and_switches_to_the_new_key()
+    {
+        var (sync, _, server, oldKey) = await JoinedAsync(WithRival());
+        var old = server.For(oldKey);
+        old.Override = request => IsRetire(request) ? throw new InvalidOperationException("想定外") : null;
+
+        var result = await sync.RotateAsync();
+
+        Assert.False(result.OldKeyDeleted);
+        Assert.Equal(RosterRotationStop.Failed, result.Stop);
+        Assert.NotEqual(oldKey, sync.Key);
+        Assert.Contains("消せませんでした", CloudSync.DescribeRotation(result));
     }
 
     [Fact]
