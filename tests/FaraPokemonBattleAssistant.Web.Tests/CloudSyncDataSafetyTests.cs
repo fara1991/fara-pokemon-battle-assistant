@@ -150,6 +150,34 @@ public class CloudSyncDataSafetyTests
         Assert.Equal(before, js.Storage[LocalKey]);   // ブラウザのデータへは書かない
     }
 
+    /// <summary>正常な登録データ（ポケモン・有効なチーム）は、件数が合うので、共有の開始は成功し、ブラウザのデータは消える。</summary>
+    [Fact]
+    public async Task Starting_sharing_with_valid_pokemon_and_team_moves_everything_and_clears_local()
+    {
+        var local = RosterRepository.Deserialize(OnePokemonJson());
+        local.DataSets["Gen9"].Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 } } });
+        var js = new FakeJsRuntime { Storage = { [LocalKey] = RosterRepository.Serialize(local) } };
+        var server = new FakeRosterServer();
+        var sync = new CloudSync(js, new HttpClient(server), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+
+        await sync.StartNewAsync();
+        Assert.True(sync.IsSyncing);
+        Assert.False(js.Storage.ContainsKey(LocalKey));
+        var cloud = RosterRepository.Deserialize(server.RosterJson);
+        Assert.Single(cloud.DataSets["Gen9"].Pokemon);
+        Assert.Single(cloud.DataSets["Gen9"].Teams);
+    }
+
+    /// <summary>読むだけなら、共有の設定を読めなくても止めない（保存だけを止める）。</summary>
+    [Fact]
+    public async Task Reading_is_not_blocked_when_the_sharing_key_cannot_be_read()
+    {
+        var js = new FakeJsRuntime { Storage = { [LocalKey] = OnePokemonJson() }, FailGet = true };
+        var store = new CloudSync(js, new HttpClient(new FakeRosterServer()), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+        await store.LoadAsync();                  // 例外にしない（ブラウザの内容が読めないときは空として扱う）
+        Assert.NotNull(store.LastError);          // ただし、失敗は利用者に見せる
+    }
+
     /// <summary>登録に無いポケモンを指す枠があるチームは、クラウドで削られる。そのまま共有を始めると、ブラウザのデータを消して中身が減るので、中止する。</summary>
     [Fact]
     public async Task Starting_sharing_keeps_local_data_when_the_cloud_would_drop_a_team()

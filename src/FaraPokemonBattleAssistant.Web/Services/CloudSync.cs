@@ -86,7 +86,7 @@ public sealed class CloudSync : IRosterStore
 
     public async Task SaveAsync(string json, CancellationToken ct = default)
     {
-        var remote = await CurrentRemoteAsync();
+        var remote = await CurrentRemoteAsync(forWrite: true);
         if (remote is null)
         {
             await _local.SaveAsync(json, ct);
@@ -98,7 +98,7 @@ public sealed class CloudSync : IRosterStore
     /// <summary>1 つのゲームのポケモンかチームだけを保存する（クラウドでは /api/my/pokemon か /api/my/team だけを呼ぶ）。</summary>
     public async Task SavePartAsync(RosterState state, string dataSetKey, RosterPart part, CancellationToken ct = default)
     {
-        var remote = await CurrentRemoteAsync();
+        var remote = await CurrentRemoteAsync(forWrite: true);
         if (remote is null)
         {
             await _local.SavePartAsync(state, dataSetKey, part, ct);
@@ -455,17 +455,17 @@ public sealed class CloudSync : IRosterStore
     /// <summary>
     /// 今の保存先。データ共有していないときは毎回 localStorage のキーを確かめ、別のタブでデータ共有を始めていたらクラウドに切り替える。
     /// </summary>
-    private async Task<RemoteRosterStore?> CurrentRemoteAsync()
+    /// <param name="forWrite">保存のとき true。共有の設定を読めなかったときは、ブラウザへ黙って保存先を切り替えず、例外にする（読むだけなら、いまの内容をそのまま返す）。</param>
+    private async Task<RemoteRosterStore?> CurrentRemoteAsync(bool forWrite = false)
     {
         if (!_initialized || _remote is null || _keyReadFailed)
         {
             _initialized = true;
             await RefreshKeyFromStorageAsync();
         }
-        // 共有の設定を読めなかったときは、ブラウザへ黙って保存先を切り替えない（共有中のデータがブラウザに分かれて書かれるのを防ぐ）
-        if (_keyReadFailed)
+        if (forWrite && _keyReadFailed)
             throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null,
-                "データ共有の設定をブラウザから読めないため、保存・読み込みを止めています。ページを再読み込みしてください");
+                "データ共有の設定をブラウザから読めないため、保存を止めています。ページを再読み込みしてください");
         return _remote;
     }
 
@@ -482,9 +482,13 @@ public sealed class CloudSync : IRosterStore
         }
         catch (JSException ex)
         {
-            // 失敗を利用者に見せ、読み直すまで保存先を切り替えない（CurrentRemoteAsync が止める）
-            _keyReadFailed = true;
-            RecordError($"データ共有の設定を読めませんでした（{ex.Message}）。ページを再読み込みしてください");
+            // 失敗を利用者に見せ、読み直すまで保存先を切り替えない（保存は CurrentRemoteAsync が止める）。
+            // 通知は、成功から失敗に変わったときだけ出す（読むたびに Changed を出さない）
+            if (!_keyReadFailed)
+            {
+                _keyReadFailed = true;
+                RecordError($"データ共有の設定を読めませんでした（{ex.Message}）。ページを再読み込みしてください");
+            }
             return;
         }
         if (key is not null && RemoteRosterStore.IsValidKey(key) && key != _key)
