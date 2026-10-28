@@ -79,7 +79,7 @@ test("ワークフロー: 入力・ゲートの条件と順序・環境変数経
     assert.match(yml, /MAINTENANCE_MODE_INPUT: \$\{\{ inputs\.maintenance_mode \}\}/);
     assert.match(yml, /MAINTENANCE_MESSAGE_INPUT: \$\{\{ inputs\.maintenance_message \}\}/);
     assert.doesNotMatch(yml, /(?<![_A-Za-z])MAINTENANCE(?![_A-Za-z])/, "旧名 MAINTENANCE を使わない");
-    assert.match(yml, /- name: Summary \(maintenance\)\n\s+if: \$\{\{ always\(\) \}\}/);
+    assert.match(yml, /- name: Summary \(maintenance\)\n\s+if: \$\{\{ always\(\) && steps\.message\.outcome == 'success' \}\}/);
   }
   assert.match(prod, /WORKER_NAME: fara-pokemon\n/);
   assert.match(dev, /WORKER_NAME: fara-pokemon-dev\n/);
@@ -100,8 +100,15 @@ test("ワークフロー: 初回の公開（first_publish）だけが 404 の確
   assert.match(prod, /ALLOW_MISSING_WORKER: \$\{\{ inputs\.first_publish \}\}/);
   assert.doesNotMatch(dev, /ALLOW_MISSING_WORKER/);
   for (const yml of [prod, dev]) {
-    assert.match(yml, /- name: Check maintenance message\n\s+if: \$\{\{ inputs\.maintenance_message != '' \}\}\n\s+run: node \.github\/scripts\/check-maintenance-message\.mjs\n\s+env:\n\s+MAINTENANCE_MESSAGE_INPUT: \$\{\{ inputs\.maintenance_message \}\}/);
+    // 空の文面は、スクリプトが通す。if で飛ばすと、Summary の条件（steps.message.outcome）が skipped になり、概要が書かれなくなる
+    assert.match(yml, /- name: Check maintenance message\n\s+id: message\n\s+run: node \.github\/scripts\/check-maintenance-message\.mjs\n\s+env:\n\s+MAINTENANCE_MESSAGE_INPUT: \$\{\{ inputs\.maintenance_message \}\}/);
   }
   const check = prod.indexOf("- name: Check maintenance message");
   assert.ok(check > prod.indexOf("- name: Require MAINTENANCE_MODE=notice") && check < prod.indexOf("- name: Deploy\n"), "文面の確認は Deploy の前");
+});
+
+test("ワークフロー: 404 の説明（コメント）は今の挙動（止める。初回の公開だけ first_publish で通す）と合う", () => {
+  const prod = read("deploy.yml");
+  assert.doesNotMatch(prod, /Worker がまだ無い（初回の公開）ときは通す/);
+  assert.match(prod, /Worker がまだ無い（404）ときも止める（初回の公開だけ first_publish で通す）/);
 });

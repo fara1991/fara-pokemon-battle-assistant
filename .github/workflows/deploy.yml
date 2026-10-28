@@ -76,7 +76,7 @@ jobs:
 
 
       # push（master）と、値を指定しない手動実行は、従来どおり: 公開の前に、Cloudflare の Worker の変数 MAINTENANCE_MODE が notice（更新予定のお知らせを出している）かを確かめる。
-      # 確認できないとき・notice でないときは、ここで止める（skip_maintenance_check で飛ばせる）。Worker がまだ無い（初回の公開）ときは通す。
+      # 確認できないとき・notice でないときは、ここで止める（skip_maintenance_check で飛ばせる）。Worker がまだ無い（404）ときも止める（初回の公開だけ first_publish で通す）。
       # maintenance_mode に true / notice / false を指定した手動実行（maintenance-cli の set）は、操作した人の意思なので、確認を飛ばす
       - name: Require MAINTENANCE_MODE=notice
         if: ${{ !contains(fromJSON('["true","notice","false"]'), inputs.maintenance_mode) }}
@@ -88,9 +88,9 @@ jobs:
           # 初回の公開（Worker がまだ無い）だけ、手動実行で first_publish を true にして通す。404 は既定で止まる
           ALLOW_MISSING_WORKER: ${{ inputs.first_publish }}
 
-      # --var に渡す前に、文面を確かめる（200 文字まで・改行なし）。空（変更しない）は通す
+      # --var に渡す前に、文面を確かめる（200 文字まで・改行なし）。空（変更しない）は通す。if では外さない（外すと、下の Summary の条件が「skipped」になる）
       - name: Check maintenance message
-        if: ${{ inputs.maintenance_message != '' }}
+        id: message
         run: node .github/scripts/check-maintenance-message.mjs
         env:
           MAINTENANCE_MESSAGE_INPUT: ${{ inputs.maintenance_message }}
@@ -115,8 +115,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
+      # 文の検査が失敗したら（未検査の文を書かないよう）概要は書かない。公開が失敗しただけなら書く
       - name: Summary (maintenance)
-        if: ${{ always() }}
+        if: ${{ always() && steps.message.outcome == 'success' }}
         shell: bash
         run: |
           msg="$(printf '%s' "$MAINTENANCE_MESSAGE_INPUT" | tr '`' '"')"
