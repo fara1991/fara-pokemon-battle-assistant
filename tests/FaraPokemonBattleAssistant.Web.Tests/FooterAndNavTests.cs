@@ -47,7 +47,7 @@ public class FooterAndNavTests
         var view = Read(Path.Combine(Kit, "Components", "ReportFormView.razor"));
         Assert.Contains("[Parameter] public string Title { get; set; } = \"問い合わせ\";", view);
         Assert.Contains("<PageTitle>@Title | @Site.Name</PageTitle>", view);
-        Assert.Contains("<h3>@Title</h3>", view);
+        Assert.Contains("<h1 class=\"fsk-page-title\">@Title</h1>", view);   // kit v0.5.0 から、題名の既定はページの h1
     }
 
     [Fact]
