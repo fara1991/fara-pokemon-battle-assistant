@@ -163,11 +163,9 @@
             return;
         await RunSyncAsync(async () =>
         {
-            var deletedOld = await Sync.RotateAsync();
+            var result = await Sync.RotateAsync();
             showKey = false;
-            Show(deletedOld
-                ? "アクセスキーを作り直しました。配信用BOTや他の端末には新しいアクセスキーを入れ直してください"
-                : "アクセスキーを作り直しました。ただし古いアクセスキーのデータを消せませんでした（古いアクセスキーは、まだ使えます）。作り直しのあとに古いキーへ書かれた内容は、新しいキーに入っていないかもしれません。古いキーを使っている端末・配信用BOTには新しいアクセスキーを入れ直し、データを確かめてください", !deletedOld);
+            Show(CloudSync.DescribeRotation(result), !result.OldKeyDeleted);
         });
     }
 

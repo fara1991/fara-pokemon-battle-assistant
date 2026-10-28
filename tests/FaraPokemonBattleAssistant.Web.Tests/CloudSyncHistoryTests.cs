@@ -35,7 +35,7 @@ public class CloudSyncHistoryTests
     {
         var (sync, js, server, oldKey) = await JoinedWithHistoryAsync(450);   // 200 件ずつ 3 ページ・100 件ずつ 5 回
 
-        Assert.True(await sync.RotateAsync());
+        Assert.True((await sync.RotateAsync()).OldKeyDeleted);
 
         var newKey = sync.Key!;
         Assert.NotEqual(oldKey, newKey);
@@ -101,7 +101,7 @@ public class CloudSyncHistoryTests
         var sync = NewSync(js, server);
         await sync.JoinAsync(oldKey);
 
-        Assert.True(await sync.RotateAsync());
+        Assert.True((await sync.RotateAsync()).OldKeyDeleted);
 
         var copied = server.For(sync.Key!).State.For(Ds).History.Single();
         Assert.NotEmpty(copied.Foes.Single().Scans);                                // 推定の根拠は、黙って消えない
@@ -136,7 +136,7 @@ public class CloudSyncHistoryTests
         var sync = NewSync(js, server);
         await sync.JoinAsync(oldKey);
 
-        Assert.True(await sync.RotateAsync());
+        Assert.True((await sync.RotateAsync()).OldKeyDeleted);
 
         var copied = server.For(sync.Key!).State.For("onlyhistory").History;
         Assert.Equal(new[] { "h1", "h2", "h3", "h4", "h5" }, copied.Select(m => m.Memo));
@@ -181,7 +181,7 @@ public class CloudSyncHistoryTests
             return null;
         };
 
-        Assert.True(await sync.RotateAsync());
+        Assert.True((await sync.RotateAsync()).OldKeyDeleted);
 
         Assert.NotEqual(oldKey, sync.Key);
         Assert.True(old.Deleted);
@@ -199,7 +199,7 @@ public class CloudSyncHistoryTests
             ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
             : null;
 
-        Assert.False(await sync.RotateAsync());
+        Assert.False((await sync.RotateAsync()).OldKeyDeleted);
 
         Assert.NotEqual(oldKey, sync.Key);                                          // 新しいキーへ切り替わっている
         Assert.Equal(3, server.For(sync.Key!).State.For(Ds).History.Count);

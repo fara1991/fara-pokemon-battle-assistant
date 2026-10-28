@@ -215,8 +215,93 @@ public class RosterRotationTests
         var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
 
         Assert.False(result.OldKeyDeleted);
+        Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);   // 古いキーの変更（409）を受けたあとの失敗は、新しいキーが不完全
+        Assert.False(old.Deleted);
+    }
+
+    [Fact]
+    public async Task A_rewrite_that_fails_midway_reports_that_the_new_key_is_incomplete()
+    {
+        var server = new KeyRoutedServer();
+        var oldKey = await SeedAsync(server, Roster("リザードン"));
+        var old = server.For(oldKey);
+        var rewriting = false;
+        // 写し直しの書き込みだけ失敗させる（コピーは成功させる）
+        server.OnCreate = (_, bucket) => bucket.Override = request => rewriting && IsRosterPut(request)
+            ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
+            : null;
+        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        old.Override = request =>
+        {
+            if (!IsRetire(request)) return null;
+            rewriting = true;
+            return Changed(999);   // 古いキーが変わっていた（写し直しに入る）
+        };
+
+        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+
+        Assert.False(result.OldKeyDeleted);
+        Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);
+        Assert.False(old.Deleted);                       // 古いキーは消さない
+        Assert.False(server.For(plan.NewKey).Deleted);   // 新しいキーは（切り替え済みなので）消さない
+    }
+
+    [Fact]
+    public async Task An_unexpected_error_while_rewriting_still_returns_a_result_and_keeps_the_old_key()
+    {
+        var server = new KeyRoutedServer();
+        var oldKey = await SeedAsync(server, Roster("リザードン"));
+        var old = server.For(oldKey);
+        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        old.Override = request =>
+        {
+            if (IsRetire(request)) return Changed(999);
+            // 写し直しのための読み直し（GET）が、想定外の例外になる（RosterUnavailableException ではない）
+            if (request.Method == HttpMethod.Get) throw new InvalidOperationException("想定外");
+            return null;
+        };
+
+        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);   // 例外を外へ抜けさせない
+
+        Assert.False(result.OldKeyDeleted);
+        Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);
+        Assert.False(old.Deleted);
+    }
+
+    [Fact]
+    public async Task An_unexpected_error_while_deleting_the_old_key_returns_a_failure_instead_of_throwing()
+    {
+        var server = new KeyRoutedServer();
+        var oldKey = await SeedAsync(server, Roster("リザードン"));
+        var old = server.For(oldKey);
+        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        old.Override = request =>
+        {
+            if (IsRetire(request)) throw new InvalidOperationException("想定外");
+            return null;
+        };
+
+        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+
+        Assert.False(result.OldKeyDeleted);
         Assert.Equal(RosterRotationStop.Failed, result.Stop);
         Assert.False(old.Deleted);
+    }
+
+    [Fact]
+    public async Task A_key_that_is_already_retired_counts_as_deleted()
+    {
+        var server = new KeyRoutedServer();
+        var oldKey = await SeedAsync(server, Roster("リザードン"));
+        var old = server.For(oldKey);
+        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        // 消す前に、もう消えている（410）
+        old.Override = request => IsRetire(request) ? FakeRosterServer.Json(HttpStatusCode.Gone, "{}") : null;
+
+        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+
+        Assert.True(result.OldKeyDeleted);
+        Assert.Null(result.Stop);
     }
 
     [Fact]

@@ -234,9 +234,13 @@ public sealed class CloudSync : IRosterStore
 
     /// <summary>
     /// アクセスキーを作り直す。今のデータを新しいキーの置き場に移し、古いキーの置き場は消す（古いキーは使えなくなる）。
-    /// 古い置き場を消せなかったときは false（新しいキーへの切り替えは済んでいる）。
+    /// 結果を返す。古い置き場を消せなかったとき（<see cref="RosterRotationResult.OldKeyDeleted"/> が false）も、新しいキーへの切り替えは済んでいる。
+    /// 写し直しの途中で失敗したとき（<see cref="RosterRotationStop.RewriteFailed"/>）は、新しいキーは不完全なまま使われている。
     /// </summary>
-    public async Task<bool> RotateAsync()
+    /// <remarks>
+    /// 切り替えを、古いキーを消す後ろへ回すことはしない。消したあとに切り替えが失敗すると、新しいキーの届け先が無くなり、データを失うため。
+    /// </remarks>
+    public async Task<RosterRotationResult> RotateAsync()
     {
         await EnsureInitializedAsync();
         if (_remote is null || _key is null) throw new InvalidOperationException("データ共有していません");
@@ -246,8 +250,19 @@ public sealed class CloudSync : IRosterStore
         // 古いキーを消す（写している間の変更は、足された分を写し直してから）
         var finished = await RosterRotation.FinishAsync(_http, _baseUri, plan);
         if (finished.TrimmedMatches > 0) LastNotice = TrimmedNotice(finished.TrimmedMatches);
-        return finished.OldKeyDeleted;
+        return finished;
     }
+
+    /// <summary>作り直しの結果を、画面に出す文に直す（古いキーを消せたか・写し直しが不完全だったかで変える）。</summary>
+    public static string DescribeRotation(RosterRotationResult result) => result switch
+    {
+        { OldKeyDeleted: true } => "アクセスキーを作り直しました。配信用BOTや他の端末には新しいアクセスキーを入れ直してください",
+        { Stop: RosterRotationStop.RewriteFailed } =>
+            "アクセスキーを作り直しましたが、新しいアクセスキーは不完全です（作り直しの途中で、古いアクセスキーの内容を写し切れませんでした）。" +
+            "古いアクセスキーは消していないので、まだ使えます（このブラウザは新しいキーのままなので、古いキーで参加し直すと元のデータを使えます）。" +
+            "新しいアクセスキーは使わず、古いアクセスキーのデータを確かめてから使ってください。配信用BOTや他の端末には、確かめるまで新しいアクセスキーを入れないでください",
+        _ => "アクセスキーを作り直しました。ただし古いアクセスキーのデータを消せませんでした（古いアクセスキーは、まだ使えます）。作り直しのあとに古いキーへ書かれた内容は、新しいキーに入っていないかもしれません。古いキーを使っている端末・配信用BOTには新しいアクセスキーを入れ直し、データを確かめてください",
+    };
 
     /// <summary>
     /// データ共有をやめる。このアクセスキーのクラウドのデータ（ポケモン・チーム・相手チーム・試合の履歴）をすべて削除し、キーは使えなくなる。
