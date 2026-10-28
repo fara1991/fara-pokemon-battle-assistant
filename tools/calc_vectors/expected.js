@@ -146,7 +146,7 @@ function main() {
     let result;
     try {
       result = calculate(gen, attacker, defender, move, field);
-    } catch (e) { bump('calc-error'); continue; }
+    } catch { bump('calc-error'); continue; }
     let damage = result.damage;
     if (typeof damage === 'number') damage = Array(16).fill(damage);
     // 連続技は回ごとの乱数 16 通り。この計算機は同じ乱数の番号どうしを足した合計を返すので、それと比べる

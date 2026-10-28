@@ -137,3 +137,49 @@ jobs:
       - name: Teams (Worker) test
         run: npm run test:teams
 
+  lint:
+    # JavaScript の静的解析（eslint.config.mjs。違反は直す。共通のルールは kit の tools/lint と docs/lint.md）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+  layout-check:
+    # レイアウトの数値の崩れ（横スクロール・見出し・タップ・文字の大きさ・フォーカス）を、公開の出力を配って測る（公開はしない）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Publish web（公開の出力 publish/wwwroot を作る）
+        run: npm run publish:web
+
+      - name: Install Chromium
+        run: npx playwright-core install --with-deps chromium
+
+      - name: Layout check
+        run: npm run layout-check
+

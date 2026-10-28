@@ -114,5 +114,6 @@ public abstract class CalcPageBase : AppPageBase
     {
         Stage.ClearScene(this);
         base.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

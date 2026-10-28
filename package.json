@@ -15,12 +15,17 @@
     "test:entry": "node --test tools/build-entry-pages.test.mjs",
     "test:routes": "node tools/not-found-test.mjs",
     "check:routes": "node tools/check-routes.mjs",
+    "layout-check": "node tools/layout-check.mjs",
+    "lint": "eslint .",
     "test:kit": "node --test external/fara-site-kit/tests/build/pokemon-equivalence.test.mjs external/fara-site-kit/tests/csp/render-headers.test.mjs external/fara-site-kit/tests/csp/limits.test.mjs",
     "test:search": "node --test tools/gen-search-index.test.mjs",
     "test:home": "node --test worker/home.test.mjs",
     "test:teams": "node --test worker/teams.test.mjs"
   },
   "devDependencies": {
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "playwright-core": "1.64.1",
     "wrangler": "4.136.3"
   }
 }

@@ -9,7 +9,7 @@
 // 存在しない URL は wrangler.jsonc の not_found_handling: "404-page" で 404.html（404）になるので、有効なルートは必ずここで静的 HTML を作る。
 // 有効なルートの一覧は Blazor のソース（Components/**/*.razor の @page）から取る（手で更新する一覧は持たない）。
 // テンプレートは --dir の index.html（dotnet publish の出力）。先に obj/entry-template へ写してから読む（kit は出力先で上書きする設定を拒否するため）。
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, copyFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildPages, writeFiles, assertTemplateNotOverwritten } from "../external/fara-site-kit/build/build-pages.mjs";

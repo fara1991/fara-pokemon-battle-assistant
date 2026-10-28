@@ -188,7 +188,7 @@ public class CloudSyncRaceTests
     [Fact]
     public async Task Rotated_key_in_another_tab_is_picked_up_on_the_next_save()
     {
-        var (sync, js, server, key) = await JoinedAsync(WithRival());
+        var (sync, js, server, _) = await JoinedAsync(WithRival());
         var other = RemoteRosterStore.GenerateKey();
         js.Storage[CloudSync.KeyStorageKey] = other;   // 別のタブでキーを作り直した
 
@@ -300,7 +300,7 @@ public class CloudSyncRaceTests
     [Fact]
     public async Task Reading_does_not_reread_the_stored_key_but_writing_does()
     {
-        var (sync, js, server, key) = await JoinedAsync(WithRival());
+        var (sync, js, _, _) = await JoinedAsync(WithRival());
         js.Calls.Clear();
 
         await sync.LoadAsync();

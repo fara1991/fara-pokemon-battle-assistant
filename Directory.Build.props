@@ -10,5 +10,16 @@
   <PropertyGroup>
     <!-- もう一方の OS の出力フォルダーを、ソースとして拾わない -->
     <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj.unix/**;bin.unix/**</DefaultItemExcludes>
+    <!-- 静的解析（ラチェット）。ルールと重大度は kit の tools/lint/dotnet.editorconfig（error は違反 0 件のもの）。件数と理由は docs/lint.md -->
+
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
+  <ItemGroup>
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)external/fara-site-kit/tools/lint/dotnet.editorconfig" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 非同期の誤用（async void・同期の待ち）を見る。PrivateAssets=all なので、参照先には流れない -->
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" PrivateAssets="all" />
+  </ItemGroup>
 </Project>

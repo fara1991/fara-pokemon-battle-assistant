@@ -749,6 +749,7 @@ public class DataSourceTests : IDisposable
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         foreach (var dir in _tempDirs)
         {
             try { Directory.Delete(dir, recursive: true); }

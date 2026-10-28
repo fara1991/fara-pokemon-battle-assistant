@@ -522,8 +522,6 @@ public sealed class DamageCommand
 
     public static string Format(DamageRequest request, DamageResult result, DataSetInfo dataSet, IReadOnlyList<string>? warnings = null)
     {
-        var a = request.Attacker;
-        var d = request.Defender;
         var tagText = TagText(request, result, dataSet, request.IsCritical);
         var warnText = warnings is { Count: > 0 } ? $" ※{string.Join("、", warnings)}" : "";
 
@@ -622,7 +620,7 @@ public sealed class DamageCommand
     {
         type = null;
         const string word = "てらす";
-        string? rest = null;
+        string rest;
         if (n.StartsWith(word, StringComparison.Ordinal)) rest = n[word.Length..];
         else if (n.EndsWith(word, StringComparison.Ordinal)) rest = n[..^word.Length];
         else if (n.StartsWith("tera", StringComparison.Ordinal)) rest = n[4..];

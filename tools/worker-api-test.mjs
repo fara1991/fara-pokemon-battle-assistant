@@ -49,7 +49,7 @@ async function waitReady() {
     try {
       const r = await fetch(`${base}/api/my/pokemon`);
       if (r.status === 401) return;
-    } catch {}
+    } catch { /* 応答が無いときは、次の確認まで待つ */ }
     await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error("wrangler dev が起動しませんでした\n" + output);
@@ -63,7 +63,7 @@ async function req(method, path, key, body, headers = {}) {
   });
   const text = await r.text();
   let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch {}
+  try { json = text ? JSON.parse(text) : null; } catch { /* JSON でない応答は、そのまま null として扱う */ }
   return { status: r.status, json, text, headers: r.headers };
 }
 const P = "/api/my/pokemon";
@@ -537,7 +537,7 @@ try {
   try {
     if (process.platform === "win32") spawn("taskkill", ["/pid", String(wrangler.pid), "/T", "/F"]);
     else process.kill(-wrangler.pid, "SIGTERM");
-  } catch {}
+  } catch { /* すでに止まっていれば何もしない */ }
   await new Promise((r) => setTimeout(r, 500));
   rmSync(persist, { recursive: true, force: true });
 }

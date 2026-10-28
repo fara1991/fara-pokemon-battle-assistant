@@ -272,7 +272,7 @@
         var a = e.target.closest && e.target.closest("a[href]");
         if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download") || a.closest('[aria-disabled="true"]')) return;
         var u;
-        try { u = new URL(a.href, location.href); } catch (err) { return; }
+        try { u = new URL(a.href, location.href); } catch { return; }
         if (u.origin !== location.origin || u.pathname === location.pathname) return;
         // Blazor に任せると、前の画面を撮る前にページが切り替わってしまう。
         // そこでこのクリックでの切り替えは止めて（Blazor のリンク処理は defaultPrevented を見て何もしない）、
