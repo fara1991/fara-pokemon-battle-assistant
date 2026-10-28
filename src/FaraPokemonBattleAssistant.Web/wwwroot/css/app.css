@@ -2338,6 +2338,7 @@ button.compact-cell {
 @media (max-width: 575.98px) {
     /* スマホではアクセスキーの入力欄を 1 行、ボタンをその下に */
     .sync-card .sync-join { max-width: none; flex: 1 1 100%; flex-direction: column; flex-wrap: nowrap; gap: 0.4rem; }
+    .sync-card .sync-join > .app-field { flex: none; }   /* 縦に並べるとき、flex-basis は高さになるので打ち消す */
     .sync-card .sync-join > .app-field,
     .sync-card .sync-join > .form-control,
     .sync-card .sync-join > .btn { width: 100%; margin-left: 0; border-radius: var(--bs-border-radius-sm); }
