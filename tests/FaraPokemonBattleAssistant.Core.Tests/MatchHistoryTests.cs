@@ -219,6 +219,20 @@ public class MatchHistoryTests
         Assert.Equal(0, await store.AppendManyAsync(Ds, new[] { okMatch }));
     }
 
+    /// <summary>メモを切る位置が、サロゲートペア（絵文字など）の途中にならない（途中で切ると、不正な文字になって保存が壊れる）。</summary>
+    [Fact]
+    public async Task Trimming_a_memo_never_splits_a_surrogate_pair()
+    {
+        var (server, _) = NewCloud();
+        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        // 499 文字の後に絵文字（2 文字ぶん）があるメモ。500 文字目で切ると、絵文字が半分になる
+        var memo = new string('a', 499) + "😀";
+        var trimmed = await store.AppendManyAsync(Ds, new[] { new RivalMatch { Memo = memo, Foes = { new RivalPokemon { Id = 1, PokemonName = "a" } } } });
+        Assert.Equal(1, trimmed);
+        var saved = server.State.For(Ds).History.Single().Memo;
+        Assert.Equal(new string('a', 499), saved);   // 絵文字の半分を残さず、その手前で切る
+    }
+
     [Fact]
     public async Task Cloud_end_match_keeps_rivals_that_were_added_while_it_was_running()
     {

@@ -135,4 +135,64 @@ public class CloudSyncDataSafetyTests
         await Assert.ThrowsAsync<RosterUnavailableException>(() => store.ClearAsync());
         Assert.Equal(OnePokemonJson(), js.Storage[LocalKey]);
     }
+
+    /// <summary>データ共有の設定（キー）を読めないときは、ブラウザへ保存先を黙って切り替えず、保存・読み込みを止める。</summary>
+    [Fact]
+    public async Task Unreadable_sharing_key_stops_saves_instead_of_silently_writing_to_the_browser()
+    {
+        var (sync, js, _, key) = Create();
+        js.Storage[CloudSync.KeyStorageKey] = key;
+        js.FailGet = true;
+        var before = js.Storage[LocalKey];
+
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => sync.SaveAsync(OnePokemonJson()));
+        Assert.NotNull(sync.LastError);
+        Assert.Equal(before, js.Storage[LocalKey]);   // ブラウザのデータへは書かない
+    }
+
+    /// <summary>正常な登録データ（ポケモン・有効なチーム）は、件数が合うので、共有の開始は成功し、ブラウザのデータは消える。</summary>
+    [Fact]
+    public async Task Starting_sharing_with_valid_pokemon_and_team_moves_everything_and_clears_local()
+    {
+        var local = RosterRepository.Deserialize(OnePokemonJson());
+        local.DataSets["Gen9"].Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 } } });
+        var js = new FakeJsRuntime { Storage = { [LocalKey] = RosterRepository.Serialize(local) } };
+        var server = new FakeRosterServer();
+        var sync = new CloudSync(js, new HttpClient(server), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+
+        await sync.StartNewAsync();
+        Assert.True(sync.IsSyncing);
+        Assert.False(js.Storage.ContainsKey(LocalKey));
+        var cloud = RosterRepository.Deserialize(server.RosterJson);
+        Assert.Single(cloud.DataSets["Gen9"].Pokemon);
+        Assert.Single(cloud.DataSets["Gen9"].Teams);
+    }
+
+    /// <summary>読むだけなら、共有の設定を読めなくても止めない（保存だけを止める）。</summary>
+    [Fact]
+    public async Task Reading_is_not_blocked_when_the_sharing_key_cannot_be_read()
+    {
+        var js = new FakeJsRuntime { Storage = { [LocalKey] = OnePokemonJson() }, FailGet = true };
+        var store = new CloudSync(js, new HttpClient(new FakeRosterServer()), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+        await store.LoadAsync();                  // 例外にしない（ブラウザの内容が読めないときは空として扱う）
+        Assert.NotNull(store.LastError);          // ただし、失敗は利用者に見せる
+    }
+
+    /// <summary>登録に無いポケモンを指す枠があるチームは、クラウドで削られる。そのまま共有を始めると、ブラウザのデータを消して中身が減るので、中止する。</summary>
+    [Fact]
+    public async Task Starting_sharing_keeps_local_data_when_the_cloud_would_drop_a_team()
+    {
+        var local = RosterRepository.Deserialize(OnePokemonJson());
+        local.DataSets["Gen9"].Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 99 } } });
+        var before = RosterRepository.Serialize(local);
+        var js = new FakeJsRuntime { Storage = { [LocalKey] = before } };
+        var server = new FakeRosterServer();
+        var sync = new CloudSync(js, new HttpClient(server), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+
+        await Assert.ThrowsAsync<RosterUnavailableException>(() => sync.StartNewAsync());
+        Assert.Equal(before, js.Storage[LocalKey]);                       // ブラウザのデータは残る
+        Assert.False(js.Storage.ContainsKey(CloudSync.KeyStorageKey));    // 共有は始まらない
+        Assert.False(sync.IsSyncing);
+    }
+
 }

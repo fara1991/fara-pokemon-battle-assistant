@@ -175,7 +175,8 @@ public sealed class DamageCalculator
         var defenderHp = first.DefenderHP;
         var defender = request.Defender;
         var grounded = !defender.DefensiveTypes.Contains("Flying") && defender.Ability?.Identifier is not ("levitate" or "eelevate");
-        var koOptions = KnockOutOptions.For(request, defender, defenderHp, grounded, later, new List<string>(), _generation);
+        // 注記（防御側の残りHP・確定数に反映した持ち物など）は、単発の技と同じく結果の Modifiers に入れる（捨てると連続技だけ注記が出ない）
+        var koOptions = KnockOutOptions.For(request, defender, defenderHp, grounded, later, modifiers, _generation);
         return new DamageResult
         {
             Rolls = total,
