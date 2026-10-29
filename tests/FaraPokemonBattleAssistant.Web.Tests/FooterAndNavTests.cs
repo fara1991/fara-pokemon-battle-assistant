@@ -29,6 +29,23 @@ public class FooterAndNavTests
     }
 
     [Fact]
+    public void Privacy_policy_matches_the_implementation_and_makes_no_operator_promises()
+    {
+        var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
+        // 実装に合わせた記載（アクセスキーのブラウザ保存・暗号化なし・削除・外部サービス・最終改定日）
+        const string revisedDate = "2026 年 10 月 29 日";
+        foreach (var required in new[] { "syncKey", "暗号化していません", "データ共有をやめる", "Google Fonts", "Turnstile", "raw.githubusercontent.com", revisedDate })
+        {
+            Assert.Contains(required, privacy);
+        }
+        // 運営者の運用の約束・古い記載は書かない
+        foreach (var forbidden in new[] { "見ません", "閲覧しません", "必要以上に保管", "サーバーには送りません", "個人を特定する情報は集めません", "個人を特定する情報を受け取りません", "匿名" })
+        {
+            Assert.DoesNotContain(forbidden, privacy);
+        }
+    }
+
+    [Fact]
     public void Footer_links_to_the_contact_page_under_the_same_route()
     {
         // フッターは kit の SiteFooter（SiteOptions.ReportPath の既定 "report"・PrivacyPath の既定 "privacy"。このサイトは変えない）
