@@ -90,7 +90,8 @@ public static class RosterRotation
     /// </summary>
     /// <remarks>
     /// 古いキーの変更（409）を受けたあとの処理（読み直し・新しいキーへの書き直し・履歴の追加）で失敗したら <see cref="RosterRotationStop.RewriteFailed"/> を返す。
-    /// この時点で新しいキーは古いキーの変更を欠いているので、画面は「新しいキーは不完全」と案内する。
+    /// この時点で新しいキーは古いキーの変更を欠いているので、呼び出し側は新しいキーを使わず、古いキーへ戻す（古いキーは消していないので、そのまま使える）。
+    /// 戻したあとは、使われない新しいキーの置き場を <see cref="DiscardAsync(HttpClient, string, string, CancellationToken)"/> で消す。
     /// それ以外の想定外の例外（消す処理の応答の読み取りなど）は、例外を外へ抜けさせず <see cref="RosterRotationStop.Failed"/> にする。
     /// </remarks>
     public static async Task<RosterRotationResult> FinishAsync(HttpClient http, string apiBaseUrl, RosterRotationPlan plan, CancellationToken ct = default)

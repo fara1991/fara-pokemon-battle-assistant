@@ -7,6 +7,32 @@ using Microsoft.JSInterop;
 
 namespace FaraPokemonBattleAssistant.Web.Services;
 
+/// <summary>作り直しの後、このブラウザがどのキーを使っているか。</summary>
+public enum RotationKeyState
+{
+    /// <summary>新しいキーを使っている（写し終えている）。</summary>
+    NewKey,
+
+    /// <summary>写し直しが途中で失敗したので、古いキーへ戻した（古いキーのデータは完全なまま）。</summary>
+    OldKeyRestored,
+
+    /// <summary>写し直しが途中で失敗し、古いキーへ戻せなかった。不完全な新しいキーを使い続けている。</summary>
+    IncompleteNewKey,
+}
+
+/// <summary>作り直しの結果（画面に出す文の材料）。</summary>
+/// <param name="Rotation">キーの作り直しの結果（<see cref="RosterRotation.FinishAsync"/> の結果）。</param>
+/// <param name="KeyState">作り直しのあと、このブラウザがどのキーを使っているか。</param>
+/// <param name="NewKeyDiscarded"><see cref="RotationKeyState.OldKeyRestored"/> のとき、使われない新しいキーの置き場を消せたか。</param>
+public sealed record RotationOutcome(RosterRotationResult Rotation, RotationKeyState KeyState, bool NewKeyDiscarded)
+{
+    /// <summary>古いキーの置き場を消せたか。</summary>
+    public bool OldKeyDeleted => Rotation.OldKeyDeleted;
+
+    /// <summary>消せなかったときの止まった理由（消せたら null）。</summary>
+    public RosterRotationStop? Stop => Rotation.Stop;
+}
+
 /// <summary>
 /// 登録データの保存先（アプリ全体の <see cref="IRosterStore"/>）。アクセスキーがあればクラウド（<see cref="RemoteRosterStore"/>）、
 /// 無ければこのブラウザの localStorage（<see cref="BrowserRosterStore"/>）を使う。
@@ -234,13 +260,15 @@ public sealed class CloudSync : IRosterStore
 
     /// <summary>
     /// アクセスキーを作り直す。今のデータを新しいキーの置き場に移し、古いキーの置き場は消す（古いキーは使えなくなる）。
-    /// 結果を返す。古い置き場を消せなかったとき（<see cref="RosterRotationResult.OldKeyDeleted"/> が false）も、新しいキーへの切り替えは済んでいる。
-    /// 写し直しの途中で失敗したとき（<see cref="RosterRotationStop.RewriteFailed"/>）は、新しいキーは不完全なまま使われている。
+    /// 結果を返す。古い置き場を消せなかったとき（<see cref="RotationOutcome.OldKeyDeleted"/> が false）も、新しいキーへの切り替えは済んでいる。
+    /// 写し直しの途中で失敗したとき（<see cref="RosterRotationStop.RewriteFailed"/>）は、古いキーへ戻す（古いキーは消していないので、データは古いキーに残っている）。
+    /// 戻せなかったときは、不完全な新しいキーを使い続ける（<see cref="RotationKeyState.IncompleteNewKey"/>）。
     /// </summary>
     /// <remarks>
     /// 切り替えを、古いキーを消す後ろへ回すことはしない。消したあとに切り替えが失敗すると、新しいキーの届け先が無くなり、データを失うため。
+    /// 古いキーへ戻すのは、新しいキーの置き場を捨てる前。戻せないのに捨てると、ブラウザが使っているキーの置き場を失うため。
     /// </remarks>
-    public async Task<RosterRotationResult> RotateAsync()
+    public async Task<RotationOutcome> RotateAsync()
     {
         await EnsureInitializedAsync();
         if (_remote is null || _key is null) throw new InvalidOperationException("データ共有していません");
@@ -249,20 +277,48 @@ public sealed class CloudSync : IRosterStore
         await SwitchToNewKeyAsync(plan.NewKey);
         // 古いキーを消す（写している間の変更は、足された分を写し直してから）
         var finished = await RosterRotation.FinishAsync(_http, _baseUri, plan);
+        if (finished.Stop == RosterRotationStop.RewriteFailed) return await RestoreOldKeyAsync(plan, finished);
         if (finished.TrimmedMatches > 0) LastNotice = TrimmedNotice(finished.TrimmedMatches);
-        return finished;
+        return new RotationOutcome(finished, RotationKeyState.NewKey, NewKeyDiscarded: false);
     }
 
-    /// <summary>作り直しの結果を、画面に出す文に直す（古いキーを消せたか・写し直しが不完全だったかで変える）。</summary>
-    public static string DescribeRotation(RosterRotationResult result) => result switch
+    /// <summary>
+    /// 写し直しが途中で失敗したとき、ブラウザの利用中のキーを古いキーへ戻す。戻せたら、使われない新しいキーの置き場を消す（消せなければ残す）。
+    /// 戻せなかったとき（キーを保存できない）は、新しいキーを使い続けるしかないので、その置き場は消さない。
+    /// </summary>
+    private async Task<RotationOutcome> RestoreOldKeyAsync(RosterRotationPlan plan, RosterRotationResult failed)
     {
-        { OldKeyDeleted: true } => "アクセスキーを作り直しました。配信用BOTや他の端末には新しいアクセスキーを入れ直してください",
-        { Stop: RosterRotationStop.RewriteFailed } =>
-            "アクセスキーを作り直しましたが、新しいアクセスキーは不完全です（作り直しの途中で、古いアクセスキーの内容を写し切れませんでした）。" +
-            "古いアクセスキーは消していないので、まだ使えます（このブラウザは新しいキーのままなので、古いキーで参加し直すと元のデータを使えます）。" +
-            "新しいアクセスキーは使わず、古いアクセスキーのデータを確かめてから使ってください。配信用BOTや他の端末には、確かめるまで新しいアクセスキーを入れないでください",
-        _ => "アクセスキーを作り直しました。ただし古いアクセスキーのデータを消せませんでした（古いアクセスキーは、まだ使えます）。作り直しのあとに古いキーへ書かれた内容は、新しいキーに入っていないかもしれません。古いキーを使っている端末・配信用BOTには新しいアクセスキーを入れ直し、データを確かめてください",
-    };
+        try
+        {
+            await SwitchToAsync(plan.OldKey, new RemoteRosterStore(_http, _baseUri, plan.OldKey));
+        }
+        catch (Exception)
+        {
+            // 保存できなかったので、ブラウザは新しいキーのまま（_key も変わっていない）
+        }
+        if (_key != plan.OldKey)
+            return new RotationOutcome(failed, RotationKeyState.IncompleteNewKey, NewKeyDiscarded: false);
+        var discarded = await RosterRotation.DiscardAsync(_http, _baseUri, plan.NewKey);
+        return new RotationOutcome(failed, RotationKeyState.OldKeyRestored, discarded);
+    }
+
+    /// <summary>作り直しの結果を、画面に出す文に直す（古いキーを消せたか・写し直しが途中で失敗したか・どのキーを使っているかで変える）。</summary>
+    public static string DescribeRotation(RotationOutcome outcome)
+    {
+        if (outcome.OldKeyDeleted)
+            return "アクセスキーを作り直しました。配信用BOTや他の端末には新しいアクセスキーを入れ直してください";
+        if (outcome.Stop == RosterRotationStop.RewriteFailed)
+        {
+            if (outcome.KeyState == RotationKeyState.IncompleteNewKey)
+                return "アクセスキーの作り直しは途中で失敗し、古いアクセスキーに戻せませんでした。このブラウザは不完全な新しいアクセスキーのまま使われています。" +
+                    "いったん「データ共有をやめる」を押し（不完全な新しいアクセスキーのデータを消します。このブラウザで新しいアクセスキーに足したデータも消えます）、作り直す前に控えた古いアクセスキーで参加し直してください。" +
+                    "保存できない原因のときは、ページを再読み込みし、サイトデータの保存を許可してから行ってください。配信用BOTや他の端末には、新しいアクセスキーを入れないでください";
+            return "アクセスキーの作り直しは途中で失敗しました。古いアクセスキーのまま使えます（古いアクセスキーのデータは消していません）。もう一度お試しください。" +
+                (outcome.NewKeyDiscarded ? "" : "新しいアクセスキーの置き場は消せず残りましたが、使われていません。") +
+                "配信用BOTや他の端末には、新しいアクセスキーを入れないでください";
+        }
+        return "アクセスキーを作り直しました。ただし古いアクセスキーのデータを消せませんでした（古いアクセスキーは、まだ使えます）。作り直しのあとに古いキーへ書かれた内容は、新しいキーに入っていないかもしれません。古いキーを使っている端末・配信用BOTには新しいアクセスキーを入れ直し、データを確かめてください";
+    }
 
     /// <summary>
     /// データ共有をやめる。このアクセスキーのクラウドのデータ（ポケモン・チーム・相手チーム・試合の履歴）をすべて削除し、キーは使えなくなる。
