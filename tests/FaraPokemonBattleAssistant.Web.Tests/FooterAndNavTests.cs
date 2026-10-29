@@ -37,7 +37,7 @@ public class FooterAndNavTests
     {
         var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
         // 実装に合わせた記載（アクセスキーのブラウザ保存・暗号化なし・削除・外部サービス・利用目的・制定日と最終改定日）
-        foreach (var required in new[] { "syncKey", "暗号化していません", "データ共有をやめる", "Google Fonts", "Turnstile", "raw.githubusercontent.com", "利用目的", "Cookie", PrivacyEnactedDate, PrivacyRevisedDate })
+        foreach (var required in new[] { "syncKey", "暗号化していません", "データ共有をやめる", "Google Fonts", "Turnstile", "raw.githubusercontent.com", "パスワードやアクセスキーなど", "利用目的", "Cookie", PrivacyEnactedDate, PrivacyRevisedDate })
         {
             Assert.Contains(required, privacy);
         }
