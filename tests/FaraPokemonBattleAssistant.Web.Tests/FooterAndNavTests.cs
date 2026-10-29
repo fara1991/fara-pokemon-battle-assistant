@@ -37,11 +37,16 @@ public class FooterAndNavTests
     {
         var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
         // 実装に合わせた記載（アクセスキーのブラウザ保存・暗号化なし・削除・外部サービス・利用目的・制定日と最終改定日）
-        foreach (var required in new[] { "syncKey", "暗号化していません", "データ共有をやめる", "Google Fonts", "Turnstile", "raw.githubusercontent.com", "パスワードやアクセスキーなど", "利用目的", "Cookie", PrivacyEnactedDate, PrivacyRevisedDate })
+        foreach (var required in new[] { "アクセスキー", "暗号化", "データ共有をやめる", "アクセスキーを作り直す", "Google Fonts", "Turnstile", "GitHub", "パスワードやアクセスキーなど", "元に戻せない識別子", "利用目的", "Cookie", PrivacyEnactedDate, PrivacyRevisedDate })
         {
             Assert.Contains(required, privacy);
         }
         // 運営者の運用の約束・法的な適用の注記・古い記載・表記ゆれは書かない
+        // 閲覧者に要らない技術の詳細（ホスト名・保存のキー名・ハッシュ・トークン・保存の仕組みの名前）は出さない
+        foreach (var jargon in new[] { "localStorage", "syncKey", "fara-pokemon-battle-assistant.", "fara-labs.com", "raw.githubusercontent.com", "googleapis", "ハッシュ", "トークン", "秘密の鍵", "SHA", "HMAC", "R2", "Durable", "キャッシュ" })
+        {
+            Assert.DoesNotContain(jargon, privacy);
+        }
         foreach (var forbidden in new[] { "見ません", "閲覧しません", "必要以上に保管", "サーバーには送りません", "個人を特定する情報は集めません", "個人を特定する情報を受け取りません", "匿名", "BOT", "お問い合わせ", "掃除", "追記します" })
         {
             Assert.DoesNotContain(forbidden, privacy);
