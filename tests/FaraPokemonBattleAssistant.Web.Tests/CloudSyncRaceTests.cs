@@ -167,21 +167,37 @@ public class CloudSyncRaceTests
         var result = await sync.RotateAsync();
 
         Assert.False(result.OldKeyDeleted);
-        Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);   // 写し直しの読み直しに失敗 = 新しいキーは不完全
+        Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);   // 写し直しの読み直しに失敗 = 古いキーへ戻す
         Assert.False(old.Deleted);
-        Assert.NotEqual(oldKey, sync.Key);
+        Assert.Equal(oldKey, sync.Key);
+        Assert.Equal(RotationKeyState.OldKeyRestored, result.KeyState);
     }
 
-    [Fact]
-    public async Task Rotation_whose_rewrite_fails_leaves_the_new_key_in_use_and_says_it_is_incomplete()
+    /// <summary>
+    /// 写し直しの途中で失敗させる。古いキーを消す直前に別の端末が書き（写し直しに入る）、新しいキーへの書き直し（PUT）を失敗させる。
+    /// 作った新しいキーは <paramref name="created"/> に入る（作り直しの最初のコピーは成功させる）。
+    /// </summary>
+    /// <param name="onRewriteFails">書き直しが失敗するときに呼ぶ（保存の失敗を重ねるなど）。</param>
+    /// <param name="failNewKeyDelete">true なら、新しいキーの置き場を消す処理も失敗させる（捨てられない）。</param>
+    private static void ArrangeRewriteFailure(KeyRoutedServer server, FakeRosterServer old, List<string> created,
+        Action? onRewriteFails = null, bool failNewKeyDelete = false)
     {
-        var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
-        var old = server.For(oldKey);
         var rewriting = false;
-        // 写し直しの書き込みだけ失敗させる（作り直しの最初のコピーは成功させる）
-        server.OnCreate = (_, bucket) => bucket.Override = request => rewriting && request.Method == HttpMethod.Put
-            ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
-            : null;
+        server.OnCreate = (key, bucket) =>
+        {
+            created.Add(key);
+            bucket.Override = request =>
+            {
+                if (rewriting && request.Method == HttpMethod.Put)
+                {
+                    onRewriteFails?.Invoke();
+                    return FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}");
+                }
+                return failNewKeyDelete && request.Method == HttpMethod.Delete
+                    ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
+                    : null;
+            };
+        };
         old.Override = request =>
         {
             if (!IsRetire(request)) return null;
@@ -190,17 +206,83 @@ public class CloudSyncRaceTests
             old.WriteFromElsewhere(state => state.For(Ds).Pokemon.Add(new RegisteredPokemon { Id = 2, PokemonId = 445, PokemonName = "ガブリアス" }));
             return null;
         };
+    }
+
+    [Fact]
+    public async Task Rotation_whose_rewrite_fails_goes_back_to_the_old_key_and_discards_the_new_one()
+    {
+        var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
+        var old = server.For(oldKey);
+        var created = new List<string>();
+        ArrangeRewriteFailure(server, old, created);
 
         var result = await sync.RotateAsync();
 
-        Assert.False(result.OldKeyDeleted);
+        var newKey = Assert.Single(created);
         Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);
-        Assert.NotEqual(oldKey, sync.Key);                          // 新しいキーへは切り替わっている
-        Assert.Equal(sync.Key, js.Storage[CloudSync.KeyStorageKey]);
-        Assert.False(old.Deleted);                                  // 古いキーは残っている
+        Assert.Equal(RotationKeyState.OldKeyRestored, result.KeyState);
+        Assert.False(result.OldKeyDeleted);
+        Assert.Equal(oldKey, sync.Key);                                    // 古いキーへ戻っている（新しいキーのままではない）
+        Assert.Equal(oldKey, js.Storage[CloudSync.KeyStorageKey]);
+        Assert.False(old.Deleted);                                         // 古いキーは残っている
+        Assert.True(result.NewKeyDiscarded);
+        Assert.True(server.For(newKey).Deleted);                           // 使われない新しいキーの置き場は消す
         var message = CloudSync.DescribeRotation(result);
-        Assert.Contains("新しいアクセスキーは不完全", message);
-        Assert.Contains("古いアクセスキーは消していないので、まだ使えます", message);
+        Assert.Contains("古いアクセスキーのまま使えます", message);
+        Assert.Contains("もう一度お試しください", message);
+        Assert.Contains("配信用BOTや他の端末には、新しいアクセスキーを入れないでください", message);
+        Assert.DoesNotContain("不完全", message);
+
+        // 戻したあとの保存は、古いキーの置き場へ入る（新しいキーの置き場には書かれない）
+        var state = RosterRepository.Deserialize(await sync.LoadAsync());
+        state.For(Ds).Pokemon.Add(new RegisteredPokemon { Id = 90, PokemonId = 6, PokemonName = "リザードン" });
+        await sync.SaveAsync(RosterRepository.Serialize(state));
+        Assert.Contains(old.State.For(Ds).Pokemon, p => p.PokemonName == "リザードン");
+        Assert.DoesNotContain(server.For(newKey).State.For(Ds).Pokemon, p => p.PokemonName == "リザードン");
+    }
+
+    [Fact]
+    public async Task Rotation_whose_rewrite_fails_and_cannot_go_back_keeps_the_new_key_and_says_how_to_recover()
+    {
+        var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
+        var old = server.For(oldKey);
+        var created = new List<string>();
+        // 書き直しの失敗と同時に、ブラウザが保存できなくなる（古いキーへ戻す保存も失敗する）
+        ArrangeRewriteFailure(server, old, created, onRewriteFails: () => js.FailSet = true);
+
+        var result = await sync.RotateAsync();
+
+        var newKey = Assert.Single(created);
+        Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);
+        Assert.Equal(RotationKeyState.IncompleteNewKey, result.KeyState);
+        Assert.False(result.NewKeyDiscarded);
+        Assert.Equal(newKey, sync.Key);                                    // 保存できないので、ブラウザは新しいキーのまま
+        Assert.Equal(newKey, js.Storage[CloudSync.KeyStorageKey]);
+        Assert.False(server.For(newKey).Deleted);                          // 使っているキーの置き場は消さない
+        Assert.False(old.Deleted);
+        var message = CloudSync.DescribeRotation(result);
+        Assert.Contains("古いアクセスキーに戻せませんでした", message);
+        Assert.Contains("不完全な新しいアクセスキーのまま使われています", message);
+        Assert.Contains("データ共有をやめる", message);
+        Assert.Contains("新しいアクセスキーを入れないでください", message);
+    }
+
+    [Fact]
+    public async Task Rotation_that_goes_back_to_the_old_key_says_so_when_the_new_slot_cannot_be_discarded()
+    {
+        var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
+        var old = server.For(oldKey);
+        var created = new List<string>();
+        ArrangeRewriteFailure(server, old, created, failNewKeyDelete: true);
+
+        var result = await sync.RotateAsync();
+
+        var newKey = Assert.Single(created);
+        Assert.Equal(RotationKeyState.OldKeyRestored, result.KeyState);    // 古いキーへは戻せている
+        Assert.Equal(oldKey, sync.Key);
+        Assert.False(result.NewKeyDiscarded);
+        Assert.False(server.For(newKey).Deleted);                          // 捨てられなかったので残る（使われない）
+        Assert.Contains("置き場は消せず残りましたが、使われていません", CloudSync.DescribeRotation(result));
     }
 
     [Fact]
