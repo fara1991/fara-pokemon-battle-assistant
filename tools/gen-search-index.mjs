@@ -1,7 +1,7 @@
 // サイト内検索の索引（src/FaraPokemonBattleAssistant.Web/wwwroot/search-index.json）を、各ページの Blazor のソース（.razor）から作る。
 //   node tools/gen-search-index.mjs          索引を書き出す
 //   node tools/gen-search-index.mjs --check  書き出した索引が今のページと合っているか確かめる（合っていなければ失敗。CI で使う）
-// ページの見出し（h3〜h6・カードの見出し）ごとに「節」を作り、その中の文章（段落・ラベル・表・リスト）を本文として持つ。
+// ページの見出し（h2・h4〜h6・カードの見出し）ごとに「節」を作り、その中の文章（段落・ラベル・表・リスト）を本文として持つ。
 // 用語・略語ページの <dt>/<dd> は「用語」、チャットコマンド画面のコマンド一覧は「コマンド」として持つ。
 // 入力欄の値や計算結果など、実行時に決まる文字（@(…) など）は含めない。ポケモン・わざの名前などのデータは、実行時にアプリが足す。
 // 抜き出した文字に C# のコードの断片が混ざっていたら、索引を作らずに失敗する（検索結果にコードが出ないようにするため）。
@@ -148,13 +148,13 @@ function sectionsOf(html, page, url) {
         if (current.type === "term" || text || current.type !== "intro") out.push({ type: current.type, title: (usedTitleFixes.add(current.title), TITLE_FIXES[current.title] ?? current.title), page, url, text: text.slice(0, 1500) });
     };
     // 見出し・用語は節の区切り、それ以外の文章は今の節に足す
-    const re = /<(h[3-6]|dt|dd|p|label|li|td|th|small|summary|legend|MudSwitch|MudCheckBox)\b[^>]*>([\s\S]*?)<\/\1>/g;
+    const re = /<(h[2-6]|dt|dd|p|label|li|td|th|small|summary|legend|MudSwitch|MudCheckBox)\b[^>]*>([\s\S]*?)<\/\1>/g;
     let m;
     while ((m = re.exec(html)) !== null) {
         const tag = m[1], text = plain(m[2]);
         if (!text) continue;
         if (tag === "h3") continue;                       // ページの題名は、ページ自体の項目にする
-        if (/^h[4-6]$/.test(tag)) { push(); current = { type: "section", title: text, text: [] }; }
+        if (/^h[2456]$/.test(tag)) { push(); current = { type: "section", title: text, text: [] }; }
         else if (tag === "dt") { push(); current = { type: "term", title: text, text: [] }; }
         else current.text.push(text);
     }
