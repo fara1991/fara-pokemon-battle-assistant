@@ -29,6 +29,27 @@ public class FooterAndNavTests
     }
 
     [Fact]
+    public void Privacy_policy_matches_the_implementation_and_makes_no_operator_promises()
+    {
+        var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
+        // 実装に合わせた記載（アクセスキーのブラウザ保存・暗号化なし・削除・外部サービスの表・最終改定日）
+        foreach (var required in new[]
+        {
+            "fara-pokemon-battle-assistant.syncKey", "暗号化していません", "アクセスキーを作り直す", "データ共有をやめる",
+            "最後のアクセス", "このサイトからは Cookie を設定しません", "日本時間の 0 時ごろ", "<table", "Google Fonts",
+            "Cloudflare Turnstile", "raw.githubusercontent.com", "Discord", "最終改定: <span class=\"nowrap\">2026 年 10 月 29 日</span>",
+        })
+        {
+            Assert.Contains(required, privacy);
+        }
+        // 運営者の運用の約束・古い記載は書かない
+        foreach (var forbidden in new[] { "見ません", "閲覧しません", "必要以上に保管", "サーバーには送りません", "個人を特定する情報は集めません", "匿名" })
+        {
+            Assert.DoesNotContain(forbidden, privacy);
+        }
+    }
+
+    [Fact]
     public void Footer_links_to_the_contact_page_under_the_same_route()
     {
         // フッターは kit の SiteFooter（SiteOptions.ReportPath の既定 "report"・PrivacyPath の既定 "privacy"。このサイトは変えない）
