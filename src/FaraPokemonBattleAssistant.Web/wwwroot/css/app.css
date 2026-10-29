@@ -5002,3 +5002,34 @@ html body .dex-filter-grid .dex-select-field:nth-child(even) .searchable-select-
 @media (max-width: 390px) {
     html body .fbc-brand { font-size: 0.75rem; letter-spacing: -0.02em; }
 }
+
+/* ---------- 文章が続くページ（用語・略語 / API / 更新履歴）の読みやすさ ----------
+   行が長くなりすぎないよう、本文の幅を 56rem までにして中央に置く（プライバシーポリシーと同じ幅）。
+   行間をゆるめ、句の単位で折り返し、段落の最後の行に 1 文字だけ残らないようにし、本文中のリンクは下線で見分ける */
+.page-prose { width: 100%; max-width: 56rem; margin-left: auto; margin-right: auto; }
+.page-prose p, .page-prose dd { line-height: 1.75; }
+.page-prose li, .page-prose td { line-height: 1.65; }
+.page-prose p, .page-prose li, .page-prose dd, .page-prose dt, .page-prose td, .page-prose .card-title, .page-prose h2 {
+    word-break: normal;
+    word-break: auto-phrase;
+    overflow-wrap: break-word;
+    text-wrap: pretty;
+}
+.page-prose a:not(.btn):not(.mud-button-root) { text-decoration: underline; text-underline-offset: 0.18em; }
+.page-prose dl.row dd { margin-bottom: 0.5rem; }
+/* 見出しを h2 に直したぶん、カードの見出しの見た目（太さ・間隔）は従来どおりにそろえる */
+.card-header h2 { margin-bottom: 0; font-size: 1rem; font-weight: 600; }
+.page-prose h2.card-title { margin-bottom: 0.6rem; }
+/* ライトの配色: 補足の灰色・コードの桃色が、背景の薄い紫の上で読みにくい（コントラスト 4.5 未満）ので、濃くする */
+html[data-bs-theme="light"] .page-header .text-muted,
+html[data-bs-theme="light"] .page-prose .text-muted { color: #4a4466 !important; }
+html[data-bs-theme="light"] .page-prose code,
+html[data-bs-theme="light"] .policy-card code { color: #a3205f; }
+/* API の表: スマホ幅では、API の名前の下に説明を重ねて縦に並べる（2 列のままだと説明が 8〜10 行に折れて読みにくい） */
+@media (max-width: 575.98px) {
+    .api-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .api-table, .api-table tbody, .api-table tr, .api-table td { display: block; width: 100%; }
+    .api-table tr { padding: 0.5rem 0; border-bottom: 1px solid var(--app-card-border); }
+    .api-table td { border: 0; padding: 0.1rem 0; }
+    .api-table td:first-child { word-break: break-all; }
+}

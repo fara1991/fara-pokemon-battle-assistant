@@ -16,7 +16,7 @@
     <div class="col-12">
         <MudCard Elevation="0" Class="card h-100">
             <MudCardContent Class="card-body">
-                <h6 class="card-title">対応しているゲーム <Help Title="ゲームの切り替え">左のメニューの「ゲーム」で切り替えます。選んだゲームは全ページとチャットコマンドの接頭辞に反映されます。</Help></h6>
+                <h2 class="card-title h6">対応しているゲーム <Help Title="ゲームの切り替え">左のメニューの「ゲーム」で切り替えます。選んだゲームは全ページとチャットコマンドの接頭辞に反映されます。</Help></h2>
                 <ul class="mb-0 small">
                     <li>第 1・第 2 世代: その世代のポケモン・技・タイプ相性を見られます（ダメージ計算は未対応）</li>
                     <li>第 3 世代以降: その世代の計算式と補正でダメージを計算します<br /><span class="text-muted">※メガシンカ、Z 技、ダイマックス、テラスタルに対応しています（それぞれ登場した世代のみ）</span></li>
@@ -73,7 +73,7 @@
 
 <MudCard Elevation="0" Class="card mt-3">
     <MudCardContent Class="card-body">
-        <h6 class="card-title">更新履歴</h6>
+        <h2 class="card-title h6">更新履歴</h2>
         @if (recent is null)
         {
             <p class="small text-muted mb-0">@(failed ? "読み込めませんでした" : "読み込み中…")</p>

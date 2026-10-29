@@ -18,7 +18,7 @@
 <div class="sync-page">
 <MudCard Elevation="0" Class="card mb-3 sync-card">
     <MudCardHeader Class="card-header"><CardHeaderContent>
-        <h5>アクセスキー @(Sync.IsSyncing ? "（データ共有中）" : "（未共有）")</h5>
+        <h2 class="h5">アクセスキー @(Sync.IsSyncing ? "（データ共有中）" : "（未共有）")</h2>
     </CardHeaderContent></MudCardHeader>
     <MudCardContent Class="card-body">
         @if (!Sync.IsSyncing)

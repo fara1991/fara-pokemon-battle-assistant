@@ -2,13 +2,13 @@
 
 <PageTitle>API | Pokémon Battle Assistant</PageTitle>
 
-<div class="page-header">
+<div class="page-header page-prose">
     <h1 class="h3">API <Help Title="API">登録したポケモンとチームを、このサイトの外から読み書きするための API の説明です。アクセスキーは、<a href="data-share">データ共有</a>ページで作ります。</Help></h1>
     <p class="text-muted mb-0">自作のツールやスクリプトから、登録データを直接読み書きしたい人向けの説明です。ブラウザと配信用BOTで使うだけなら、ここは読まなくて大丈夫です。</p>
 </div>
 
-<MudCard Elevation="0" Class="card mb-3">
-    <MudCardHeader Class="card-header"><CardHeaderContent><h5>API で使うには <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Default" Class="app-badge ms-1">上級者向け</MudChip></h5></CardHeaderContent></MudCardHeader>
+<MudCard Elevation="0" Class="card mb-3 page-prose">
+    <MudCardHeader Class="card-header"><CardHeaderContent><h2 class="h5">API で使うには <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Default" Class="app-badge ms-1">上級者向け</MudChip></h2></CardHeaderContent></MudCardHeader>
     <MudCardContent Class="card-body">
         <p class="small mb-2">アクセスキーを使うと、登録したポケモンとチームを、このサイトの外から API で読み書きできます。</p>
         <ol class="mb-2 ps-3">
@@ -16,7 +16,7 @@
             <li>リクエストの <code>Authorization: Bearer アクセスキー</code> ヘッダーに入れて、このサイトの API を呼びます。</li>
         </ol>
         <div class="table-responsive">
-            <table class="table table-sm small mb-2">
+            <table class="table table-sm small mb-2 api-table">
                 <thead><tr><th>API</th><th>内容</th></tr></thead>
                 <tbody>
                     <tr><td><code>GET /api/my/pokemon</code></td><td>登録したポケモン（ゲームごと）を読み取ります</td></tr>
