@@ -28,21 +28,39 @@ public class FooterAndNavTests
         Assert.DoesNotContain("作者へ報告", Read(Path.Combine(Kit, "Components", "SiteFooter.razor")));   // フッターは kit の部品
     }
 
+    // プライバシーポリシーの日付（本文を改定したら、ここと Privacy.razor を同じ日にそろえる）
+    private const string PrivacyEnactedDate = "2026 年 10 月 22 日";
+    private const string PrivacyRevisedDate = "2026 年 10 月 29 日";
+
     [Fact]
     public void Privacy_policy_matches_the_implementation_and_makes_no_operator_promises()
     {
         var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
-        // 実装に合わせた記載（アクセスキーのブラウザ保存・暗号化なし・削除・外部サービス・最終改定日）
-        const string revisedDate = "2026 年 10 月 29 日";
-        foreach (var required in new[] { "syncKey", "暗号化していません", "データ共有をやめる", "Google Fonts", "Turnstile", "raw.githubusercontent.com", revisedDate })
+        // 実装に合わせた記載（アクセスキーのブラウザ保存・暗号化なし・削除・外部サービス・利用目的・制定日と最終改定日）
+        foreach (var required in new[] { "syncKey", "暗号化していません", "データ共有をやめる", "Google Fonts", "Turnstile", "raw.githubusercontent.com", "利用目的", "Cookie", PrivacyEnactedDate, PrivacyRevisedDate })
         {
             Assert.Contains(required, privacy);
         }
-        // 運営者の運用の約束・古い記載は書かない
-        foreach (var forbidden in new[] { "見ません", "閲覧しません", "必要以上に保管", "サーバーには送りません", "個人を特定する情報は集めません", "個人を特定する情報を受け取りません", "匿名" })
+        // 運営者の運用の約束・法的な適用の注記・古い記載・表記ゆれは書かない
+        foreach (var forbidden in new[] { "見ません", "閲覧しません", "必要以上に保管", "サーバーには送りません", "個人を特定する情報は集めません", "個人を特定する情報を受け取りません", "匿名", "BOT", "お問い合わせ", "掃除", "追記します" })
         {
             Assert.DoesNotContain(forbidden, privacy);
         }
+    }
+
+    [Fact]
+    public void Privacy_policy_headings_follow_the_page_title_and_links_use_the_absolute_route()
+    {
+        var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
+        // ページの題名（h1）の次の見出しは h2（見た目は .policy-heading で従来の大きさを保つ）。h5 から始めない
+        Assert.Contains("<h1 class=\"h3\">", privacy);
+        Assert.DoesNotContain("<h5", privacy);
+        Assert.Contains("<h2 class=\"policy-heading\">", privacy);
+        var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
+        Assert.Contains(".policy-card .policy-heading", css);
+        // 問い合わせへのリンクは、どの URL の下でも同じ場所を指す絶対パス
+        Assert.Contains("<a href=\"/report\">", privacy);
+        Assert.DoesNotContain("href=\"report\"", privacy);
     }
 
     [Fact]

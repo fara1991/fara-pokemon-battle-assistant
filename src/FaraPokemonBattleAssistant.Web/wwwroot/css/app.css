@@ -4556,8 +4556,8 @@ a.fbc-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed
 .page-column { width: 100%; max-width: 46rem; margin-left: auto; margin-right: auto; }
 .page-card { margin-left: auto; margin-right: auto; }   /* 枠（.page-pane）の中で、カードを中央に置く（幅は .report-card・.policy-card の 46rem） */
 .report-card, .policy-card { max-width: 46rem; }
-.policy-card h5 { margin-top: 1.1rem; font-size: 1rem; }
-.policy-card h5:first-child { margin-top: 0; }
+.policy-card h5, .policy-card .policy-heading { margin-top: 1.1rem; font-size: 1rem; font-weight: 500; line-height: 1.2; margin-bottom: .5rem; }   /* ページの h1 の次は h2（見た目は従来の h5 と同じ） */
+.policy-card h5:first-child, .policy-card .policy-heading:first-child { margin-top: 0; }
 .report-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
 /* メンテナンスのお知らせ（MAINTENANCE_MODE=notice）と、メンテナンス画面（MAINTENANCE_MODE=true） */
@@ -4606,7 +4606,7 @@ html[data-bs-theme="dark"] .fbc-not-found-lead { color: #b4a7d1; }
 .fbc-btn-primary.mud-button-root { background: var(--mud-palette-primary); box-shadow: var(--mud-elevation-2); border-radius: 999px; padding: 10px 24px; text-transform: none; font-weight: 700; }
 
 /* ---------- 日本語の改行（本文だけ。フォームの入力欄やコマンドの表には当てない） ---------- */
-.page-column p, .page-column h3, .policy-card p, .policy-card li, .policy-card h5 {
+.page-column p, .page-column h3, .policy-card p, .policy-card li, .policy-card h5, .policy-card .policy-heading {
     word-break: normal;
     word-break: auto-phrase;
     line-break: strict;
