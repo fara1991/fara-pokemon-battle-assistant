@@ -60,10 +60,12 @@ public sealed class AppState
                 }
             }
         }
+#pragma warning disable CA1031 // 保存の読み込みはあくまで補助。どんな失敗でも既定値のまま起動を続ける
         catch
         {
             // localStorage が使えない環境（プライベートモード等）では既定値のまま
         }
+#pragma warning restore CA1031
         // 起動直後は、選んでいるゲームのデータだけを読む（他のゲームは、選んだとき・使うページを開いたときに読む）
         _ = PreloadOtherFormatAsync();
     }
@@ -81,9 +83,11 @@ public sealed class AppState
             var data = await _catalog.GetDataSetAsync(DataSetKey);
             await data.GetUsageAsync(other);
         }
+#pragma warning disable CA1031 // 先読みは任せきりの最適化。失敗しても、使うときに読み直すので握りつぶす
         catch
         {
         }
+#pragma warning restore CA1031
     }
 
     /// <summary>形式の先読みまでの待ち時間（起動直後の通信と競合しないように）。</summary>
@@ -113,9 +117,11 @@ public sealed class AppState
             var existing = await _js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
             await _js.InvokeVoidAsync("localStorage.setItem", StorageKey, WriteSaved(existing, DataSetKey, Format));
         }
+#pragma warning disable CA1031 // 保存できなくても、その場の表示には困らない（localStorage が使えない環境がある）
         catch
         {
         }
+#pragma warning restore CA1031
     }
 
     /// <summary>
@@ -149,10 +155,12 @@ public sealed class AppState
             {
                 await handler();
             }
+#pragma warning disable CA1031 // 購読先 1 つの失敗で、残りの購読先を呼ぶのを止めない（ここで記録して続ける）
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"画面の更新に失敗しました: {ex.Message}");
+                await Console.Error.WriteLineAsync($"画面の更新に失敗しました: {ex.Message}");
             }
+#pragma warning restore CA1031
         });
         await Task.WhenAll(running);
     }

@@ -11,7 +11,7 @@ public class StatusConditionTests
     private const int Garchomp = 445, Charizard = 6, Blissey = 242;
     private const int Facade = 263, SmellingSalts = 265, WakeUpSlap = 358, Venoshock = 474, Hex = 506, Flamethrower = 53, Earthquake = 89;
 
-    private static Task<PokemonDataSet> Load(string key) => TestData.Catalog().GetDataSetAsync(key);
+    private static Task<PokemonDataSet> LoadAsync(string key) => TestData.Catalog().GetDataSetAsync(key);
 
     private static PokemonBuild Build(PokemonDataSet data, int id, string? ability = null, StatusCondition status = StatusCondition.None)
     {
@@ -47,7 +47,7 @@ public class StatusConditionTests
     [InlineData("Gen7")]
     public async Task Smelling_salts_doubles_against_paralysis_and_wake_up_slap_against_sleep(string key)
     {
-        var data = await Load(key);
+        var data = await LoadAsync(key);
         var attacker = Build(data, Charizard);
         Assert.True(data.FindMove(SmellingSalts) is not null && data.FindMove(WakeUpSlap) is not null);
         var none = Max(Calc(data, attacker, Build(data, Blissey), SmellingSalts));
@@ -65,7 +65,7 @@ public class StatusConditionTests
     [InlineData("Gen9")]
     public async Task Venoshock_doubles_against_poison_and_badly_poisoned_only(string key)
     {
-        var data = await Load(key);
+        var data = await LoadAsync(key);
         var attacker = Build(data, Charizard);
         var none = Max(Calc(data, attacker, Build(data, Blissey), Venoshock));
         AssertDoubled(none, Max(Calc(data, attacker, Build(data, Blissey, status: StatusCondition.Poison), Venoshock)));
@@ -79,7 +79,7 @@ public class StatusConditionTests
     [InlineData("Gen9")]
     public async Task Hex_doubles_against_every_status_including_sleep_and_freeze(string key)
     {
-        var data = await Load(key);
+        var data = await LoadAsync(key);
         var attacker = Build(data, Charizard);
         var none = Max(Calc(data, attacker, Build(data, Blissey), Hex));
         foreach (var status in new[] { StatusCondition.Burn, StatusCondition.Poison, StatusCondition.BadlyPoisoned, StatusCondition.Paralysis, StatusCondition.Sleep, StatusCondition.Freeze })
@@ -90,13 +90,13 @@ public class StatusConditionTests
     public async Task Facade_doubles_with_burn_poison_paralysis_but_not_sleep_and_burn_halving_is_gen_dependent()
     {
         // 第 6 世代以降: やけどでも半減しない。第 5 世代まで: からげんき 2 倍とやけど半減が両方掛かる
-        var gen9 = await Load("Gen9");
+        var gen9 = await LoadAsync("Gen9");
         var normal9 = Max(Calc(gen9, Build(gen9, Garchomp), Build(gen9, Blissey), Facade));
         foreach (var status in new[] { StatusCondition.Burn, StatusCondition.Poison, StatusCondition.BadlyPoisoned, StatusCondition.Paralysis })
             AssertDoubled(normal9, Max(Calc(gen9, Build(gen9, Garchomp, status: status), Build(gen9, Blissey), Facade)));
         Assert.Equal(normal9, Max(Calc(gen9, Build(gen9, Garchomp, status: StatusCondition.Sleep), Build(gen9, Blissey), Facade)));
 
-        var gen5 = await Load("Gen5");
+        var gen5 = await LoadAsync("Gen5");
         var normal5 = Max(Calc(gen5, Build(gen5, Garchomp), Build(gen5, Blissey), Facade));
         var burned5 = Max(Calc(gen5, Build(gen5, Garchomp, status: StatusCondition.Burn), Build(gen5, Blissey), Facade));
         Assert.InRange(burned5, normal5 - 2, normal5 + 2);
@@ -106,7 +106,7 @@ public class StatusConditionTests
     [Fact]
     public async Task Guts_toxic_boost_and_flare_boost_apply_with_the_right_status()
     {
-        var data = await Load("Gen7");
+        var data = await LoadAsync("Gen7");
         var defender = Build(data, Blissey);
         // こんじょう: どの状態異常でも物理 1.5 倍
         var plain = Max(Calc(data, Build(data, Garchomp, "rough-skin"), defender, Earthquake));
@@ -134,7 +134,7 @@ public class StatusConditionTests
     [Fact]
     public async Task Poison_heal_and_magic_guard_remove_the_poison_residual_damage_from_the_knock_out()
     {
-        var data = await Load("Gen9");
+        var data = await LoadAsync("Gen9");
         var attacker = Build(data, Garchomp);
         var rolls = new[] { 40 };
         int Hits(string? ability, StatusCondition status)

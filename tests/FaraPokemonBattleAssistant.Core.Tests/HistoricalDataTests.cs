@@ -9,7 +9,7 @@ namespace FaraPokemonBattleAssistant.Core.Tests;
 /// <summary>昔の世代のデータ（その世代の時点のタイプ・種族値・特性・技・相性）。</summary>
 public class HistoricalDataTests
 {
-    private static Task<PokemonDataSet> Load(string key) => TestData.Catalog().GetDataSetAsync(key);
+    private static Task<PokemonDataSet> LoadAsync(string key) => TestData.Catalog().GetDataSetAsync(key);
 
     [Fact]
     public async Task Game_list_starts_from_generation_1_and_old_games_are_reference_only()
@@ -27,7 +27,7 @@ public class HistoricalDataTests
     [Fact]
     public async Task Generation_1_types_stats_and_chart()
     {
-        var data = await Load("Gen1");
+        var data = await LoadAsync("Gen1");
         Assert.Equal(151, data.Pokemon.Count);
         Assert.Empty(data.Abilities);
         // あく・はがね・フェアリーは無い
@@ -55,13 +55,13 @@ public class HistoricalDataTests
     {
         foreach (var key in new[] { "Gen2", "Gen3", "Gen4", "Gen5" })
         {
-            var data = await Load(key);
+            var data = await LoadAsync(key);
             Assert.Equal(17, data.TypeChart.Types.Count);
             Assert.Equal(0.5, data.TypeChart.Against("Ghost", "Steel"));
             Assert.Equal(0.5, data.TypeChart.Against("Dark", "Steel"));
             Assert.Equal("Normal", data.Pokemon.Single(p => p.Id == 35).Type1); // ピッピ
         }
-        var gen6 = await Load("Gen6");
+        var gen6 = await LoadAsync("Gen6");
         Assert.Equal(18, gen6.TypeChart.Types.Count);
         Assert.Equal(1.0, gen6.TypeChart.Against("Ghost", "Steel"));
         Assert.Equal("Fairy", gen6.Pokemon.Single(p => p.Id == 35).Type1);
@@ -71,19 +71,19 @@ public class HistoricalDataTests
     public async Task Physical_special_split_and_abilities_by_generation()
     {
         // 第 3 世代は技のタイプで物理・特殊が決まる（あく技は特殊）。第 4 世代から技ごと
-        Assert.Equal(MoveCategory.Special, (await Load("Gen3")).Moves.Single(m => m.Id == 44).Category);
-        Assert.Equal(MoveCategory.Physical, (await Load("Gen4")).Moves.Single(m => m.Id == 44).Category);
+        Assert.Equal(MoveCategory.Special, (await LoadAsync("Gen3")).Moves.Single(m => m.Id == 44).Category);
+        Assert.Equal(MoveCategory.Physical, (await LoadAsync("Gen4")).Moves.Single(m => m.Id == 44).Category);
         // 隠れ特性は第 5 世代から（フシギダネのようりょくそ）
-        Assert.DoesNotContain(34, (await Load("Gen4")).Pokemon.Single(p => p.Id == 1).AbilityIds);
-        Assert.Contains(34, (await Load("Gen5")).Pokemon.Single(p => p.Id == 1).AbilityIds);
+        Assert.DoesNotContain(34, (await LoadAsync("Gen4")).Pokemon.Single(p => p.Id == 1).AbilityIds);
+        Assert.Contains(34, (await LoadAsync("Gen5")).Pokemon.Single(p => p.Id == 1).AbilityIds);
         // 第 6〜7 世代にはメガシンカ（メガストーン付き）
-        var gen6 = await Load("Gen6");
+        var gen6 = await LoadAsync("Gen6");
         var megaCharizardX = gen6.Pokemon.Single(p => p.Id == 10034);
         Assert.True(megaCharizardX.IsMega);
         Assert.NotNull(gen6.FindItem(megaCharizardX.MegaStoneId!.Value));
-        Assert.DoesNotContain((await Load("Gen5")).Pokemon, p => p.IsMega);
+        Assert.DoesNotContain((await LoadAsync("Gen5")).Pokemon, p => p.IsMega);
         // 第 7 世代にはアローラのすがた
-        Assert.Contains((await Load("Gen7")).Pokemon, p => p.Id == 10091);
+        Assert.Contains((await LoadAsync("Gen7")).Pokemon, p => p.Id == 10091);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public class HistoricalDataTests
     [Fact]
     public async Task Champions_mega_lucario_z_has_an_ability()
     {
-        var data = await Load("Champions");
+        var data = await LoadAsync("Champions");
         var megaLucarioZ = data.Pokemon.Single(p => p.Name == "メガルカリオZ");
         Assert.NotEmpty(data.AbilitiesOf(megaLucarioZ));
     }
@@ -110,7 +110,7 @@ public class HistoricalDataTests
 /// <summary>昔の世代の計算で、ダメージ計算ツールとの比較以外に確かめること（素早さ・確定数・Z 技・チャット）。</summary>
 public class LegacyMechanicsTests
 {
-    private static Task<PokemonDataSet> Load(string key) => TestData.Catalog().GetDataSetAsync(key);
+    private static Task<PokemonDataSet> LoadAsync(string key) => TestData.Catalog().GetDataSetAsync(key);
 
     [Fact]
     public void Paralysis_quarters_speed_until_generation_6()

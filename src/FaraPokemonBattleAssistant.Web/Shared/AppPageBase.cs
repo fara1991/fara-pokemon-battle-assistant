@@ -46,6 +46,7 @@ public abstract class AppPageBase : ComponentBase, IDisposable
             LoadError = "";
             await load(version);
         }
+#pragma warning disable CA1031 // 画面の読み込みの最上位。どんな失敗も画面のメッセージにして表示する
         catch (Exception ex)
         {
             // 古い読み込みの失敗は、最新の読み込みに任せる（新しい成功の結果を、古い失敗のメッセージで壊さない）
@@ -53,6 +54,7 @@ public abstract class AppPageBase : ComponentBase, IDisposable
             onFailure();
             LoadError = $"データの読み込みに失敗しました: {ex.Message}";
         }
+#pragma warning restore CA1031
     }
 
     /// <summary>この番号の読み込みが、いちばん新しいもの（後から別の読み込みが始まっていない）で、ページも閉じていないか。</summary>

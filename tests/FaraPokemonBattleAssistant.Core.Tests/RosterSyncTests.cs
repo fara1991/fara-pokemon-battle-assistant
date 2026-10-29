@@ -9,15 +9,20 @@ using Xunit;
 
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
-public class RosterSyncTests
+public sealed class RosterSyncTests : IDisposable
 {
+    private readonly TestResources _owned = new();
+
+    public void Dispose() => _owned.Dispose();
+
     private const string Ds = "Champions";
     private static readonly string Key = RemoteRosterStore.GenerateKey();
 
-    private static (FakeRosterServer Server, RemoteRosterStore Store) NewRemote(FakeRosterServer? server = null)
+    private (FakeRosterServer Server, RemoteRosterStore Store) NewRemote(FakeRosterServer? server = null)
     {
-        server ??= new FakeRosterServer { ExpectedKey = Key };
-        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        server ??= _owned.Own(new FakeRosterServer { ExpectedKey = Key });
+        var http = _owned.Own(new HttpClient(server));
+        var store = new RemoteRosterStore(http, "https://pokemon.example/", Key);
         return (server, store);
     }
 
@@ -111,8 +116,9 @@ public class RosterSyncTests
     [Fact]
     public async Task Base_url_without_trailing_slash_works()
     {
-        var server = new FakeRosterServer { ExpectedKey = Key };
-        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example", Key);
+        using var server = new FakeRosterServer { ExpectedKey = Key };
+        using var http = new HttpClient(server);
+        var store = new RemoteRosterStore(http, "https://pokemon.example", Key);
         await store.LoadAsync();
         Assert.Equal("https://pokemon.example/api/my/pokemon", server.Requests.First().RequestUri!.ToString());
     }
@@ -182,7 +188,7 @@ public class RosterSyncTests
     [Fact]
     public async Task Wrong_key_is_reported_as_unauthorized()
     {
-        var server = new FakeRosterServer { ExpectedKey = RemoteRosterStore.GenerateKey() };
+        using var server = new FakeRosterServer { ExpectedKey = RemoteRosterStore.GenerateKey() };
         var (_, store) = NewRemote(server);
         var ex = await Assert.ThrowsAsync<RosterUnavailableException>(() => store.LoadAsync());
         Assert.Equal(RosterUnavailableReason.Unauthorized, ex.Reason);
@@ -209,7 +215,7 @@ public class RosterSyncTests
     {
         var (server, store) = NewRemote();
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.LoadAsync(cts.Token));
     }
 
@@ -323,7 +329,8 @@ public class RosterSyncTests
         var (server, store) = NewRemote();
         var (pokemon, nature) = await SamplePokemonAsync();
         var web = new RosterRepository(store);
-        var bot = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
+        using var http = new HttpClient(server);
+        var bot = new RosterRepository(new RemoteRosterStore(http, "https://pokemon.example/", Key));
 
         var first = await web.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
         var second = await bot.AddPokemonAsync(Ds, pokemon, new StatSet(), nature, null);
@@ -433,7 +440,7 @@ public class RosterSyncTests
     [Fact]
     public async Task Poke_command_reports_cloud_errors_as_messages()
     {
-        var server = new FakeRosterServer { ExpectedKey = RemoteRosterStore.GenerateKey() };
+        using var server = new FakeRosterServer { ExpectedKey = RemoteRosterStore.GenerateKey() };
         var (_, store) = NewRemote(server);
         var cmd = new FaraPokemonBattleAssistant.Core.Text.PokeCommand(TestData.Catalog(), new RosterRepository(store));
         var result = await cmd.ExecuteAsync("!pokech ls -m");

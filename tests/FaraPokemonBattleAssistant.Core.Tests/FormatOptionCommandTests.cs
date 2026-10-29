@@ -433,7 +433,7 @@ public class FormatOptionCommandTests
     {
         public BattleFormat? Saved { get; private set; }
         public int Calls { get; private set; }
-        public Task Save(BattleFormat? format, CancellationToken ct) { Saved = format; Calls++; return Task.CompletedTask; }
+        public Task SaveAsync(BattleFormat? format, CancellationToken ct) { Saved = format; Calls++; return Task.CompletedTask; }
     }
 
     [Theory]
@@ -449,7 +449,7 @@ public class FormatOptionCommandTests
     {
         var (command, _) = await NewAsync();
         var store = new FormatStore();
-        var result = await command.ExecuteAsync(input, new PokeCommandOptions { SaveFormatAsync = store.Save });
+        var result = await command.ExecuteAsync(input, new PokeCommandOptions { SaveFormatAsync = store.SaveAsync });
         Assert.True(result.Success, result.Message);
         Assert.Equal(expected, store.Saved);
         Assert.Equal(1, store.Calls);
@@ -464,7 +464,7 @@ public class FormatOptionCommandTests
     {
         var (command, _) = await NewAsync();
         var store = new FormatStore();
-        var result = await command.ExecuteAsync(input, new PokeCommandOptions { Format = BattleFormat.Doubles, FormatIsRegistered = true, SaveFormatAsync = store.Save });
+        var result = await command.ExecuteAsync(input, new PokeCommandOptions { Format = BattleFormat.Doubles, FormatIsRegistered = true, SaveFormatAsync = store.SaveAsync });
         Assert.True(result.Success, result.Message);
         Assert.Equal(1, store.Calls);
         Assert.Null(store.Saved);
@@ -484,7 +484,7 @@ public class FormatOptionCommandTests
     {
         var (command, _) = await NewAsync();
         var store = new FormatStore();
-        var result = await command.ExecuteAsync(input, new PokeCommandOptions { SaveFormatAsync = store.Save });
+        var result = await command.ExecuteAsync(input, new PokeCommandOptions { SaveFormatAsync = store.SaveAsync });
         Assert.False(result.Success);
         Assert.Equal(0, store.Calls);
     }
@@ -506,7 +506,7 @@ public class FormatOptionCommandTests
     {
         var (command, _) = await NewAsync();
         var store = new FormatStore();
-        var denied = new PokeCommandOptions { AllowMutations = false, SaveFormatAsync = store.Save };
+        var denied = new PokeCommandOptions { AllowMutations = false, SaveFormatAsync = store.SaveAsync };
         Assert.False((await command.ExecuteAsync("!pokech format set ダブル", denied)).Success);
         Assert.False((await command.ExecuteAsync("!pokech format clear", denied)).Success);
         Assert.Equal(0, store.Calls);
@@ -528,7 +528,7 @@ public class FormatOptionCommandTests
         // 登録 → (BOT が Format を更新して渡す) → 形式を省略したコマンドが登録した形式で動く
         var (command, repo) = await NewAsync();
         var store = new FormatStore();
-        await command.ExecuteAsync("!pokech format set ダブル", new PokeCommandOptions { SaveFormatAsync = store.Save });
+        await command.ExecuteAsync("!pokech format set ダブル", new PokeCommandOptions { SaveFormatAsync = store.SaveAsync });
         var options = new PokeCommandOptions { Format = store.Saved ?? BattleFormat.Singles, FormatIsRegistered = store.Saved is not null };
         await command.ExecuteAsync("!pokech add -t 1 1", options);
         await command.ExecuteAsync("!pokech use -t 1", options);
@@ -536,7 +536,7 @@ public class FormatOptionCommandTests
         Assert.Equal(1, roster.ActiveNumber(BattleFormat.Doubles));
         Assert.Null(roster.ActiveNumber(BattleFormat.Singles));
         // 解除すると既定のシングルに戻る
-        await command.ExecuteAsync("!pokech format clear", new PokeCommandOptions { SaveFormatAsync = store.Save });
+        await command.ExecuteAsync("!pokech format clear", new PokeCommandOptions { SaveFormatAsync = store.SaveAsync });
         Assert.Null(store.Saved);
         var cleared = new PokeCommandOptions { Format = store.Saved ?? BattleFormat.Singles };
         Assert.Contains("シングルのチーム2", (await command.ExecuteAsync("!pokech add -t 2 1", cleared)).Message);

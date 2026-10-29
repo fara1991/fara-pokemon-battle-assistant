@@ -278,12 +278,12 @@ public class KanaSearchTests
 
 public class NatureSelectionTests
 {
-    private static async Task<IReadOnlyList<Nature>> Natures() => (await TestData.Catalog().GetDataSetAsync("Gen9")).Natures;
+    private static async Task<IReadOnlyList<Nature>> NaturesAsync() => (await TestData.Catalog().GetDataSetAsync("Gen9")).Natures;
 
     [Fact]
     public async Task One_click_picks_a_nature()
     {
-        var natures = await Natures();
+        var natures = await NaturesAsync();
         var neutral = NatureSelection.Neutral(natures);
         Assert.Equal("まじめ", neutral?.Name);
         // 補正なしから「上昇: 素早さ」→ 物理なら特攻を下げる（ようき）、特殊なら攻撃を下げる（おくびょう）
@@ -296,7 +296,7 @@ public class NatureSelectionTests
     [Fact]
     public async Task Changing_one_side_keeps_the_other()
     {
-        var natures = await Natures();
+        var natures = await NaturesAsync();
         var jolly = natures.First(n => n.Name == "ようき");
         // ようき（S↑C↓）で上昇を攻撃に → いじっぱり（A↑C↓）
         var adamant = NatureSelection.WithIncreased(natures, jolly, Stat.Attack);

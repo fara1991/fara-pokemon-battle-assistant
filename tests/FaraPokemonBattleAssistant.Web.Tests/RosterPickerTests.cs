@@ -65,12 +65,12 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
     /// </summary>
     private async Task SeedAsync(PokemonDataSet data, bool withTeams)
     {
-        async Task<RegisteredPokemon> Add(string name) =>
+        async Task<RegisteredPokemon> AddAsync(string name) =>
             await repo.AddPokemonAsync(Ds, data.Pokemon.First(p => p.Name == name), new StatSet { Attack = 32 }, data.Natures.First(), null);
-        var weavile = await Add(SinglesOnly);
-        var garchomp = await Add(DoublesOnly);
-        var charizard = await Add(Both);
-        await Add(Unassigned);
+        var weavile = await AddAsync(SinglesOnly);
+        var garchomp = await AddAsync(DoublesOnly);
+        var charizard = await AddAsync(Both);
+        await AddAsync(Unassigned);
         if (!withTeams) return;
         await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 3, charizard.Id, null);
         await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, weavile.Id, null);
@@ -100,7 +100,9 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
         Services.AddSingleton(states);
         Services.AddSingleton(repo);
         Services.AddSingleton<BattleStage>();
-        Services.AddSingleton(new CloudSync(JSInterop.JSRuntime, new HttpClient(), "http://localhost/", Services.BuildServiceProvider()));
+        // HttpClient は DI に作らせる（コンテナーがテストの終わりに破棄する）
+        Services.AddSingleton(_ => new HttpClient());
+        Services.AddSingleton(sp => new CloudSync(JSInterop.JSRuntime, sp.GetRequiredService<HttpClient>(), "http://localhost/", sp));
         Services.AddScoped<ToastService>();
 
         var cut = Render<TPage>();

@@ -24,6 +24,7 @@ public static class RosterRotation
     /// <param name="http">通信に使う HttpClient（BaseAddress は使わない）</param>
     /// <param name="apiBaseUrl">サイトの URL（例: <see cref="RemoteRosterStore.ProductionBaseUrl"/>）</param>
     /// <param name="oldKey">今のアクセスキー</param>
+    /// <param name="ct">キャンセル用</param>
     /// <exception cref="RosterUnavailableException">データを移せなかった（このときは古いキーのまま）</exception>
     public static async Task<RosterRotationPlan> PrepareAsync(HttpClient http, string apiBaseUrl, string oldKey, CancellationToken ct = default)
     {
@@ -77,7 +78,9 @@ public static class RosterRotation
         catch
         {
             // 新しいキーは使わないので、置き場も消しておく（消せなくても、新しいキーは使われない）
+#pragma warning disable CA1031 // 後始末は最善努力。消せなくても、元の例外を上げ直す（ここで別の例外に置き換えない）
             try { await target.DeleteAsync(CancellationToken.None); } catch (Exception) { /* 消せなくても使わない */ }
+#pragma warning restore CA1031
             throw;
         }
     }
@@ -158,10 +161,12 @@ public static class RosterRotation
             await new RemoteRosterStore(http, apiBaseUrl, newKey).DeleteAsync(ct);
             return true;
         }
+#pragma warning disable CA1031 // 後始末は最善努力。理由を問わず、消せなければ false を返す（公開の戻り値の約束）
         catch (Exception)
         {
             return false;
         }
+#pragma warning restore CA1031
     }
 
     /// <summary>

@@ -110,7 +110,7 @@ public class RegisteredOnlyTests
 /// <summary>攻撃側の特性が、状態（HP・状態異常・天候）でダメージを変えるときの、チャットの「発動時」の結果。</summary>
 public class AttackerAbilityVariantTests
 {
-    private static async Task<PokeCommand> CommandWith(string dataSet, string pokemonName, string abilityIdentifier, Models.StatSet evs)
+    private static async Task<PokeCommand> CommandWithAsync(string dataSet, string pokemonName, string abilityIdentifier, Models.StatSet evs)
     {
         var data = await TestData.Catalog().GetDataSetAsync(dataSet);
         var pokemon = data.Pokemon.First(p => p.Name == pokemonName);
@@ -124,7 +124,7 @@ public class AttackerAbilityVariantTests
     public async Task Guts_and_solar_power_variants_are_listed_only_when_they_change_the_damage()
     {
         // こんじょう: ヘラクロス（Gen9）のインファイト。状態異常の結果を出す
-        var guts = await CommandWith("Gen9", "ヘラクロス", "guts", new Models.StatSet { Attack = 252 });
+        var guts = await CommandWithAsync("Gen9", "ヘラクロス", "guts", new Models.StatSet { Attack = 252 });
         var g = await guts.ExecuteAsync("!pokesv dmg ヘラクロス インファイト ガブリアス");
         Assert.True(g.Success, g.Message);
         Assert.Contains("こんじょう発動時(状態異常)", g.Message);
@@ -133,7 +133,7 @@ public class AttackerAbilityVariantTests
         Assert.DoesNotContain("こんじょう発動時", burned.Message);
 
         // サンパワー: リザードン（Gen9）の特殊技。晴れの結果を出す（特殊技のとき）
-        var solar = await CommandWith("Gen9", "リザードン", "solar-power", new Models.StatSet { SpAttack = 252 });
+        var solar = await CommandWithAsync("Gen9", "リザードン", "solar-power", new Models.StatSet { SpAttack = 252 });
         var s = await solar.ExecuteAsync("!pokesv dmg リザードン かえんほうしゃ ガブリアス");
         Assert.True(s.Success, s.Message);
         Assert.Contains("サンパワー発動時(晴れ)", s.Message);

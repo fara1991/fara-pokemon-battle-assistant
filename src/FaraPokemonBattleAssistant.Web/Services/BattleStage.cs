@@ -32,10 +32,12 @@ public sealed class BattleStage
                 Changed?.Invoke();
             }
         }
+#pragma warning disable CA1031 // 保存の読み込みは補助。どんな失敗でもオフのまま続ける
         catch
         {
             // localStorage が使えない環境（プライベートモード等）ではオフのまま
         }
+#pragma warning restore CA1031
     }
 
     /// <summary>今の 2 体を決めたときのデータセット。データセットが変わったら選び直す。</summary>
@@ -135,7 +137,9 @@ public sealed class BattleStage
     private async Task SaveAsync()
     {
         try { await _js.InvokeVoidAsync("localStorage.setItem", StorageKey, BattleView ? "1" : "0"); }
+#pragma warning disable CA1031 // 保存できなくても、その場の表示には困らない
         catch { /* 保存できなくても、その場の表示には困らない */ }
+#pragma warning restore CA1031
     }
 
     /// <summary>

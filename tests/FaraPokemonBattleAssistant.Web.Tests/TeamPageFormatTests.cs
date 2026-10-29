@@ -79,7 +79,9 @@ public class TeamPageFormatTests : BunitContext, IAsyncLifetime
         Services.AddSingleton(app);
         Services.AddSingleton(states);
         Services.AddSingleton(repo);
-        Services.AddSingleton(new CloudSync(JSInterop.JSRuntime, new HttpClient(), "http://localhost/", Services.BuildServiceProvider()));
+        // HttpClient は DI に作らせる（コンテナーがテストの終わりに破棄する）
+        Services.AddSingleton(_ => new HttpClient());
+        Services.AddSingleton(sp => new CloudSync(JSInterop.JSRuntime, sp.GetRequiredService<HttpClient>(), "http://localhost/", sp));
         Services.AddScoped<ToastService>();
 
         var cut = Render<TeamPage>();

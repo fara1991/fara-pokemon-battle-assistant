@@ -475,7 +475,7 @@ else if (string.IsNullOrEmpty(loadError))
                 </div>
                 @if (build is not null)
                 {
-                    var abilities = data.AbilitiesOf(build.Pokemon);
+                    var abilities = data!.AbilitiesOf(build.Pokemon);
                     <div class="poke-summary mb-2"><PokemonLabel Build="build" /> <span class="small text-muted text-nowrap">すばやさ種族値 @build.Pokemon.BaseStats.Speed</span></div>
                     <div class="form-group mb-2">
                         <label>S @EvRules.Label(dataSet.EvSystem) <Help Title="@($"すばやさの{EvRules.Label(dataSet.EvSystem)}")">S に振る@(EvRules.Label(dataSet.EvSystem))です（0〜@(max)）。ボタンで 0 と最大を入れられます。</Help></label>

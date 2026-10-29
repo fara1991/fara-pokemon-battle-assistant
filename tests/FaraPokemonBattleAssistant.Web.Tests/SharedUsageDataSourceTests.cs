@@ -21,7 +21,9 @@ public class SharedUsageDataSourceTests
         public async Task<string?> ReadTextAsync(string relativePath, CancellationToken cancellationToken = default)
         {
             Calls[relativePath] = Calls.GetValueOrDefault(relativePath) + 1;
+#pragma warning disable VSTHRD003 // テスト用の関門。呼び出し側の TaskCompletionSource をわざと待つ
             if (Gate is not null) await Gate.Task;
+#pragma warning restore VSTHRD003
             if (FailuresLeft > 0)
             {
                 FailuresLeft--;
@@ -53,8 +55,10 @@ public class SharedUsageDataSourceTests
         using var cts = new CancellationTokenSource();
 
         var cancelled = shared.ReadTextAsync("Gen9/usage_moves_singles.csv", cts.Token);
-        cts.Cancel();
+        await cts.CancelAsync();
+#pragma warning disable VSTHRD003 // 先に始めた読み込み（cancelled）の結果を、わざと待つ
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+#pragma warning restore VSTHRD003
 
         // 呼んだ側がキャンセルしても、読み込み自体は続き、後から同じパスを読んだ側はそれを使う（取り直さない）
         inner.Gate.SetResult();

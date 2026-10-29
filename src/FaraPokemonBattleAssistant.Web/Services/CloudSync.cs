@@ -292,10 +292,12 @@ public sealed class CloudSync : IRosterStore
         {
             await SwitchToAsync(plan.OldKey, new RemoteRosterStore(_http, _baseUri, plan.OldKey));
         }
+#pragma warning disable CA1031 // 戻せなかった理由は問わない。下で _key を見て、戻せたかどうかを決める
         catch (Exception)
         {
             // 保存できなかったので、ブラウザは新しいキーのまま（_key も変わっていない）
         }
+#pragma warning restore CA1031
         if (_key != plan.OldKey)
             return new RotationOutcome(failed, RotationKeyState.IncompleteNewKey, NewKeyDiscarded: false);
         var discarded = await RosterRotation.DiscardAsync(_http, _baseUri, plan.NewKey);
@@ -554,7 +556,7 @@ public sealed class CloudSync : IRosterStore
         private RemoteRosterStore Reading() =>
             sync._remote ?? throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "データ共有が止まっているため、試合の履歴を読めません");
 
-        private async Task<RemoteRosterStore> Writing() =>
+        private async Task<RemoteRosterStore> WritingAsync() =>
             await sync.CurrentRemoteAsync(forWrite: true) ?? throw new RosterUnavailableException(RosterUnavailableReason.InvalidResponse, null, "データ共有が止まっているため、試合の履歴を書けません");
 
         public Task<IReadOnlyDictionary<string, HistoryTotal>> DataSetTotalsAsync(CancellationToken ct = default) => Reading().DataSetTotalsAsync(ct);
@@ -565,13 +567,13 @@ public sealed class CloudSync : IRosterStore
         public Task<RivalMatch?> GetAsync(string dataSetKey, int id, CancellationToken ct = default) => Reading().GetAsync(dataSetKey, id, ct);
 
         public async Task<RivalMatch> AppendAsync(string dataSetKey, RivalMatch match, CancellationToken ct = default) =>
-            await (await Writing()).AppendAsync(dataSetKey, match, ct);
+            await (await WritingAsync()).AppendAsync(dataSetKey, match, ct);
 
         public async Task<bool> RemoveAsync(string dataSetKey, int id, CancellationToken ct = default) =>
-            await (await Writing()).RemoveAsync(dataSetKey, id, ct);
+            await (await WritingAsync()).RemoveAsync(dataSetKey, id, ct);
 
         public async Task<int> TrimAsync(string dataSetKey, int keepLatest, CancellationToken ct = default) =>
-            await (await Writing()).TrimAsync(dataSetKey, keepLatest, ct);
+            await (await WritingAsync()).TrimAsync(dataSetKey, keepLatest, ct);
     }
 }
 

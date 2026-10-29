@@ -18,7 +18,11 @@ builder.Services.AddFaraBlazorComponent(SiteInfo.Configure);
 
 // メンテナンスの状態（Worker の変数 MAINTENANCE_MODE。external/fara-blazor-component/worker/maintenance.js）。読めなければ通常。
 // メンテナンス中（MAINTENANCE_MODE=true）は、アプリの代わりに、メンテナンス画面だけを動かす
-var maintenance = await MaintenanceInfo.LoadAsync(new HttpClient { BaseAddress = new Uri(baseAddress) });
+MaintenanceInfo maintenance;
+using (var maintenanceHttp = new HttpClient { BaseAddress = new Uri(baseAddress) })
+{
+    maintenance = await MaintenanceInfo.LoadAsync(maintenanceHttp);
+}
 builder.Services.AddSingleton(maintenance);
 if (maintenance.State == MaintenanceState.On)
 {

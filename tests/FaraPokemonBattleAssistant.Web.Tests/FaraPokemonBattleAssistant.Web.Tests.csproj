@@ -21,9 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- データ共有 API の偽サーバー（Core.Tests と共有） -->
+    <!-- データ共有 API の偽サーバーと、破棄の預かり（Core.Tests と共有） -->
     <Compile Include="..\FaraPokemonBattleAssistant.Core.Tests\FakeRosterServer.cs" Link="FakeRosterServer.cs" />
     <Compile Include="..\FaraPokemonBattleAssistant.Core.Tests\KeyRoutedServer.cs" Link="KeyRoutedServer.cs" />
+    <Compile Include="..\FaraPokemonBattleAssistant.Core.Tests\TestResources.cs" Link="TestResources.cs" />
   </ItemGroup>
 
 </Project>
