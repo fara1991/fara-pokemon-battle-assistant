@@ -4618,6 +4618,41 @@ html[data-bs-theme="dark"] .fbc-not-found-lead { color: #b4a7d1; }
 .page-column--wide { max-width: 72rem; }
 .policy-card--wide { max-width: 72rem; }
 
+/* プライバシーポリシー（.policy-doc）。段落・見出し・リストの間隔、行の長さ、リンク、外部サービスの表を整える。権利表記には効かせない。
+   行が長くなりすぎないよう、PC でも本文の幅は 56rem まで（見出しの枠も同じ幅にそろえる） */
+.policy-card--wide.policy-doc { max-width: 56rem; }
+.page-header.page-column--wide:has(+ .page-pane .policy-doc) { max-width: 56rem; }
+.policy-doc { line-height: 1.8; }
+.policy-doc p, .policy-doc ul { margin: 0 0 0.9rem; }
+.policy-doc ul { padding-left: 1.4rem; list-style: disc; }
+.policy-doc li + li { margin-top: 0.35rem; }
+.policy-doc .policy-heading { margin: 2.25rem 0 0.75rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--app-card-border); font-size: 1.2rem; font-weight: 700; line-height: 1.5; }
+.policy-doc .policy-heading:first-child { margin-top: 0; }
+.policy-doc .policy-subheading { margin: 1.5rem 0 0.5rem; font-size: 1.05rem; font-weight: 700; line-height: 1.5; word-break: auto-phrase; text-wrap: pretty; }
+/* 本文のリンクは、色と下線で見分ける */
+.policy-doc a { color: var(--bs-link-color); text-decoration: underline; text-underline-offset: 0.18em; }
+.policy-doc a:hover { color: var(--bs-link-hover-color); text-decoration-thickness: 2px; }
+/* 制定日・最終改定日 */
+.policy-dates { display: block; margin-top: 0.25rem; font-size: 0.9rem; }
+/* 外部サービスの表。幅が足りるときは 4 列の表、狭いとき（枠の幅が 42rem 未満）は 1 行ずつのカードにして、横にスクロールさせない */
+.policy-table-wrap { container-type: inline-size; margin-bottom: 0.9rem; }
+.policy-table { width: 100%; margin: 0; border-collapse: collapse; font-size: 0.95rem; line-height: 1.6; }
+.policy-table th, .policy-table td { padding: 0.55rem 0.75rem; border: 1px solid var(--app-card-border); text-align: left; vertical-align: top; }
+.policy-table thead th { background: var(--app-panel-bg); font-weight: 700; white-space: nowrap; }
+.policy-table tbody th { font-weight: 700; }
+.policy-table tbody tr:nth-child(even) { background: rgba(var(--bs-primary-rgb), 0.05); }
+.policy-table th:first-child { width: 22%; }
+@container (max-width: 41.99rem) {
+    .policy-table, .policy-table tbody, .policy-table tr, .policy-table th, .policy-table td { display: block; }
+    .policy-table thead { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+    .policy-table tbody tr { margin-bottom: 0.75rem; border: 1px solid var(--app-card-border); border-radius: 0.5rem; overflow: hidden; }
+    .policy-table th, .policy-table td { border: 0; padding: 0.35rem 0.75rem; }
+    .policy-table th:first-child { width: auto; }
+    .policy-table tbody th { padding-top: 0.55rem; background: var(--app-panel-bg); border-bottom: 1px solid var(--app-card-border); }
+    .policy-table td::before { content: attr(data-label); display: block; color: var(--app-muted); font-size: 0.8rem; line-height: 1.5; }
+    .policy-table td:last-child { padding-bottom: 0.55rem; }
+}
+
 /* ---- kit の報告フォーム（ReportFormView）が使うクラス（fbc-）を、このサイトのこれまでの同じ意味のクラス（Bootstrap 由来の card・mb-3 など。base.css）に合わせる ----
    （kit の CSS には、これらのユーティリティが無い。.fbc-card の枠線・影・背景は、上の .card の規則に名前を足して共有している。ここは base.css の .card・.card-body と同じ構造の部分） */
 .fbc-mb-0 { margin-bottom: 0 !important; }
