@@ -10,7 +10,7 @@ namespace FaraPokemonBattleAssistant.Core.Tests;
 /// <summary>ダイマックス技・Z 技に変わったあとの技名と威力（表示）が、計算に使う威力と一致する。</summary>
 public class ConvertedMoveTests
 {
-    private static async Task<(PokemonDataSet Data, DamageCalculator Calc)> Load(string key)
+    private static async Task<(PokemonDataSet Data, DamageCalculator Calc)> LoadAsync(string key)
     {
         var data = await TestData.Catalog().GetDataSetAsync(key);
         return (data, new DamageCalculator(data.TypeChart, data.Info.Generation));
@@ -19,7 +19,7 @@ public class ConvertedMoveTests
     [Fact]
     public async Task Dynamax_name_and_power_match_the_calculation()
     {
-        var (data, calc) = await Load("Gen8");
+        var (data, calc) = await LoadAsync("Gen8");
         var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ドサイドン"), data.Info.EvSystem) { IsDynamax = true };
         var move = data.Moves.First(m => m.Name == "ウッドハンマー");
         var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ギャラドス"), data.Info.EvSystem);
@@ -35,7 +35,7 @@ public class ConvertedMoveTests
     [Fact]
     public async Task Fighting_and_poison_use_the_lower_power_table()
     {
-        var (data, calc) = await Load("Gen8");
+        var (data, calc) = await LoadAsync("Gen8");
         var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "カイリキー"), data.Info.EvSystem) { IsDynamax = true };
         var move = data.Moves.First(m => m.Name == "インファイト");
         var r = calc.Calculate(new DamageRequest { Attacker = attacker, Move = move, Defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ギャラドス"), data.Info.EvSystem) });
@@ -46,7 +46,7 @@ public class ConvertedMoveTests
     [Fact]
     public async Task Z_move_name_and_power_match_the_calculation()
     {
-        var (data, calc) = await Load("Gen7");
+        var (data, calc) = await LoadAsync("Gen7");
         var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"), data.Info.EvSystem);
         var move = data.Moves.First(m => m.Name == "じしん");
         var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "カビゴン"), data.Info.EvSystem);
@@ -59,7 +59,7 @@ public class ConvertedMoveTests
     [Fact]
     public async Task Exclusive_z_move_is_used_for_the_matching_pokemon()
     {
-        var (data, calc) = await Load("Gen7");
+        var (data, calc) = await LoadAsync("Gen7");
         var snorlax = new PokemonBuild(data.Pokemon.First(p => p.Name == "カビゴン"), data.Info.EvSystem);
         var move = data.Moves.First(m => m.Name == "ギガインパクト");
         var r = calc.Calculate(new DamageRequest { Attacker = snorlax, Move = move, Defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ギャラドス"), data.Info.EvSystem), IsZMove = true });
@@ -74,7 +74,7 @@ public class ConvertedMoveTests
     [Fact]
     public async Task Normal_move_has_no_converted_move_and_chat_reply_names_the_converted_move()
     {
-        var (data, calc) = await Load("Gen8");
+        var (data, calc) = await LoadAsync("Gen8");
         var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ドサイドン"), data.Info.EvSystem);
         var move = data.Moves.First(m => m.Name == "ウッドハンマー");
         var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ギャラドス"), data.Info.EvSystem);

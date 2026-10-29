@@ -237,7 +237,9 @@ public class TeamNumberPerFormatTests
         // 使用中だったチーム（ダブルで保存されていたチーム2）は、シングルの使用中になる
         Assert.Equal(2, roster.ActiveNumber(BattleFormat.Singles));
         Assert.Null(roster.ActiveNumber(BattleFormat.Doubles));
+#pragma warning disable CS0618 // 廃止した項目を、わざと読む（読み込み時に必ず null になることの確認）
         Assert.Null(roster.ActiveTeam);   // 廃止した項目（読み込み時に必ず null）
+#pragma warning restore CS0618
     }
 
     [Fact]
@@ -427,8 +429,9 @@ public class TeamNumberPerFormatTests
     [Fact]
     public async Task Same_number_in_both_formats_round_trips_through_the_cloud()
     {
-        var server = new FakeRosterServer { ExpectedKey = Key };
-        var (repo, a, b) = await NewAsync(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
+        using var server = new FakeRosterServer { ExpectedKey = Key };
+        using var http = new HttpClient(server);
+        var (repo, a, b) = await NewAsync(new RemoteRosterStore(http, "https://pokemon.example/", Key));
         await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, a.Id, null);
         await repo.AddToTeamAsync(Ds, BattleFormat.Doubles, 1, b.Id, null);   // 同じ番号の 2 つ目が黙って落とされない
         await repo.UseTeamAsync(Ds, BattleFormat.Doubles, 1);
@@ -444,7 +447,7 @@ public class TeamNumberPerFormatTests
         Assert.Null(put["activeTeam"]);
 
         // 別の端末で読み直しても同じ
-        var other = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
+        var other = new RosterRepository(new RemoteRosterStore(http, "https://pokemon.example/", Key));
         var loaded = (await other.GetAsync()).For(Ds);
         Assert.Equal(2, loaded.Teams.Count);
         Assert.Equal(b.Id, loaded.FindTeam(BattleFormat.Doubles, 1)!.Slots.Single().EntryId);
@@ -454,8 +457,9 @@ public class TeamNumberPerFormatTests
     [Fact]
     public async Task Move_through_the_cloud_is_saved()
     {
-        var server = new FakeRosterServer { ExpectedKey = Key };
-        var (repo, a, _) = await NewAsync(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
+        using var server = new FakeRosterServer { ExpectedKey = Key };
+        using var http = new HttpClient(server);
+        var (repo, a, _) = await NewAsync(new RemoteRosterStore(http, "https://pokemon.example/", Key));
         await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 1, a.Id, null);
         await repo.UseTeamAsync(Ds, BattleFormat.Singles, 1);
         Assert.Equal(TeamMoveStatus.Moved, (await repo.MoveTeamAsync(Ds, BattleFormat.Singles, 1, BattleFormat.Doubles)).Status);
@@ -468,7 +472,7 @@ public class TeamNumberPerFormatTests
     public void Legacy_server_data_is_read_as_singles_when_the_response_has_no_active_teams()
     {
         // 古いサーバーの応答（activeTeams なし・activeTeam あり）を組み立てても、移行で全部シングルの使用中になる
-        var server = new FakeRosterServer { ExpectedKey = Key };
+        using var server = new FakeRosterServer { ExpectedKey = Key };
         server.RosterJson = LegacyJson;
         server.Revision = 1;
         var roster = server.State.For(Ds);

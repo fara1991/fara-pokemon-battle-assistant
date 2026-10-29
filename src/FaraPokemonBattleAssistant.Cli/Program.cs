@@ -19,11 +19,12 @@ if (dataIndex >= 0 && dataIndex + 1 < args2.Count)
 var formatOption = BattleFormat.Singles;
 if (args2.Remove("--doubles")) formatOption = BattleFormat.Doubles;
 
+using var http = new HttpClient();   // 終了まで使うので、プログラムの終わりで破棄する
 IDataSource source;
 if (dataArg is not null && dataArg.StartsWith("http", StringComparison.OrdinalIgnoreCase))
 {
     var cacheDir = Path.Combine(Path.GetTempPath(), "FaraPokemonBattleAssistant", "data-cache");
-    source = new CachingDataSource(new HttpDataSource(new HttpClient(), dataArg), cacheDir, TimeSpan.FromDays(1));
+    source = new CachingDataSource(new HttpDataSource(http, dataArg), cacheDir, TimeSpan.FromDays(1));
 }
 else
 {

@@ -52,8 +52,9 @@ public class RivalRosterTests
     [Fact]
     public async Task Rivals_and_history_are_saved_to_and_loaded_from_the_cloud()
     {
-        var server = new FakeRosterServer { ExpectedKey = Key };
-        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        using var server = new FakeRosterServer { ExpectedKey = Key };
+        using var http = new HttpClient(server);
+        var store = new RemoteRosterStore(http, "https://pokemon.example/", Key);
         var repo = new RosterRepository(store);
 
         await repo.ChangeRivalsAsync(Ds, roster =>
@@ -79,7 +80,7 @@ public class RivalRosterTests
         Assert.Equal("イエッサン(♂) ワイドフォース 40", saved.History.Single().Foes.Single().Scans.Single().Notes.Single());
 
         // 別の読み込み（別の端末・ボット）でも同じ内容が読める
-        var other = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
+        var other = new RosterRepository(new RemoteRosterStore(http, "https://pokemon.example/", Key));
         var loaded = (await other.GetAsync()).For(Ds);
         Assert.Equal(32, loaded.Rivals.Single().Speed);
         // 履歴は登録データには入らず（クラウドでは別の API）、必要なページだけを読む
@@ -93,12 +94,13 @@ public class RivalRosterTests
     [Fact]
     public async Task Old_server_without_the_rival_api_still_loads_the_rest()
     {
-        var server = new FakeRosterServer { ExpectedKey = Key };
+        using var server = new FakeRosterServer { ExpectedKey = Key };
         server.RosterJson = RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = new DataSetRoster { Pokemon = { new RegisteredPokemon { Id = 1, PokemonName = "ガブリアス" } }, NextId = 2 } } });
         server.Revision = 1;
         // 相手チームの API が無い古いサーバー（404）
         server.Override = request => request.RequestUri!.AbsolutePath == "/api/my/rival" ? FakeRosterServer.Json(HttpStatusCode.NotFound, "{}") : null;
-        var repo = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
+        using var http = new HttpClient(server);
+        var repo = new RosterRepository(new RemoteRosterStore(http, "https://pokemon.example/", Key));
         var state = (await repo.GetAsync()).For(Ds);
         Assert.Equal("ガブリアス", state.Pokemon.Single().PokemonName);
         Assert.Empty(state.Rivals);

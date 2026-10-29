@@ -66,7 +66,7 @@ public class TeamFormatTests
     [Fact]
     public async Task Team_with_an_unknown_format_is_still_saved_to_the_cloud()
     {
-        var server = new FakeRosterServer { ExpectedKey = Key };
+        using var server = new FakeRosterServer { ExpectedKey = Key };
         var data = await TestData.Catalog().GetDataSetAsync(Ds);
         server.WriteFromElsewhere(state =>
         {
@@ -76,7 +76,8 @@ public class TeamFormatTests
             r.Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 } }, Format = "doubles" });
             r.Teams.Add(new Team { Number = 2, Slots = { new TeamSlot { EntryId = 1 } }, Format = "Triples" });
         });
-        var repo = new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key));
+        using var http = new HttpClient(server);
+        var repo = new RosterRepository(new RemoteRosterStore(http, "https://pokemon.example/", Key));
         await repo.AddToTeamAsync(Ds, BattleFormat.Singles, 3, 1, null);   // 別のチームの操作で、チーム全体を保存し直す
         var saved = server.State.For(Ds).Teams.OrderBy(t => t.Number).ToList();
         Assert.Equal(new[] { "Doubles", "Singles", "Singles" }, saved.Select(t => t.Format).ToArray());

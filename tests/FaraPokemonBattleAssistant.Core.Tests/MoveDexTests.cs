@@ -53,7 +53,7 @@ public class MoveDexTests
     {
         var data = await TestData.Catalog().GetDataSetAsync("Gen9");
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
         // 最初の呼び出しがキャンセルされても、読み込みを使い回す次の呼び出しは成功する
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => data.GetUsageAsync(BattleFormat.Singles, cts.Token));
         var usage = await data.GetUsageAsync(BattleFormat.Singles);

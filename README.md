@@ -212,12 +212,10 @@ CI の `build.yml` の `lint` job（ESLint）と `layout-check` job（計測）�
 
 | 重大度 | ルール | 件数 | 意味 |
 |---|---|---|---|
-| error | CS4014・VSTHRD100・CA1816・IDE0059 | 0 | 新しい違反は止まる |
-| warning | CA1031 | 13 | 一般の例外の catch（起動や描画を止めない、意図した握りつぶし） |
-| warning | CA2000 | 125 | Dispose 漏れ（大半はテストの使い捨てオブジェクト） |
-| warning | VSTHRD003・VSTHRD103・VSTHRD200 | 3・5・14 | 非同期の書き方（同期の待ち・名前の付け方） |
+| error | CS4014・VSTHRD100・CA1816・IDE0059 | 0 | 新しい違反は止まる（kit の `dotnet.editorconfig`） |
+| error | CA1031・CA2000・CS0105・CS0618・CS1573・CS8602・VSTHRD003・VSTHRD103・VSTHRD200・xUnit2013 | 0 | このサイトで 0 件になったもの。ルートの `Directory.Build.props` の `WarningsAsErrors` で error にする（kit の `dotnet.editorconfig` では CA1031・CA2000 が warning のままなので、ここで上書きする） |
 
-件数は `dotnet build --no-incremental` の、このサイトのファイルの警告（重複を除いた数）です。kit の部品の警告（CA1031・VSTHRD103 の計 4 件）と、コンパイラの警告（CS1573 など）は含みません。kit の `dotnet.editorconfig` は変えません。
+件数は `dotnet build --no-incremental` の、このサイトのファイルの警告です。`#pragma warning disable` で抑えているのは、理由をコメントに書いた次の箇所だけです。CA1031 は、起動・描画・保存・後始末を止めない、意図した握りつぶし（`AppState`・`BattleStage`・`CloudSync`・`SearchService`・`AppPageBase`・`RosterPageBase`・`RosterRotation`）。CS0618 と VSTHRD003 は、テストがわざと廃止した項目・TaskCompletionSource の関門を使う箇所。kit の部品（`external/` 以下。CA1031・VSTHRD103 の計 4 件）の警告は kit 側で直します。kit の `dotnet.editorconfig` は変えません。
 
 ### サイト内検索（ヘッダーの検索欄）
 

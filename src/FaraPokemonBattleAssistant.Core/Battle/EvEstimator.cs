@@ -15,7 +15,12 @@ public sealed class EvEstimator
         _generation = generation;
     }
 
+    /// <param name="Modifier">自然な補正の倍率（0.9・1.0・1.1）。</param>
+    /// <param name="Label">補正の表示名。</param>
+    /// <param name="MinEv">この補正で当てはまる努力値の下限。</param>
+    /// <param name="MaxEv">この補正で当てはまる努力値の上限。</param>
     /// <param name="MinStat">この補正で <paramref name="MinEv"/> を振ったときの防御実数値（画面の表示用。計算していなければ 0）。</param>
+    /// <param name="MaxStat">この補正で <paramref name="MaxEv"/> を振ったときの防御実数値（画面の表示用。計算していなければ 0）。</param>
     public sealed record NatureBand(double Modifier, string Label, int MinEv, int MaxEv, int MinStat = 0, int MaxStat = 0);
 
     public sealed class Estimate

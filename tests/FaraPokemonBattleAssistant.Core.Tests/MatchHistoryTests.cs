@@ -5,15 +5,19 @@ using Xunit;
 namespace FaraPokemonBattleAssistant.Core.Tests;
 
 /// <summary>試合の履歴（クラウドでは登録データとは別の API。ブラウザ・ファイルでは登録データの中）。</summary>
-public class MatchHistoryTests
+public sealed class MatchHistoryTests : IDisposable
 {
+    private readonly TestResources _owned = new();
+
+    public void Dispose() => _owned.Dispose();
+
     private const string Ds = "Gen9";
     private static readonly string Key = RemoteRosterStore.GenerateKey();
 
-    private static (FakeRosterServer Server, RosterRepository Repo) NewCloud()
+    private (FakeRosterServer Server, RosterRepository Repo) NewCloud()
     {
-        var server = new FakeRosterServer { ExpectedKey = Key };
-        return (server, new RosterRepository(new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key)));
+        var server = _owned.Own(new FakeRosterServer { ExpectedKey = Key });
+        return (server, new RosterRepository(new RemoteRosterStore(_owned.Own(new HttpClient(server)), "https://pokemon.example/", Key)));
     }
 
     private static Task AddRivalAsync(RosterRepository repo, string name) =>
@@ -81,7 +85,7 @@ public class MatchHistoryTests
         var ex = await Assert.ThrowsAsync<HistoryLimitException>(() => repo.EndMatchAsync(Ds, "2 試合目", DateTimeOffset.Now));
         Assert.Contains("上限", ex.Message);
         Assert.Equal("ハバタクカミ", (await repo.GetAsync()).For(Ds).Rivals.Single().PokemonName);   // 対戦中の相手は残る
-        Assert.Equal(1, server.State.For(Ds).History.Count);
+        Assert.Single(server.State.For(Ds).History);
         // 古い履歴を消せば、また終えられる
         await repo.TrimHistoryAsync(Ds, 0);
         Assert.Equal(2, (await repo.EndMatchAsync(Ds, "2 試合目", DateTimeOffset.Now)).Match!.Id);
@@ -123,9 +127,10 @@ public class MatchHistoryTests
     [Fact]
     public async Task Ending_again_after_the_append_response_was_lost_does_not_record_twice()
     {
-        var server = new FakeRosterServer { ExpectedKey = Key };
-        var lossy = new LostResponseHandler(server);
-        var repo = new RosterRepository(new RemoteRosterStore(new HttpClient(lossy), "https://pokemon.example/", Key));
+        using var server = new FakeRosterServer { ExpectedKey = Key };
+        using var lossy = new LostResponseHandler(server);
+        using var lossyHttp = new HttpClient(lossy);
+        var repo = new RosterRepository(new RemoteRosterStore(lossyHttp, "https://pokemon.example/", Key));
         await AddRivalAsync(repo, "リザードン");
         lossy.LoseNextHistoryPost = true;   // 履歴は記録されるが、応答が届かない
         await Assert.ThrowsAsync<RosterUnavailableException>(() => repo.EndMatchAsync(Ds, "x", DateTimeOffset.Now));
@@ -141,7 +146,8 @@ public class MatchHistoryTests
     public async Task Whole_save_moves_the_history_in_batches_oldest_first()
     {
         var (server, _) = NewCloud();
-        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        using var http = new HttpClient(server);
+        var store = new RemoteRosterStore(http, "https://pokemon.example/", Key);
         var set = new DataSetRoster { NextMatchId = 1000 };
         // Id は飛んでいて、並びもばらばら
         foreach (var id in Enumerable.Range(1, 250).Reverse()) set.History.Add(new RivalMatch { Id = id * 3, Memo = $"m{id}", Foes = { new RivalPokemon { Id = 1, PokemonName = "a" } } });
@@ -181,7 +187,8 @@ public class MatchHistoryTests
     public async Task Batches_are_split_by_size_so_that_no_request_exceeds_the_server_body_limit()
     {
         var (server, _) = NewCloud();
-        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        using var http = new HttpClient(server);
+        var store = new RemoteRosterStore(http, "https://pokemon.example/", Key);
         var matches = Enumerable.Range(1, 40).Select(_ => BigMatch(30)).ToList();   // 30 KB × 40 件 = 1.2 MB（件数だけで 100 件ずつ区切ると 1 回が 3 MB）
         await store.AppendManyAsync(Ds, matches);
         Assert.Equal(40, server.State.For(Ds).History.Count);
@@ -194,7 +201,8 @@ public class MatchHistoryTests
     public async Task A_match_over_the_server_limit_is_sent_without_its_scan_notes()
     {
         var (server, _) = NewCloud();
-        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        using var http = new HttpClient(server);
+        var store = new RemoteRosterStore(http, "https://pokemon.example/", Key);
         await store.AppendManyAsync(Ds, new[] { BigMatch(80) });                    // 80 KB（以前のブラウザ保存には 1 試合の上限が無かった）
         var saved = server.State.For(Ds).History.Single();
         Assert.Equal("big", saved.Memo);
@@ -205,7 +213,8 @@ public class MatchHistoryTests
     public async Task Only_matches_over_the_server_limit_lose_content_and_the_count_is_returned()
     {
         var (server, _) = NewCloud();
-        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        using var http = new HttpClient(server);
+        var store = new RemoteRosterStore(http, "https://pokemon.example/", Key);
         // 62 KB（サーバーの 64 KB に収まる）は、そのまま移る。80 KB は省く。メモが 501 文字の試合は切る
         var okMatch = BigMatch(62);
         var tooBig = BigMatch(80);
@@ -224,7 +233,8 @@ public class MatchHistoryTests
     public async Task Trimming_a_memo_never_splits_a_surrogate_pair()
     {
         var (server, _) = NewCloud();
-        var store = new RemoteRosterStore(new HttpClient(server), "https://pokemon.example/", Key);
+        using var http = new HttpClient(server);
+        var store = new RemoteRosterStore(http, "https://pokemon.example/", Key);
         // 499 文字の後に絵文字（2 文字ぶん）があるメモ。500 文字目で切ると、絵文字が半分になる
         var memo = new string('a', 499) + "😀";
         var trimmed = await store.AppendManyAsync(Ds, new[] { new RivalMatch { Memo = memo, Foes = { new RivalPokemon { Id = 1, PokemonName = "a" } } } });
@@ -358,7 +368,8 @@ internal sealed class LostResponseHandler(HttpMessageHandler inner) : HttpMessag
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var response = await new HttpMessageInvoker(inner).SendAsync(request, cancellationToken);
+        using var invoker = new HttpMessageInvoker(inner, disposeHandler: false);   // inner は呼び出し側のもの（ここでは破棄しない）
+        var response = await invoker.SendAsync(request, cancellationToken);
         if (LoseNextHistoryPost && request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath == "/api/my/history")
         {
             LoseNextHistoryPost = false;

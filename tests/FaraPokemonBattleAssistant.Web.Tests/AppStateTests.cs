@@ -97,7 +97,9 @@ public class AppStateTests
         var (app, _) = await CreateAsync();
         var gate = new TaskCompletionSource();
         var secondStarted = false;
+#pragma warning disable VSTHRD003 // テスト用の関門。購読先が読み込みを待つ様子を、わざと TaskCompletionSource で作る
         app.Changed += async () => await gate.Task;
+#pragma warning restore VSTHRD003
         app.Changed += () => { secondStarted = true; return Task.CompletedTask; };
 
         var change = app.SetDataSetAsync("Gen9");

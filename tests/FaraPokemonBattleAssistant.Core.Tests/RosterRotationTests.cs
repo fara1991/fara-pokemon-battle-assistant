@@ -29,7 +29,8 @@ public class RosterRotationTests
     private static async Task<string> SeedAsync(KeyRoutedServer server, RosterState state)
     {
         var key = RemoteRosterStore.GenerateKey();
-        await new RemoteRosterStore(new HttpClient(server), Base, key).SaveAsync(RosterRepository.Serialize(state));
+        using var http = new HttpClient(server);
+        await new RemoteRosterStore(http, Base, key).SaveAsync(RosterRepository.Serialize(state));
         return key;
     }
 
@@ -62,11 +63,12 @@ public class RosterRotationTests
     [Fact]
     public async Task Prepare_copies_the_roster_and_history_and_keeps_the_old_key()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン", withRival: true));
         AddMatch(server.For(oldKey), "前の試合");
 
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
 
         Assert.NotEqual(oldKey, plan.NewKey);
         Assert.Equal("リザードン", server.For(plan.NewKey).State.For(Ds).Pokemon.Single().PokemonName);
@@ -78,9 +80,10 @@ public class RosterRotationTests
     [Fact]
     public async Task Plan_text_does_not_show_either_key()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
 
         var text = plan.ToString();
 
@@ -91,10 +94,11 @@ public class RosterRotationTests
     [Fact]
     public async Task A_changed_answer_without_a_revision_rewrites_the_roster_before_the_old_key_is_deleted()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         var old = server.For(oldKey);
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         var answered = false;
         old.Override = request =>
         {
@@ -108,7 +112,7 @@ public class RosterRotationTests
         };
         var putsBefore = server.For(plan.NewKey).Requests.Count(IsRosterPut);
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+        var result = await RosterRotation.FinishAsync(http, Base, plan);
 
         Assert.True(result.OldKeyDeleted);
         Assert.True(old.Deleted);
@@ -119,10 +123,11 @@ public class RosterRotationTests
     [Fact]
     public async Task A_roster_written_after_the_copy_is_copied_again_before_the_old_key_is_deleted()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         var old = server.For(oldKey);
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         var written = false;
         old.Override = request =>
         {
@@ -140,7 +145,7 @@ public class RosterRotationTests
             return null;
         };
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+        var result = await RosterRotation.FinishAsync(http, Base, plan);
 
         Assert.True(result.OldKeyDeleted);
         Assert.Equal(new[] { "ガブリアス", "リザードン" },server.For(plan.NewKey).State.For(Ds).Pokemon.Select(p => p.PokemonName).OrderBy(n => n, StringComparer.Ordinal));
@@ -149,10 +154,11 @@ public class RosterRotationTests
     [Fact]
     public async Task A_history_only_change_copies_the_new_matches_without_rewriting_the_roster()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         var old = server.For(oldKey);
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         var written = false;
         old.Override = request =>
         {
@@ -166,7 +172,7 @@ public class RosterRotationTests
         };
         var rosterPutsBefore = server.For(plan.NewKey).Requests.Count(IsRosterPut);
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+        var result = await RosterRotation.FinishAsync(http, Base, plan);
 
         Assert.True(result.OldKeyDeleted);
         Assert.Equal(0, server.For(plan.NewKey).Requests.Count(IsRosterPut) - rosterPutsBefore);   // 登録データは写し直さない
@@ -176,10 +182,11 @@ public class RosterRotationTests
     [Fact]
     public async Task Changes_that_keep_coming_stop_after_five_attempts_and_the_old_key_stays_readable()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         var old = server.For(oldKey);
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         var deletes = 0;
         old.Override = request =>
         {
@@ -188,23 +195,24 @@ public class RosterRotationTests
             return Changed(999);   // 毎回、版が違う（写し直して、もう一度試すが、また変わっている）
         };
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+        var result = await RosterRotation.FinishAsync(http, Base, plan);
 
         Assert.False(result.OldKeyDeleted);
         Assert.Equal(RosterRotationStop.RetriesExhausted, result.Stop);
         Assert.Equal(RosterRotation.MaxRetries, deletes);
         Assert.False(old.Deleted);
-        var reread = await new RemoteRosterStore(new HttpClient(server), Base, oldKey).LoadAsync();
+        var reread = await new RemoteRosterStore(http, Base, oldKey).LoadAsync();
         Assert.Contains("リザードン", reread);
     }
 
     [Fact]
     public async Task A_failed_reread_of_the_old_roster_keeps_the_old_key()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン", withRival: true));
         var old = server.For(oldKey);
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         old.Override = request =>
         {
             if (IsRetire(request)) return Changed(999);
@@ -212,7 +220,7 @@ public class RosterRotationTests
             return request.Method == HttpMethod.Get && request.RequestUri!.AbsolutePath == "/api/my/rival" ? FakeRosterServer.Json(HttpStatusCode.OK, "{}") : null;
         };
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+        var result = await RosterRotation.FinishAsync(http, Base, plan);
 
         Assert.False(result.OldKeyDeleted);
         Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);   // 古いキーの変更（409）を受けたあとの失敗は、新しいキーが不完全
@@ -222,7 +230,7 @@ public class RosterRotationTests
     [Fact]
     public async Task A_rewrite_that_fails_midway_reports_that_the_new_key_is_incomplete()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         var old = server.For(oldKey);
         var rewriting = false;
@@ -230,7 +238,8 @@ public class RosterRotationTests
         server.OnCreate = (_, bucket) => bucket.Override = request => rewriting && IsRosterPut(request)
             ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}")
             : null;
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         old.Override = request =>
         {
             if (!IsRetire(request)) return null;
@@ -238,7 +247,7 @@ public class RosterRotationTests
             return Changed(999);   // 古いキーが変わっていた（写し直しに入る）
         };
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+        var result = await RosterRotation.FinishAsync(http, Base, plan);
 
         Assert.False(result.OldKeyDeleted);
         Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);
@@ -249,10 +258,11 @@ public class RosterRotationTests
     [Fact]
     public async Task An_unexpected_error_while_rewriting_still_returns_a_result_and_keeps_the_old_key()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         var old = server.For(oldKey);
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         old.Override = request =>
         {
             if (IsRetire(request)) return Changed(999);
@@ -261,7 +271,7 @@ public class RosterRotationTests
             return null;
         };
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);   // 例外を外へ抜けさせない
+        var result = await RosterRotation.FinishAsync(http, Base, plan);   // 例外を外へ抜けさせない
 
         Assert.False(result.OldKeyDeleted);
         Assert.Equal(RosterRotationStop.RewriteFailed, result.Stop);
@@ -271,17 +281,18 @@ public class RosterRotationTests
     [Fact]
     public async Task An_unexpected_error_while_deleting_the_old_key_returns_a_failure_instead_of_throwing()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         var old = server.For(oldKey);
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         old.Override = request =>
         {
             if (IsRetire(request)) throw new InvalidOperationException("想定外");
             return null;
         };
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+        var result = await RosterRotation.FinishAsync(http, Base, plan);
 
         Assert.False(result.OldKeyDeleted);
         Assert.Equal(RosterRotationStop.Failed, result.Stop);
@@ -291,14 +302,15 @@ public class RosterRotationTests
     [Fact]
     public async Task A_key_that_is_already_retired_counts_as_deleted()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         var old = server.For(oldKey);
-        var plan = await RosterRotation.PrepareAsync(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var plan = await RosterRotation.PrepareAsync(http, Base, oldKey);
         // 消す前に、もう消えている（410）
         old.Override = request => IsRetire(request) ? FakeRosterServer.Json(HttpStatusCode.Gone, "{}") : null;
 
-        var result = await RosterRotation.FinishAsync(new HttpClient(server), Base, plan);
+        var result = await RosterRotation.FinishAsync(http, Base, plan);
 
         Assert.True(result.OldKeyDeleted);
         Assert.Null(result.Stop);
@@ -307,7 +319,7 @@ public class RosterRotationTests
     [Fact]
     public async Task A_copy_that_fails_removes_the_new_key_and_the_old_key_stays()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = await SeedAsync(server, Roster("リザードン"));
         AddMatch(server.For(oldKey), "試合");
         var created = new List<string>();
@@ -330,17 +342,18 @@ public class RosterRotationTests
     [Fact]
     public async Task Discard_removes_the_new_key_and_reports_a_failure_when_it_cannot()
     {
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var key = RemoteRosterStore.GenerateKey();
-        await new RemoteRosterStore(new HttpClient(server), Base, key).LoadAsync();
+        using var http = new HttpClient(server);
+        await new RemoteRosterStore(http, Base, key).LoadAsync();
 
-        Assert.True(await RosterRotation.DiscardAsync(new HttpClient(server), Base, key));
+        Assert.True(await RosterRotation.DiscardAsync(http, Base, key));
         Assert.True(server.For(key).Deleted);
 
         var stuck = RemoteRosterStore.GenerateKey();
-        await new RemoteRosterStore(new HttpClient(server), Base, stuck).LoadAsync();
+        await new RemoteRosterStore(http, Base, stuck).LoadAsync();
         server.For(stuck).Override = request => IsRetire(request) ? FakeRosterServer.Json(HttpStatusCode.InternalServerError, "{}") : null;
 
-        Assert.False(await RosterRotation.DiscardAsync(new HttpClient(server), Base, stuck));
+        Assert.False(await RosterRotation.DiscardAsync(http, Base, stuck));
     }
 }

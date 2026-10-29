@@ -870,7 +870,13 @@ public sealed class RosterRepository
     public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, CancellationToken ct = default) =>
         await AddPokemonAsync(dataSetKey, pokemon, evs, nature, ability, null, ct).ConfigureAwait(false);
 
+    /// <param name="dataSetKey">登録先のゲームのキー。</param>
+    /// <param name="pokemon">登録するポケモン。</param>
+    /// <param name="evs">努力値。</param>
+    /// <param name="nature">性格。</param>
+    /// <param name="ability">特性（未設定なら null）。</param>
     /// <param name="moveIds">登録する技の Id（重複と 5 個目以降は無視する）。</param>
+    /// <param name="ct">キャンセル用。</param>
     public async Task<RegisteredPokemon> AddPokemonAsync(string dataSetKey, Pokemon pokemon, StatSet evs, Nature nature, Ability? ability, IEnumerable<int>? moveIds, CancellationToken ct = default)
     {
         var moves = (moveIds ?? Array.Empty<int>()).Where(id => id > 0).Distinct().Take(RegisteredPokemon.MaxMoves).ToList();
@@ -1186,6 +1192,7 @@ public enum TeamMoveStatus
     Unchanged,
 }
 
+/// <param name="Status">移した結果。</param>
 /// <param name="Number">移した先（移そうとした先）のチーム番号。</param>
 /// <param name="WasActive">移したチームが、移す前の形式で使用中だった（その使用中は解除した）。</param>
 public sealed record TeamMoveResult(TeamMoveStatus Status, int Number, bool WasActive);

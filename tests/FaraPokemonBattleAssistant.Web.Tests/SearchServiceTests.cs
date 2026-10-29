@@ -219,7 +219,7 @@ public class SearchServiceTests
     /// 実際の索引に、Champions のポケモン・わざ・特性の名前を足す（検索の対象の名前。点数は SearchService と同じ判定。
     /// 実行時は、ポケモン・わざ・特性に少し加点するので、同点のときの並びだけ違うことがある）。
     /// </summary>
-    private static async Task<List<SearchIndexRow>> RealIndexWithChampionsNames()
+    private static async Task<List<SearchIndexRow>> RealIndexWithChampionsNamesAsync()
     {
         var rows = RealIndex();
         var root = Path.Combine(RepoRoot(), "src", "FaraPokemonBattleAssistant.Web", "wwwroot", "api", "game");
@@ -244,7 +244,7 @@ public class SearchServiceTests
     [InlineData("damejikeisanki", "page", "ダメージ計算機")]
     public async Task The_top_hit_for_known_queries_stays_put(string query, string type, string title)
     {
-        var top = SearchService.RankIndex(await RealIndexWithChampionsNames(), query).FirstOrDefault();
+        var top = SearchService.RankIndex(await RealIndexWithChampionsNamesAsync(), query).FirstOrDefault();
         Assert.NotNull(top);
         Assert.Equal((type, title), (top.Type, top.Title));
     }

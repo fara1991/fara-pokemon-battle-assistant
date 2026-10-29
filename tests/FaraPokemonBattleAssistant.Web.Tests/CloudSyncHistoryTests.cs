@@ -8,20 +8,25 @@ using Xunit;
 namespace FaraPokemonBattleAssistant.Web.Tests;
 
 /// <summary>キーの作り直しで履歴を新しいキーへ写すこと・データ共有の解除でクラウドのデータを消すこと。</summary>
-public class CloudSyncHistoryTests
+public sealed class CloudSyncHistoryTests : IDisposable
 {
+    private readonly TestResources _owned = new();
+
+    public void Dispose() => _owned.Dispose();
+
     private const string Base = "https://pokemon.example/";
     private const string Ds = "Gen9";
 
-    private static CloudSync NewSync(FakeJsRuntime js, KeyRoutedServer server) =>
-        new(js, new HttpClient(server), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+    private CloudSync NewSync(FakeJsRuntime js, KeyRoutedServer server) =>
+        new(js, _owned.Own(new HttpClient(server)), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
 
-    private static async Task<(CloudSync Sync, FakeJsRuntime Js, KeyRoutedServer Server, string Key)> JoinedWithHistoryAsync(int matches)
+    private async Task<(CloudSync Sync, FakeJsRuntime Js, KeyRoutedServer Server, string Key)> JoinedWithHistoryAsync(int matches)
     {
         var js = new FakeJsRuntime();
-        var server = new KeyRoutedServer();
+        var server = _owned.Own(new KeyRoutedServer());
         var key = RemoteRosterStore.GenerateKey();
-        var cloud = new RemoteRosterStore(new HttpClient(server), Base, key);
+        using var http = new HttpClient(server);
+        var cloud = new RemoteRosterStore(http, Base, key);
         var set = new DataSetRoster { NextId = 2, Pokemon = { new RegisteredPokemon { Id = 1, PokemonId = 6, PokemonName = "リザードン" } } };
         await cloud.SaveAsync(RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = set } }));
         await cloud.AppendManyAsync(Ds, Enumerable.Range(1, matches).Select(i => new RivalMatch { Memo = $"m{i}", Foes = { new RivalPokemon { Id = 1, PokemonName = "a" } } }).ToList());
@@ -93,9 +98,10 @@ public class CloudSyncHistoryTests
     public async Task Rotating_the_key_keeps_the_scan_notes_of_a_match_that_fits_the_server_limit()
     {
         var js = new FakeJsRuntime();
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = RemoteRosterStore.GenerateKey();
-        var cloud = new RemoteRosterStore(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var cloud = new RemoteRosterStore(http, Base, oldKey);
         var scans = new RivalPokemon { Id = 1, PokemonName = "a", Scans = { new RivalScan { Defense = "Defense", Notes = { new string('x', 62 * 1024) } } } };
         await cloud.AppendAsync(Ds, new RivalMatch { Memo = "62KB", Foes = { scans } });     // 単発の追記（end）と同じ経路
         var sync = NewSync(js, server);
@@ -115,7 +121,7 @@ public class CloudSyncHistoryTests
         var set = new DataSetRoster { NextMatchId = 2 };
         set.History.Add(new RivalMatch { Id = 1, Foes = { new RivalPokemon { Id = 1, PokemonName = "a", Scans = { new RivalScan { Defense = "Defense", Notes = { new string('x', 80 * 1024) } } } } } });
         js.Storage["fara-pokemon-battle-assistant.roster"] = RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = set } });
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var sync = NewSync(js, server);
 
         await sync.StartNewAsync();
@@ -129,9 +135,10 @@ public class CloudSyncHistoryTests
     {
         // 登録データ（文書）が空で、履歴だけがあるゲーム（外部の API 利用など）
         var js = new FakeJsRuntime();
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var oldKey = RemoteRosterStore.GenerateKey();
-        var cloud = new RemoteRosterStore(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var cloud = new RemoteRosterStore(http, Base, oldKey);
         await cloud.AppendManyAsync("onlyhistory", Enumerable.Range(1, 5).Select(i => new RivalMatch { Memo = $"h{i}" }).ToList());
         var sync = NewSync(js, server);
         await sync.JoinAsync(oldKey);
@@ -213,7 +220,7 @@ public class CloudSyncHistoryTests
         var set = new DataSetRoster { NextId = 2, Pokemon = { new RegisteredPokemon { Id = 1, PokemonId = 6, PokemonName = "リザードン" } }, NextMatchId = 4 };
         foreach (var i in new[] { 3, 1, 2 }) set.History.Add(new RivalMatch { Id = i, Memo = $"m{i}" });
         js.Storage["fara-pokemon-battle-assistant.roster"] = RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = set } });
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var sync = NewSync(js, server);
 
         await sync.StartNewAsync();
@@ -231,7 +238,7 @@ public class CloudSyncHistoryTests
         set.History.Add(new RivalMatch { Id = 1, Memo = "m1" });
         var local = RosterRepository.Serialize(new RosterState { DataSets = { [Ds] = set } });
         js.Storage["fara-pokemon-battle-assistant.roster"] = local;
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         string? newKey = null;
         server.OnCreate = (key, bucket) =>
         {

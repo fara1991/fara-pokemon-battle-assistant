@@ -167,9 +167,13 @@ public sealed class SearchService
         if (terms.Length == 0) return Array.Empty<SearchHit>();
         var entries = new List<Entry>();
         try { entries.AddRange(await (_static ??= LoadStaticAsync())); }
+#pragma warning disable CA1031 // 索引を読めなくても検索は止めない（読めたものだけで探し、次の検索で読み直す）
         catch { _static = null; }
+#pragma warning restore CA1031
         try { entries.AddRange(await LoadDataAsync()); }
+#pragma warning disable CA1031 // データを読めないときは、ページの索引だけで探す
         catch { /* データを読めないときは、ページの索引だけで探す */ }
+#pragma warning restore CA1031
         return Rank(entries, terms).Take(MaxHits).Select(e => ToHit(e, terms)).ToList();
     }
 

@@ -41,8 +41,12 @@ internal sealed class FakeJsRuntime : IJSRuntime
 }
 
 /// <summary>データ共有の開始・参加で、このブラウザの登録データを失わないことの確認。</summary>
-public class CloudSyncDataSafetyTests
+public sealed class CloudSyncDataSafetyTests : IDisposable
 {
+    private readonly TestResources _owned = new();
+
+    public void Dispose() => _owned.Dispose();
+
     private const string Base = "https://pokemon.example/";
     private const string LocalKey = "fara-pokemon-battle-assistant.roster";
 
@@ -51,13 +55,14 @@ public class CloudSyncDataSafetyTests
         DataSets = { ["Gen9"] = new DataSetRoster { NextId = 2, Pokemon = { new RegisteredPokemon { Id = 1, PokemonId = 6, PokemonName = "リザードン" } } } },
     });
 
-    private static (CloudSync Sync, FakeJsRuntime Js, FakeRosterServer Server, string Key) Create(bool localHasData = true)
+    private (CloudSync Sync, FakeJsRuntime Js, FakeRosterServer Server, string Key) Create(bool localHasData = true)
     {
         var js = new FakeJsRuntime();
         if (localHasData) js.Storage[LocalKey] = OnePokemonJson();
         var key = RemoteRosterStore.GenerateKey();
-        var server = new FakeRosterServer { ExpectedKey = key };
-        var sync = new CloudSync(js, new HttpClient(server), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+        var server = _owned.Own(new FakeRosterServer { ExpectedKey = key });
+        var http = _owned.Own(new HttpClient(server));
+        var sync = new CloudSync(js, http, Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
         return (sync, js, server, key);
     }
 
@@ -85,7 +90,8 @@ public class CloudSyncDataSafetyTests
     public async Task Joining_a_cloud_with_data_replaces_local_data()
     {
         var (sync, js, server, key) = Create();
-        var cloud = new RemoteRosterStore(new HttpClient(server), Base, key);
+        using var http = new HttpClient(server);
+        var cloud = new RemoteRosterStore(http, Base, key);
         await cloud.SaveAsync(OnePokemonJson());
         Assert.Equal(JoinResult.Joined, await sync.JoinAsync(key));
         Assert.False(js.Storage.ContainsKey(LocalKey));
@@ -160,8 +166,9 @@ public class CloudSyncDataSafetyTests
         var local = RosterRepository.Deserialize(OnePokemonJson());
         local.DataSets["Gen9"].Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 1 } } });
         var js = new FakeJsRuntime { Storage = { [LocalKey] = RosterRepository.Serialize(local) } };
-        var server = new FakeRosterServer();
-        var sync = new CloudSync(js, new HttpClient(server), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+        using var server = new FakeRosterServer();
+        using var http = new HttpClient(server);
+        var sync = new CloudSync(js, http, Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
 
         await sync.StartNewAsync();
         Assert.True(sync.IsSyncing);
@@ -176,7 +183,9 @@ public class CloudSyncDataSafetyTests
     public async Task Reading_is_not_blocked_when_the_sharing_key_cannot_be_read()
     {
         var js = new FakeJsRuntime { Storage = { [LocalKey] = OnePokemonJson() }, FailGet = true };
-        var store = new CloudSync(js, new HttpClient(new FakeRosterServer()), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+        using var server = new FakeRosterServer();
+        using var http = new HttpClient(server);
+        var store = new CloudSync(js, http, Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
         await store.LoadAsync();                  // 例外にしない（ブラウザの内容が読めないときは空として扱う）
         Assert.NotNull(store.LastError);          // ただし、失敗は利用者に見せる
     }
@@ -189,8 +198,9 @@ public class CloudSyncDataSafetyTests
         local.DataSets["Gen9"].Teams.Add(new Team { Number = 1, Slots = { new TeamSlot { EntryId = 99 } } });
         var before = RosterRepository.Serialize(local);
         var js = new FakeJsRuntime { Storage = { [LocalKey] = before } };
-        var server = new FakeRosterServer();
-        var sync = new CloudSync(js, new HttpClient(server), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+        using var server = new FakeRosterServer();
+        using var http = new HttpClient(server);
+        var sync = new CloudSync(js, http, Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
 
         await Assert.ThrowsAsync<RosterUnavailableException>(() => sync.StartNewAsync());
         Assert.Equal(before, js.Storage[LocalKey]);                       // ブラウザのデータは残る

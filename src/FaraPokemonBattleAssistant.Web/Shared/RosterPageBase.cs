@@ -74,6 +74,7 @@ public abstract class RosterPageBase : AppPageBase
             OnDataLoaded();
             await OnRosterReadAsync();
         }
+#pragma warning disable CA1031 // 画面の読み込みの最上位。どんな失敗も画面のメッセージにして表示する
         catch (Exception ex)
         {
             if (version != loadVersion) return;   // 古い読み込みの失敗は、最新の読み込みに任せる
@@ -83,6 +84,7 @@ public abstract class RosterPageBase : AppPageBase
             LoadFailed = true;
             Show($"読み込みに失敗しました: {CloudSync.Describe(ex)}", true);
         }
+#pragma warning restore CA1031
     }
 
     /// <summary>登録データだけ読み直す（変更のあと。クラウドでは他の場所の変更も反映される）。</summary>
@@ -97,10 +99,12 @@ public abstract class RosterPageBase : AppPageBase
             roster = read;
             await OnRosterReadAsync();
         }
+#pragma warning disable CA1031 // 画面の読み込みの最上位。どんな失敗も画面のメッセージにして表示する
         catch (Exception ex)
         {
             Show($"読み込みに失敗しました: {CloudSync.Describe(ex)}", true);
         }
+#pragma warning restore CA1031
     }
 
     /// <summary>登録データを変更する操作を実行する。失敗したら理由を出し、最新の内容を読み直す。</summary>

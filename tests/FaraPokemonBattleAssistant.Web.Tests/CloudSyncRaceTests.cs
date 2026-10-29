@@ -12,8 +12,12 @@ namespace FaraPokemonBattleAssistant.Web.Tests;
 /// 写している間の変化を取りこぼさないこと（キーの作り直し・データ共有の開始・別のタブでの共有の停止）。
 /// 偽サーバーの Override で「古いキーを消す直前に、別の端末・別のタブが書いた」状況を再現する。
 /// </summary>
-public class CloudSyncRaceTests
+public sealed class CloudSyncRaceTests : IDisposable
 {
+    private readonly TestResources _owned = new();
+
+    public void Dispose() => _owned.Dispose();
+
     private const string Base = "https://pokemon.example/";
     private const string Ds = "Gen9";
     private const string LocalKey = "fara-pokemon-battle-assistant.roster";
@@ -37,16 +41,17 @@ public class CloudSyncRaceTests
         },
     };
 
-    private static CloudSync NewSync(FakeJsRuntime js, HttpMessageHandler server) =>
-        new(js, new HttpClient(server), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
+    private CloudSync NewSync(FakeJsRuntime js, HttpMessageHandler server) =>
+        new(js, _owned.Own(new HttpClient(server)), Base, new ServiceCollection().AddSingleton(new RosterRepository(new MemoryRosterStore())).BuildServiceProvider());
 
     /// <summary>登録データを持つ古いキーで、データ共有を始めている状態を作る。</summary>
-    private static async Task<(CloudSync Sync, FakeJsRuntime Js, KeyRoutedServer Server, string OldKey)> JoinedAsync(RosterState initial)
+    private async Task<(CloudSync Sync, FakeJsRuntime Js, KeyRoutedServer Server, string OldKey)> JoinedAsync(RosterState initial)
     {
         var js = new FakeJsRuntime();
-        var server = new KeyRoutedServer();
+        var server = _owned.Own(new KeyRoutedServer());
         var key = RemoteRosterStore.GenerateKey();
-        await new RemoteRosterStore(new HttpClient(server), Base, key).SaveAsync(RosterRepository.Serialize(initial));
+        using var http = new HttpClient(server);
+        await new RemoteRosterStore(http, Base, key).SaveAsync(RosterRepository.Serialize(initial));
         var sync = NewSync(js, server);
         Assert.Equal(JoinResult.Joined, await sync.JoinAsync(key));
         return (sync, js, server, key);
@@ -135,7 +140,8 @@ public class CloudSyncRaceTests
     public async Task Deleting_with_a_stale_revision_reports_the_current_revision_and_deletes_nothing()
     {
         var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
-        var remote = new RemoteRosterStore(new HttpClient(server), Base, oldKey);
+        using var http = new HttpClient(server);
+        var remote = new RemoteRosterStore(http, Base, oldKey);
         await remote.LoadAsync();
         var read = remote.Revision!.Value;
         server.For(oldKey).WriteFromElsewhere(state => state.For(Ds).NextId++);   // 読んだあとに、別の端末が登録を書いた
@@ -346,7 +352,7 @@ public class CloudSyncRaceTests
     {
         var js = new FakeJsRuntime();
         js.Storage[LocalKey] = Pokemon("リザードン");
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var written = false;
         server.OnCreate = (_, bucket) => bucket.Override = request =>
         {
@@ -374,7 +380,7 @@ public class CloudSyncRaceTests
     {
         var js = new FakeJsRuntime();
         js.Storage[LocalKey] = Pokemon("リザードン");
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var sync = NewSync(js, server);
 
         await sync.StartNewAsync();
@@ -404,7 +410,7 @@ public class CloudSyncRaceTests
     {
         var js = new FakeJsRuntime { FailSet = true };
         js.Storage[LocalKey] = Pokemon("リザードン");
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var created = new List<string>();
         server.OnCreate = (key, _) => created.Add(key);
         var sync = NewSync(js, server);
@@ -457,9 +463,10 @@ public class CloudSyncRaceTests
     public async Task A_tab_that_was_not_sharing_gets_a_conflict_instead_of_overwriting_a_key_another_tab_started()
     {
         var js = new FakeJsRuntime();
-        var server = new KeyRoutedServer();
+        using var server = new KeyRoutedServer();
         var key = RemoteRosterStore.GenerateKey();
-        await new RemoteRosterStore(new HttpClient(server), Base, key).SaveAsync(RosterRepository.Serialize(WithRival()));
+        using var http = new HttpClient(server);
+        await new RemoteRosterStore(http, Base, key).SaveAsync(RosterRepository.Serialize(WithRival()));
         var sync = NewSync(js, server);
         await sync.InitializeAsync();
         Assert.False(sync.IsSyncing);
@@ -475,8 +482,9 @@ public class CloudSyncRaceTests
     {
         var (sync, js, server, oldKey) = await JoinedAsync(WithRival());
         var newKey = RemoteRosterStore.GenerateKey();
-        await new RemoteRosterStore(new HttpClient(server), Base, newKey).SaveAsync(Pokemon("ガブリアス"));
-        await new RemoteRosterStore(new HttpClient(server), Base, oldKey).DeleteAsync();   // 別のタブが作り直して、古いキーを消した
+        using var http = new HttpClient(server);
+        await new RemoteRosterStore(http, Base, newKey).SaveAsync(Pokemon("ガブリアス"));
+        await new RemoteRosterStore(http, Base, oldKey).DeleteAsync();   // 別のタブが作り直して、古いキーを消した
         js.Storage[CloudSync.KeyStorageKey] = newKey;
 
         var json = await sync.LoadAsync();

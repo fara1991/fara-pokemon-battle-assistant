@@ -530,6 +530,8 @@ public sealed class DamageCommand
     }
 
     /// <summary>「攻撃側(構成) 技 → 防御側(構成)」（結果の前の部分）。ダイマックス技・Z 技に変わるときは、変換後の技名も添える（例: じしん（ライジングランドオーバー））。</summary>
+    /// <param name="request">ダメージ計算の入力。</param>
+    /// <param name="result">ダメージ計算の結果。</param>
     /// <param name="defenderText">防御側の括弧の前までの表記を差し替える（相手の情報が範囲のとき。例: <c>フシギバナ(補正なし:B0〜6pt)</c>）。</param>
     public static string Header(DamageRequest request, DamageResult result, string? defenderText = null)
     {

@@ -37,8 +37,9 @@ public class ChangelogTests
     [Fact]
     public async Task LoadAsync_reads_once_and_retries_after_a_failure()
     {
-        var handler = new CountingHandler(new[] { "<html>", """{ "entries": [ { "date": "2026-10-20", "title": "x" } ] }""" });
-        var log = new Changelog(new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") });
+        using var handler = new CountingHandler(new[] { "<html>", """{ "entries": [ { "date": "2026-10-20", "title": "x" } ] }""" });
+        using var http = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var log = new Changelog(http);
         await Assert.ThrowsAsync<FormatException>(() => log.LoadAsync());      // 1 回目は失敗
         Assert.Single(await log.LoadAsync());                                   // 2 回目は読めた
         Assert.Single(await log.LoadAsync());                                   // 3 回目は覚えている（通信しない）

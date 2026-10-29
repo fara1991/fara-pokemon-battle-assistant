@@ -23,7 +23,7 @@ public class CurrentGamesFixTests
         return JsonSerializer.Deserialize<Dictionary<string, MoveList>>(File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
     }
 
-    private static Task<PokemonDataSet> Load(string key) => TestData.Catalog().GetDataSetAsync(key);
+    private static Task<PokemonDataSet> LoadAsync(string key) => TestData.Catalog().GetDataSetAsync(key);
 
     private static Ability Ability(PokemonDataSet data, string identifier) => data.Abilities.Single(a => a.Identifier == identifier);
 
@@ -54,7 +54,7 @@ public class CurrentGamesFixTests
     [InlineData("Champions")]
     public async Task Sheer_force_and_recoil_moves_match_public_damage_calculator(string key)
     {
-        var data = await Load(key);
+        var data = await LoadAsync(key);
         var list = LoadMoveLists()[key];
         var sheer = list.SheerForce.ToHashSet();
         var recoil = list.Recoil.ToHashSet();
@@ -79,7 +79,7 @@ public class CurrentGamesFixTests
     [InlineData("Champions")]
     public async Task Sheer_force_does_not_boost_moves_without_secondary_effect(string key)
     {
-        var data = await Load(key);
+        var data = await LoadAsync(key);
         const int closeCombat = 370, dracoMeteor = 434, flamethrower = 53;
         var attacker = Build(data, 445, "sheer-force"); // ガブリアス
         var target = Build(data, 6);                    // リザードン
@@ -92,7 +92,7 @@ public class CurrentGamesFixTests
     public async Task Dynamax_moves_get_no_move_specific_boosts()
     {
         // ダイマックスすると技がダイマックス技に置き換わるので、ちからずく・すてみ・はたきおとす・ソーラービームの補正は掛からない
-        var data = await Load("Gen8");
+        var data = await LoadAsync("Gen8");
         var leftovers = data.Items.First(i => i.Name == "たべのこし");
         var target = Build(data, 6, item: leftovers);
         var sheer = Build(data, 445, "sheer-force");
@@ -114,7 +114,7 @@ public class CurrentGamesFixTests
     [InlineData("Gen9")]
     public async Task Reckless_boosts_only_recoil_moves(string key)
     {
-        var data = await Load(key);
+        var data = await LoadAsync(key);
         const int braveBird = 413, aerialAce = 332, highJumpKick = 136;
         var attacker = Build(data, 445, "reckless"); // ガブリアス
         var target = Build(data, 6);
@@ -133,7 +133,7 @@ public class CurrentGamesFixTests
     [InlineData("Champions")]
     public async Task Knock_off_is_boosted_only_when_the_target_holds_an_item(string key)
     {
-        var data = await Load(key);
+        var data = await LoadAsync(key);
         const int knockOff = 282;
         var leftovers = data.Items.First(i => i.Name == "たべのこし");
         var attacker = Build(data, 445);
@@ -147,7 +147,7 @@ public class CurrentGamesFixTests
     [Fact]
     public async Task Knock_off_is_not_boosted_against_own_mega_stone()
     {
-        var data = await Load("Champions");
+        var data = await LoadAsync("Champions");
         var stone = data.Items.First(i => i.IsMegaStone && data.Pokemon.Any(p => p.SpeciesId == i.MegaSpeciesId && p.IsMega));
         var mega = data.Pokemon.First(p => p.SpeciesId == stone.MegaSpeciesId && p.IsMega);
         var other = data.Items.First(i => i.IsMegaStone && i.MegaSpeciesId != stone.MegaSpeciesId);
@@ -161,7 +161,7 @@ public class CurrentGamesFixTests
     {
         // スナイパーの 1.5 倍は急所の 1.5 倍とは別（最終補正）、やけどは相性を掛けたあとに切り捨てて半分にする。
         // 期待値は @smogon/calc（gen9）で出したもの（ムクホークのブレイブバード急所 → ガブリアス、Lv50・無振り・性格補正なし）。
-        var data = await Load("Gen9");
+        var data = await LoadAsync("Gen9");
         const int braveBird = 413;
         var defender = Build(data, 445);
         int[] Rolls(string ability, StatusCondition status)
@@ -182,7 +182,7 @@ public class CurrentGamesFixTests
         // ソード・シールドの「あられ」にはこおりタイプの防御上昇が無い。第 9 世代の「雪」だけ 1.5 倍。
         foreach (var (key, boosted) in new[] { ("Gen8", false), ("Gen9", true), ("Champions", true) })
         {
-            var data = await Load(key);
+            var data = await LoadAsync(key);
             var attacker = Build(data, 445);
             var iceDefender = Build(data, data.Pokemon.First(p => p.HasType("Ice") && !p.IsProvisional).Id);
             var clear = Calc(data, attacker, iceDefender, 89);
@@ -197,9 +197,9 @@ public class CurrentGamesFixTests
     public async Task Evolution_stone_flag_depends_on_the_game()
     {
         // 後の世代で進化先が増えたポケモンは、その進化先がいないゲームでは進化前扱いにならない
-        var swsh = await Load("Gen8");
-        var sv = await Load("Gen9");
-        var gen7 = await Load("Gen7");
+        var swsh = await LoadAsync("Gen8");
+        var sv = await LoadAsync("Gen9");
+        var gen7 = await LoadAsync("Gen7");
         // ノコッチ（→ノココッチは第 9 世代）、キリキザン（→ドドゲザンは第 9 世代）、ジュラルドン（→ブリジュラスは第 9 世代）
         foreach (var id in new[] { 206, 625, 884 })
         {

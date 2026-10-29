@@ -1,5 +1,4 @@
 using FaraPokemonBattleAssistant.Core.Models;
-using FaraPokemonBattleAssistant.Core.Models;
 using FaraPokemonBattleAssistant.Core.Roster;
 using FaraPokemonBattleAssistant.Core.Text;
 using Xunit;

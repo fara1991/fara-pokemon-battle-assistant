@@ -787,7 +787,7 @@ public class DataSourceTests : IDisposable
         await source.ReadTextAsync("x.csv");
 
         using var cts = new CancellationTokenSource();
-        inner.Handler = (_, ct) => { cts.Cancel(); throw new OperationCanceledException(ct); };
+        inner.Handler = async (_, ct) => { await cts.CancelAsync(); throw new OperationCanceledException(ct); };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => source.ReadTextAsync("x.csv", cts.Token));
     }
 
@@ -817,29 +817,32 @@ public class DataSourceTests : IDisposable
     private static HttpResponseMessage Text(string body, string mediaType) =>
         new(System.Net.HttpStatusCode.OK) { Content = new StringContent(body, System.Text.Encoding.UTF8, mediaType) };
 
-    private static HttpDataSource Http(FakeHandler handler) => new(new HttpClient(handler), "https://example.test/api/game");
+    private static HttpDataSource Http(HttpClient client) => new(client, "https://example.test/api/game");
 
     [Fact]
     public async Task Http_returns_csv_text()
     {
-        var handler = new FakeHandler { Respond = _ => Text("Id,Name\n1,フシギダネ\n", "text/csv") };
-        Assert.Equal("Id,Name\n1,フシギダネ\n", await Http(handler).ReadTextAsync("Gen9/pokemon.csv"));
+        using var handler = new FakeHandler { Respond = _ => Text("Id,Name\n1,フシギダネ\n", "text/csv") };
+        using var client = new HttpClient(handler);
+        Assert.Equal("Id,Name\n1,フシギダネ\n", await Http(client).ReadTextAsync("Gen9/pokemon.csv"));
         Assert.Equal("/api/game/Gen9/pokemon.csv", handler.Requested.Single());
     }
 
     [Fact]
     public async Task Http_treats_404_as_missing()
     {
-        var handler = new FakeHandler();
-        Assert.Null(await Http(handler).ReadTextAsync("Gen9/usage_singles.csv"));
+        using var handler = new FakeHandler();
+        using var client = new HttpClient(handler);
+        Assert.Null(await Http(client).ReadTextAsync("Gen9/usage_singles.csv"));
     }
 
     [Fact]
     public async Task Http_treats_spa_fallback_html_as_missing()
     {
         // not_found_handling: single-page-application のため、無いファイルにも 200 で index.html が返る
-        var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
-        Assert.Null(await Http(handler).ReadTextAsync("Gen9/usage_doubles.csv"));
+        using var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
+        using var client = new HttpClient(handler);
+        Assert.Null(await Http(client).ReadTextAsync("Gen9/usage_doubles.csv"));
     }
 
     [Theory]
@@ -847,25 +850,28 @@ public class DataSourceTests : IDisposable
     [InlineData("text/plain")]
     public async Task Http_treats_html_body_as_missing_even_with_other_content_type(string mediaType)
     {
-        var handler = new FakeHandler { Respond = _ => Text("\uFEFF  \r\n" + SpaIndexHtml, mediaType) };
-        Assert.Null(await Http(handler).ReadTextAsync("x.csv"));
+        using var handler = new FakeHandler { Respond = _ => Text("\uFEFF  \r\n" + SpaIndexHtml, mediaType) };
+        using var client = new HttpClient(handler);
+        Assert.Null(await Http(client).ReadTextAsync("x.csv"));
         handler.Respond = _ => Text("<html><body></body></html>", mediaType);
-        Assert.Null(await Http(handler).ReadTextAsync("x.csv"));
+        Assert.Null(await Http(client).ReadTextAsync("x.csv"));
     }
 
     [Fact]
     public async Task Http_still_throws_on_server_error()
     {
-        var handler = new FakeHandler { Respond = _ => new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError) };
-        await Assert.ThrowsAsync<HttpRequestException>(() => Http(handler).ReadTextAsync("x.csv"));
+        using var handler = new FakeHandler { Respond = _ => new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError) };
+        using var client = new HttpClient(handler);
+        await Assert.ThrowsAsync<HttpRequestException>(() => Http(client).ReadTextAsync("x.csv"));
     }
 
     [Fact]
     public async Task Caching_does_not_store_spa_fallback_html_as_data()
     {
         var dir = TempDir();
-        var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
-        var source = new CachingDataSource(Http(handler), dir, TimeSpan.FromDays(1));
+        using var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
+        using var client = new HttpClient(handler);
+        var source = new CachingDataSource(Http(client), dir, TimeSpan.FromDays(1));
 
         Assert.Null(await source.ReadTextAsync("Gen9/usage_doubles.csv"));
         Assert.False(File.Exists(Path.Combine(dir, "Gen9", "usage_doubles.csv")));
@@ -882,8 +888,9 @@ public class DataSourceTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
         File.WriteAllText(cachePath, SpaIndexHtml);
 
-        var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
-        var source = new CachingDataSource(Http(handler), dir, TimeSpan.FromDays(1));
+        using var handler = new FakeHandler { Respond = _ => Text(SpaIndexHtml, "text/html") };
+        using var client = new HttpClient(handler);
+        var source = new CachingDataSource(Http(client), dir, TimeSpan.FromDays(1));
         Assert.Null(await source.ReadTextAsync("Gen9/usage_doubles.csv"));
         Assert.Single(handler.Requested);
         Assert.False(File.Exists(cachePath));
@@ -906,13 +913,14 @@ public class DataSourceTests : IDisposable
     public async Task Catalog_legacy_probe_ignores_spa_fallback_html()
     {
         // datasets.csv が無い（404）サイトで、Gen{g}/pokemon.csv の確認に index.html が返ってもデータセット扱いしない
-        var handler = new FakeHandler
+        using var handler = new FakeHandler
         {
             Respond = req => req.RequestUri!.AbsolutePath.EndsWith("datasets.csv", StringComparison.Ordinal)
                 ? new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
                 : Text(SpaIndexHtml, "text/html"),
         };
-        var catalog = new DataCatalog(Http(handler));
+        using var client = new HttpClient(handler);
+        var catalog = new DataCatalog(Http(client));
         Assert.Empty(await catalog.GetDataSetsAsync());
     }
 
@@ -1132,7 +1140,7 @@ public class RecoveryAndFieldTests
         Assert.Equal(2, KnockOutCalculator.Calculate(Thirty, 100, new KnockOutOptions { StartHp = 50 }).Hits);
     }
 
-    private static async Task<(PokemonDataSet Data, FaraPokemonBattleAssistant.Core.Battle.DamageCalculator Calc)> Gen9()
+    private static async Task<(PokemonDataSet Data, FaraPokemonBattleAssistant.Core.Battle.DamageCalculator Calc)> Gen9Async()
     {
         var data = await TestData.Catalog().GetDataSetAsync("Gen9");
         return (data, new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart));
@@ -1141,7 +1149,7 @@ public class RecoveryAndFieldTests
     [Fact]
     public async Task Screen_halves_damage_and_crit_ignores_it()
     {
-        var (data, calc) = await Gen9();
+        var (data, calc) = await Gen9Async();
         var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス")) { EVs = new StatSet { Attack = 252 } };
         var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ハバタクカミ")) { EVs = new StatSet { HP = 252 } };
         var move = data.Moves.First(m => m.Name == "ドラゴンクロー");
@@ -1160,7 +1168,7 @@ public class RecoveryAndFieldTests
     [Fact]
     public async Task Blaze_boosts_fire_moves_at_low_hp()
     {
-        var (data, calc) = await Gen9();
+        var (data, calc) = await Gen9Async();
         var charizard = data.Pokemon.First(p => p.Name == "リザードン");
         var blaze = data.AbilitiesOf(charizard).First(a => a.Identifier == "blaze");
         var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"));
@@ -1174,7 +1182,7 @@ public class RecoveryAndFieldTests
     [Fact]
     public async Task Resist_berry_halves_first_hit_only()
     {
-        var (data, calc) = await Gen9();
+        var (data, calc) = await Gen9Async();
         var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス")) { EVs = new StatSet { Attack = 252 } };
         var move = data.Moves.First(m => m.Name == "ストーンエッジ");
         var plain = new PokemonBuild(data.Pokemon.First(p => p.Name == "リザードン")) { EVs = new StatSet { HP = 252 } };
@@ -1191,7 +1199,7 @@ public class RecoveryAndFieldTests
     [Fact]
     public async Task Sitrus_berry_noted_in_result()
     {
-        var (data, calc) = await Gen9();
+        var (data, calc) = await Gen9Async();
         var attacker = new PokemonBuild(data.Pokemon.First(p => p.Name == "ガブリアス"));
         var defender = new PokemonBuild(data.Pokemon.First(p => p.Name == "ドドゲザン")) { Item = data.Items.First(i => i.Name == "オボンのみ") };
         var result = calc.Calculate(new DamageRequest { Attacker = attacker, Move = data.Moves.First(m => m.Name == "ドラゴンクロー"), Defender = defender });
@@ -1436,7 +1444,7 @@ public class SortByDamageTests
 /// <summary>今のゲームの計算で対応した特性・持ち物（@smogon/calc との一致は CalcVectorTests でも確かめている）。</summary>
 public class ModernAbilityTests
 {
-    private static async Task<(PokemonDataSet Data, FaraPokemonBattleAssistant.Core.Battle.DamageCalculator Calc)> Gen9()
+    private static async Task<(PokemonDataSet Data, FaraPokemonBattleAssistant.Core.Battle.DamageCalculator Calc)> Gen9Async()
     {
         var data = await TestData.Catalog().GetDataSetAsync("Gen9");
         return (data, new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, 9));
@@ -1451,7 +1459,7 @@ public class ModernAbilityTests
     [Fact]
     public async Task Fluffy_halves_contact_and_doubles_fire_so_contact_fire_is_neutral()
     {
-        var (data, calc) = await Gen9();
+        var (data, calc) = await Gen9Async();
         var attacker = Build(data, "ウインディ");
         var fluffy = Build(data, "ハカドッグ", "fluffy");
         var flareBlitz = data.Moves.First(m => m.Name == "フレアドライブ");   // 接触するほのお技
@@ -1467,7 +1475,7 @@ public class ModernAbilityTests
     [Fact]
     public async Task Ruin_abilities_cloud_nine_and_shell_armor()
     {
-        var (data, calc) = await Gen9();
+        var (data, calc) = await Gen9Async();
         var move = data.Moves.First(m => m.Name == "かみくだく");
         var chienPao = Build(data, "パオジアン", "sword-of-ruin");
         var target = Build(data, "ハピナス");
@@ -1496,7 +1504,7 @@ public class ModernAbilityTests
     [Fact]
     public async Task Mold_breaker_cannot_ignore_shadow_shield_and_mycelium_might_ignores_nothing_for_attacks()
     {
-        var (data, calc) = await Gen9();
+        var (data, calc) = await Gen9Async();
         var lunala = Build(data, "ルナアーラ", "shadow-shield");
         var move = data.Moves.First(m => m.Name == "じしん");
         var moldBreaker = Build(data, "ドリュウズ", "mold-breaker");
@@ -1510,7 +1518,7 @@ public class ModernAbilityTests
     [Fact]
     public async Task Muscle_band_uses_4505_and_tera_shell_resists()
     {
-        var (data, calc) = await Gen9();
+        var (data, calc) = await Gen9Async();
         var band = data.Items.First(i => i.Name == "ちからのハチマキ");
         var attacker = Build(data, "ガブリアス");
         attacker.Item = band;
@@ -1533,7 +1541,7 @@ public class ModernAbilityTests
 /// <summary>技ごとの効果（@smogon/calc との一致は CalcVectorTests でも確かめている）。</summary>
 public class MoveEffectTests
 {
-    private static async Task<(PokemonDataSet Data, FaraPokemonBattleAssistant.Core.Battle.DamageCalculator Calc)> Load(string key = "Gen9")
+    private static async Task<(PokemonDataSet Data, FaraPokemonBattleAssistant.Core.Battle.DamageCalculator Calc)> LoadAsync(string key = "Gen9")
     {
         var data = await TestData.Catalog().GetDataSetAsync(key);
         return (data, new FaraPokemonBattleAssistant.Core.Battle.DamageCalculator(data.TypeChart, data.Info.Generation));
@@ -1550,7 +1558,7 @@ public class MoveEffectTests
     [Fact]
     public async Task Weather_ball_and_terrain_pulse_change_type_and_double_power()
     {
-        var (data, calc) = await Load();
+        var (data, calc) = await LoadAsync();
         var attacker = P(data, "ペリッパー");
         var defender = P(data, "ナッシー");
         var sun = calc.Calculate(new DamageRequest { Attacker = attacker, Move = M(data, "ウェザーボール"), Defender = defender, Weather = Weather.Sun });
@@ -1566,7 +1574,7 @@ public class MoveEffectTests
     [Fact]
     public async Task Hex_doubles_against_status_and_multi_hit_moves_add_up()
     {
-        var (data, calc) = await Load();
+        var (data, calc) = await LoadAsync();
         var gengar = P(data, "ゲンガー");
         var target = P(data, "カビゴン");
         var hex = M(data, "たたりめ");
@@ -1612,7 +1620,7 @@ public class MoveEffectTests
         Assert.Contains("おやこあい 1回目", DamageCommand.ParentalText(pb));
 
         // 2〜5 回の技は、回数を決められる
-        (data, calc) = await Load();
+        (data, calc) = await LoadAsync();
         target = P(data, "カビゴン");
         var cloyster = P(data, "パルシェン", "shell-armor");
         var icicle = M(data, "つららばり");
@@ -1629,7 +1637,7 @@ public class MoveEffectTests
     [Fact]
     public async Task Foul_play_body_press_and_sacred_sword_use_the_right_stats()
     {
-        var (data, calc) = await Load();
+        var (data, calc) = await LoadAsync();
         var attacker = P(data, "ヤミラミ");
         var strong = P(data, "ルカリオ");
         strong.EVs = new StatSet { Attack = 252 };
@@ -1651,7 +1659,7 @@ public class MoveEffectTests
     [Fact]
     public async Task Always_crit_screens_psychic_terrain_and_meteor_beam()
     {
-        var (data, calc) = await Load();
+        var (data, calc) = await LoadAsync();
         var target = P(data, "カビゴン");
         var crit = calc.Calculate(new DamageRequest { Attacker = P(data, "マスカーニャ"), Move = M(data, "トリックフラワー"), Defender = target });
         Assert.Contains(crit.Modifiers, m => m.StartsWith("急所", StringComparison.Ordinal));
