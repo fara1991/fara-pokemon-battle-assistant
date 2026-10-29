@@ -153,8 +153,8 @@ function sectionsOf(html, page, url) {
     while ((m = re.exec(html)) !== null) {
         const tag = m[1], text = plain(m[2]);
         if (!text) continue;
-        if (tag === "h3") continue;                       // ページの題名は、ページ自体の項目にする
-        if (/^h[2456]$/.test(tag)) { push(); current = { type: "section", title: text, text: [] }; }
+        if (tag === "h3" && !/class="h6/.test(m[0].slice(0, 40))) continue;                       // ページの題名は、ページ自体の項目にする
+        if (/^h[2456]$/.test(tag) || tag === "h3") { push(); current = { type: "section", title: text, text: [] }; }
         else if (tag === "dt") { push(); current = { type: "term", title: text, text: [] }; }
         else current.text.push(text);
     }

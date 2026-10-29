@@ -253,7 +253,7 @@ public class FooterAndNavTests
     {
         var page = Read(Path.Combine(Web, "Components", "Pages", "Copyright.razor"));
         Assert.Contains("@page \"/copyright\"", page);
-        Assert.Contains("<h3>権利表記</h3>", page);
+        Assert.Contains("<h1 class=\"h3\">権利表記</h1>", page);
         Assert.Contains("<PageTitle>権利表記 | Pokémon Battle Assistant</PageTitle>", page);
         Assert.Contains("非公式のファンサイトです", page);
         Assert.Contains("ポケットモンスター・ポケモンに関する名称・画像の権利は、各権利者に帰属します", page);
