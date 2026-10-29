@@ -15,11 +15,11 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <!--
-      このリポジトリで警告が 0 件になったものは、警告を error にして戻らないようにする。
-      kit の tools/lint/dotnet.editorconfig では CA1031・CA2000 が warning のまま（kit 側に違反が残っているため）なので、ここで上書きする。
+      kit の tools/lint/dotnet.editorconfig（v1.0.1 以降）は CA1031・CA2000・VSTHRD002・VSTHRD003・VSTHRD103 なども error にしている。
+      ここには、kit に無いルールのうち、このリポジトリで警告が 0 件になったものだけを、サイトの上書きとして error にして戻らないようにする。
       kit の外（external/ 以下）のプロジェクトは kit 自身の Directory.Build.props を使うので、この設定は届かない。
     -->
-    <WarningsAsErrors>$(WarningsAsErrors);CA1031;CA2000;CS0105;CS0618;CS1573;CS8602;VSTHRD003;VSTHRD103;VSTHRD200;xUnit2013</WarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);CS0105;CS0618;CS1573;CS8602;VSTHRD200;xUnit2013</WarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)external/fara-blazor-component/tools/lint/dotnet.editorconfig" />

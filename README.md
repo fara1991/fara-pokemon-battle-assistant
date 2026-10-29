@@ -177,7 +177,7 @@ git submodule update --init
 ```
 
 submodule が無いと、`npm run check`・`npm run test:report`・`npm run test:maintenance`・`wrangler deploy --dry-run` が失敗します（`worker/index.js` が kit の import を読むため）。
-kit のどのコミットを使うかは、このリポジトリの `external/fara-blazor-component` が指すコミットで決まります（更新は PR で行う）。現在は kit の **v1.0.0**（タグ。旧名 fara-site-kit からの改名。移行の手順は kit の `docs/migration-v1.0.0.md`）に固定しています。
+kit のどのコミットを使うかは、このリポジトリの `external/fara-blazor-component` が指すコミットで決まります（更新は PR で行う）。現在は kit の **v1.0.1**（タグ。v1.0.0 は旧名 fara-site-kit からの改名で、移行の手順は kit の `docs/migration-v1.0.0.md`。v1.0.1 は ESLint の共通設定の修正と、.NET の警告の削減）に固定しています。
 注意: 報告フォームの画面側は `external/fara-blazor-component/src/FaraBlazorComponent.Razor/wwwroot/js/report.js`（Turnstile）と `ReportFormView`、受け口の Worker 側は `external/fara-blazor-component/worker/report.js` です（別のファイル）。
 
 **問い合わせの回数制限（送信元ごと 1 日 3 回まで）**: 受け口は、Turnstile を通った送信を送信元（`CF-Connecting-IP`）ごとに JST の 1 日 3 回まで数え、超えると `429`（「1 日の送信上限（3 回）に達しました。明日もう一度お試しください。」）を返します。数えるのは `REPORT_LIMITER`（Durable Object `ReportRateLimiter`。`wrangler.jsonc` の `durable_objects`・`migrations` の `v2`、本番と `env.develop` の両方）があるときだけです。`worker/index.js` が `ReportRateLimiter` を export します。送信元の IP アドレスは保存せず、秘密鍵つきのハッシュを、その日の間（JST 0 時まで）だけ保存します（kit の `docs/usage.md` 2.2）。配線の検査は `worker/report-limiter.test.mjs`（`npm run test:worker` に含む）。
@@ -212,10 +212,10 @@ CI の `build.yml` の `lint` job（ESLint）と `layout-check` job（計測）�
 
 | 重大度 | ルール | 件数 | 意味 |
 |---|---|---|---|
-| error | CS4014・VSTHRD100・CA1816・IDE0059 | 0 | 新しい違反は止まる（kit の `dotnet.editorconfig`） |
-| error | CA1031・CA2000・CS0105・CS0618・CS1573・CS8602・VSTHRD003・VSTHRD103・VSTHRD200・xUnit2013 | 0 | このサイトで 0 件になったもの。ルートの `Directory.Build.props` の `WarningsAsErrors` で error にする（kit の `dotnet.editorconfig` では CA1031・CA2000 が warning のままなので、ここで上書きする） |
+| error | CS4014・VSTHRD100・CA1816・IDE0059・CA1031・CA2000・VSTHRD002・VSTHRD003・VSTHRD103 | 0 | 新しい違反は止まる（kit v1.0.1 の `dotnet.editorconfig`） |
+| error | CS0105・CS0618・CS1573・CS8602・VSTHRD200・xUnit2013 | 0 | kit に無いルールで、このサイトで 0 件になったもの。ルートの `Directory.Build.props` の `WarningsAsErrors` で error にする（サイトの上書き） |
 
-件数は `dotnet build --no-incremental` の、このサイトのファイルの警告です。`#pragma warning disable` で抑えているのは、理由をコメントに書いた次の箇所だけです。CA1031 は、起動・描画・保存・後始末を止めない、意図した握りつぶし（`AppState`・`BattleStage`・`CloudSync`・`SearchService`・`AppPageBase`・`RosterPageBase`・`RosterRotation`）。CS0618 と VSTHRD003 は、テストがわざと廃止した項目・TaskCompletionSource の関門を使う箇所。kit の部品（`external/` 以下。CA1031・VSTHRD103 の計 4 件）の警告は kit 側で直します。kit の `dotnet.editorconfig` は変えません。
+件数は `dotnet build --no-incremental` の、このサイトのファイルの警告です。`#pragma warning disable` で抑えているのは、理由をコメントに書いた次の箇所だけです。CA1031 は、起動・描画・保存・後始末を止めない、意図した握りつぶし（`AppState`・`BattleStage`・`CloudSync`・`SearchService`・`AppPageBase`・`RosterPageBase`・`RosterRotation`）。CS0618 と VSTHRD003 は、テストがわざと廃止した項目・TaskCompletionSource の関門を使う箇所。kit の部品（`external/` 以下）の警告は kit v1.0.1 で 0 件です。以後の警告は kit 側で直します。kit の `dotnet.editorconfig` は変えません。
 
 ### サイト内検索（ヘッダーの検索欄）
 
