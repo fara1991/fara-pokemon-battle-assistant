@@ -4605,6 +4605,10 @@ html[data-bs-theme="dark"] .fbc-not-found-lead { color: #b4a7d1; }
 /* ホームへ戻るボタン: kit は紫のグラデーションと影を付ける。このサイトは、これまで通り、MudBlazor の既定の塗り（primary）にして、丸い形・余白・太字だけを足す */
 .fbc-btn-primary.mud-button-root { background: var(--mud-palette-primary); box-shadow: var(--mud-elevation-2); border-radius: 999px; padding: 10px 24px; text-transform: none; font-weight: 700; }
 
+/* 行頭禁則（句読点・閉じ括弧・長音・小さい仮名を行頭に出さない）は、ページ全体（ポップアップ・表・ボタン・ヘルプの吹き出しも）に効かせる。
+   auto-phrase（句の単位の折り返し）は、下の本文にだけ当てる */
+html { line-break: strict; }
+
 /* ---------- 日本語の改行（本文だけ。フォームの入力欄やコマンドの表には当てない） ---------- */
 .page-column p, .page-column h3, .policy-card p, .policy-card li, .policy-card h5, .policy-card .policy-heading {
     word-break: normal;

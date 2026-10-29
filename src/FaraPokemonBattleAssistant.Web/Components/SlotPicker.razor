@@ -5,7 +5,7 @@
     {
         var index = i;
         <button type="button" role="tab" aria-selected="@(Selected == index ? "true" : "false")" class="slot-picker-btn @(Selected == index ? "active" : "")" @onclick="() => SelectedChanged.InvokeAsync(index)">
-            <strong>@(index + 1)体目</strong><small>@Names[index]</small>
+            <strong>@(index + 1) 体目</strong><small>@Names[index]</small>
         </button>
     }
 </div>

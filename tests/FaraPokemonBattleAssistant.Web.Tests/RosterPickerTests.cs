@@ -29,7 +29,7 @@ public class RosterPickerTests : BunitContext, IAsyncLifetime
     private const string DoublesOnly = "ガブリアス";
     private const string Both = "リザードン";
     private const string Unassigned = "ピカチュウ";
-    private const string Placeholder = "input[placeholder='登録チームから選ぶ...']";
+    private const string Placeholder = "input[placeholder='登録チームから選ぶ…']";
     private const string Guide = "この形式の登録チームがありません";
 
     private readonly RosterRepository repo = new(new MemoryRosterStore());

@@ -37,7 +37,7 @@
                     <label>覚えるポケモンを探す <Help Title="覚えるポケモンを探す">技を選ぶと、その技だけを表示して、覚えるポケモンを開きます。</Help></label>
                     <SearchableSelect TItem="Move" Items="allMoves" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
                         SelectedValue="@(f.MoveId == 0 ? "" : f.MoveId.ToString())" SelectedValueChanged="@PickMove"
-                        Dropdown="true" EmptyOption="指定なし" Placeholder="技名を入力..." AriaLabel="覚えるポケモンを探す（技）">
+                        Dropdown="true" EmptyOption="指定なし" Placeholder="技名を入力…" AriaLabel="覚えるポケモンを探す（技）">
                         <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@MoveText.Category(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
                     </SearchableSelect>
                 </div>

@@ -32,7 +32,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             SelectedValue="@(s.NewPokemon?.Id.ToString() ?? "")"
                             SelectedValueChanged="@OnNewPokemonChanged"
                             Disabled="@(s.EditingId is not null)"
-                            Placeholder="ポケモン名を入力...">
+                            Placeholder="ポケモン名を入力…">
                             <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /></ItemTemplate>
                         </SearchableSelect>
                         @if (s.NewPokemon is not null)
@@ -75,7 +75,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             <div class="with-desc">
                                 <SearchableSelect TItem="Ability" Items="@(s.NewPokemon is null ? Array.Empty<Ability>() : data.AbilitiesOf(s.NewPokemon))" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
                                     SelectedValue="@(s.NewAbility?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) OnAbilityChanged(data.FindAbility(ParseId(v))); })"
-                                    Disabled="@(s.NewPokemon is null)" Dropdown="true" Placeholder="特性名を入力..." />
+                                    Disabled="@(s.NewPokemon is null)" Dropdown="true" Placeholder="特性名を入力…" />
                                 <DescHelp Name="@(s.NewAbility?.Name)" Description="@(s.NewAbility?.Description)" />
                             </div>
                         }
@@ -113,7 +113,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                     </div>
                     @if (s.NewPokemon is not null)
                     {
-                        <div class="stats-summary mb-2">実数値：@FormatStats(StatCalculator.CalculateAll(NewBuild()))</div>
+                        <div class="stats-summary mb-2">実数値: @FormatStats(StatCalculator.CalculateAll(NewBuild()))</div>
                     }
                     @* 登録 = 新しく登録する。更新・取り消し = 登録一覧で選んだポケモンを編集しているとき（登録は押せない） *@
                     <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -154,7 +154,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                 <div class="small mt-1">@NatureText(e.Nature)　@EvRules.Label(dataSet.EvSystem) @e.EVs.ToShortString()</div>
                                 @if (e.MoveIds.Count > 0)
                                 {
-                                    <div class="small reg-moves">技：@foreach (var mid in e.MoveIds)
+                                    <div class="small reg-moves">技: @foreach (var mid in e.MoveIds)
                                     {
                                         if (data.FindMove(mid) is { } mv) { <span class="reg-move"><TypeIcon Type="@mv.Type" Small="true" />@mv.Name</span> }
                                     }</div>
