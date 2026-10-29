@@ -375,7 +375,7 @@ else if (string.IsNullOrEmpty(loadError))
     {
         if (dataSet is null or { CalcSupported: false }) return null;   // 読み込み前・未対応のゲームは、対戦画面にしない
         if (Doubles) return BuildOrderScene();
-        if (s.Builds[0] is not { } a || s.Builds[1] is not { } b) return new WaitingScene("ポケモン 1・2 を選ぶと、ここに結果が出ます。");
+        if (s.Builds[0] is not { } a || s.Builds[1] is not { } b) return new WaitingScene("ポケモン1・2 を選ぶと、ここに結果が出ます。");
         var speedA = SpeedCalculator.Effective(a, s.Weather, s.Terrain, s.Tailwind[0], dataSet.Generation).Item1;
         var speedB = SpeedCalculator.Effective(b, s.Weather, s.Terrain, s.Tailwind[1], dataSet.Generation).Item1;
         // 棒の長さの基準は、結果の棒（race-bar）と同じ
@@ -468,7 +468,7 @@ else if (string.IsNullOrEmpty(loadError))
                     else
                     {
                     <SearchableSelect TItem="Pokemon" Items="data!.Pokemon" DisplayText="@(p => p.Name)" ValueSelector="@(p => p.Id.ToString())"
-                        SelectedValue="@(build?.Pokemon.Id.ToString() ?? "")" SelectedValueChanged="@(v => OnPokemonChanged(side, v))" Placeholder="ポケモン名を入力...">
+                        SelectedValue="@(build?.Pokemon.Id.ToString() ?? "")" SelectedValueChanged="@(v => OnPokemonChanged(side, v))" Placeholder="ポケモン名を入力…">
                         <ItemTemplate Context="p"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span><PokemonTypes Pokemon="p" Small="true" /><span class="text-muted ms-auto">S@(p.BaseStats.Speed)</span></ItemTemplate>
                     </SearchableSelect>
                     }
@@ -523,7 +523,7 @@ else if (string.IsNullOrEmpty(loadError))
                         {
                             <div class="with-desc">
                                 <SearchableSelect TItem="Ability" Items="abilities" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
-                                    SelectedValue="@(build.Ability?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) build.Ability = data.FindAbility(ParseId(v)); })" Dropdown="true" Placeholder="特性名を入力..." />
+                                    SelectedValue="@(build.Ability?.Id.ToString() ?? "")" SelectedValueChanged="@(v => { if (v.Length > 0) build.Ability = data.FindAbility(ParseId(v)); })" Dropdown="true" Placeholder="特性名を入力…" />
                                 <DescHelp Name="@(build.Ability?.Name)" Description="@(build.Ability?.Description)" />
                             </div>
                         }

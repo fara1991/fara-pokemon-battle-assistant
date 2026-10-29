@@ -30,7 +30,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                             ValueSelector="@(p => p.Id.ToString())"
                             SelectedValue="@newPokemonId"
                             SelectedValueChanged="@OnNewPokemonChanged"
-                            Placeholder="ポケモン名を入力..." />
+                            Placeholder="ポケモン名を入力…" />
                     </div>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-3" OnClick="AddRivalAsync" Disabled="@(newPokemon is null || roster.Rivals.Count >= PokeCommand.MaxRivals)">対戦中の相手に追加</MudButton>
 
@@ -66,7 +66,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                                 <div class="form-group mb-2">
                                                     <label class="form-label small mb-0">姿（メガシンカ）</label>
                                                     <SearchableSelect TItem="Pokemon" Items="forms" DisplayText="@(f => f.Name)" ValueSelector="@(f => f.Id.ToString())"
-                                                        SelectedValue="@editFormId.ToString()" SelectedValueChanged="@OnEditFormChanged" Dropdown="true" Placeholder="姿を選ぶ...">
+                                                        SelectedValue="@editFormId.ToString()" SelectedValueChanged="@OnEditFormChanged" Dropdown="true" Placeholder="姿を選ぶ…">
                                                         <ItemTemplate Context="f"><PokemonIcon Pokemon="f" Small="true" /><span>@f.Name</span><PokemonTypes Pokemon="f" Small="true" /></ItemTemplate>
                                                     </SearchableSelect>
                                                 </div>
@@ -105,7 +105,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                                 <label class="form-label small mb-0">持ち物（確定したときだけ。履歴に残ります）</label>
                                                 <div class="with-desc">
                                                     <SearchableSelect TItem="Item" Items="data.Items" DisplayText="@(i => i.Name)" ValueSelector="@(i => i.Id.ToString())"
-                                                        SelectedValue="@editItem" SelectedValueChanged="@(v => editItem = v)" Dropdown="true" EmptyOption="不明" Placeholder="持ち物名を入力...">
+                                                        SelectedValue="@editItem" SelectedValueChanged="@(v => editItem = v)" Dropdown="true" EmptyOption="不明" Placeholder="持ち物名を入力…">
                                                         <ItemTemplate Context="i"><ItemLabel Item="i" /></ItemTemplate>
                                                     </SearchableSelect>
                                                     <DescHelp Name="@(data.Items.FirstOrDefault(i => i.Id.ToString() == editItem)?.Name)" Description="@(data.Items.FirstOrDefault(i => i.Id.ToString() == editItem)?.Description)" />
@@ -115,7 +115,7 @@ else if (data is not null && roster is not null && dataSet is not null)
                                                 <label class="form-label small mb-0">特性</label>
                                                 <div class="with-desc">
                                                     <SearchableSelect TItem="Ability" Items="data.AbilitiesOf(data.FindPokemon(editFormId) ?? pokemon)" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
-                                                        SelectedValue="@editAbility" SelectedValueChanged="@(v => editAbility = v)" Dropdown="true" EmptyOption="不明" Placeholder="特性名を入力..." />
+                                                        SelectedValue="@editAbility" SelectedValueChanged="@(v => editAbility = v)" Dropdown="true" EmptyOption="不明" Placeholder="特性名を入力…" />
                                                     <DescHelp Name="@(data.Abilities.FirstOrDefault(a => a.Id.ToString() == editAbility)?.Name)" Description="@(data.Abilities.FirstOrDefault(a => a.Id.ToString() == editAbility)?.Description)" />
                                                 </div>
                                             </div>

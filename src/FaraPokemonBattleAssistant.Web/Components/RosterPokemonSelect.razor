@@ -8,7 +8,7 @@
     ValueSelector="@(o => o.Choice.Key)"
     SelectedValue="@(SelectedKey ?? "")"
     SelectedValueChanged="OnChanged"
-    Placeholder="登録チームから選ぶ...">
+    Placeholder="登録チームから選ぶ…">
     <ItemTemplate Context="o">
         <PokemonIcon Pokemon="o.Pokemon" Small="true" /><span>@o.Choice.Label</span><PokemonTypes Pokemon="o.Pokemon" Small="true" />
     </ItemTemplate>

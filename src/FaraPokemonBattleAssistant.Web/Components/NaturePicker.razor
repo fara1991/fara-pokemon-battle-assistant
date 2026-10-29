@@ -10,7 +10,7 @@
         SelectedValue="@(Value?.Name ?? "")"
         SelectedValueChanged="@(v => Change(Natures.FirstOrDefault(n => n.Name == v)))"
         Dropdown="true"
-        Placeholder="性格名で探す..." />
+        Placeholder="性格名で探す…" />
     <div class="nature-steppers" role="group" aria-label="性格の補正（▲ 上昇・▼ 下降）">
         @foreach (var stat in NatureSelection.Stats)
         {
