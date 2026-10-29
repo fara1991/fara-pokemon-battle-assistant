@@ -3,8 +3,8 @@ using FaraPokemonBattleAssistant.Core.Roster;
 using FaraPokemonBattleAssistant.Core.Text;
 using FaraPokemonBattleAssistant.Web;
 using FaraPokemonBattleAssistant.Web.Services;
-using FaraSiteKit.Core;
-using FaraSiteKit.Razor;
+using FaraBlazorComponent.Core;
+using FaraBlazorComponent.Razor;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
@@ -12,11 +12,11 @@ using Microsoft.JSInterop;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 var baseAddress = builder.HostEnvironment.BaseAddress;
 
-// 共通部品（fara-site-kit の Razor。ヘッダー・フッター・テーマ・報告フォームなど）の設定・テーマの状態・MudBlazor（通知の位置など）。
+// 共通部品（fara-blazor-component の Razor。ヘッダー・フッター・テーマ・報告フォームなど）の設定・テーマの状態・MudBlazor（通知の位置など）。
 // メンテナンス画面（下）も SiteOptions を読むので、メンテナンスの分岐より前に登録する。値は Services/SiteInfo.cs
-builder.Services.AddFaraSiteKit(SiteInfo.Configure);
+builder.Services.AddFaraBlazorComponent(SiteInfo.Configure);
 
-// メンテナンスの状態（Worker の変数 MAINTENANCE_MODE。external/fara-site-kit/worker/maintenance.js）。読めなければ通常。
+// メンテナンスの状態（Worker の変数 MAINTENANCE_MODE。external/fara-blazor-component/worker/maintenance.js）。読めなければ通常。
 // メンテナンス中（MAINTENANCE_MODE=true）は、アプリの代わりに、メンテナンス画面だけを動かす
 var maintenance = await MaintenanceInfo.LoadAsync(new HttpClient { BaseAddress = new Uri(baseAddress) });
 builder.Services.AddSingleton(maintenance);

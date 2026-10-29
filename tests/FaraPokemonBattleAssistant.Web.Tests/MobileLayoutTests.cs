@@ -5,13 +5,13 @@ namespace FaraPokemonBattleAssistant.Web.Tests;
 /// <summary>
 /// 768px 前後のサイドバーの食い違いと、スマホの検索（ヘッダーの検索ボタン → 下に開く検索欄）の並びを、ソースの文言で確かめる
 /// （描画の確認は、ブラウザ（ヘッドレス Chromium）で行う）。
-/// ヘッダー・サイドバー・検索欄の枠は共通部品（fara-site-kit の SiteLayout。確認は kit の tests/FaraSiteKit.Razor.Tests と tests/js/kit-js.test.mjs）。
+/// ヘッダー・サイドバー・検索欄の枠は共通部品（fara-blazor-component の SiteLayout。確認は kit の tests/FaraBlazorComponent.Razor.Tests と tests/js/kit-js.test.mjs）。
 /// ここでは、このサイトの検索部品（SiteSearch）と CSS が、その約束に合っていることを確かめる。
 /// </summary>
 public class MobileLayoutTests
 {
     private static readonly string Web = FindUpDirectory("src/FaraPokemonBattleAssistant.Web");
-    private static readonly string Kit = FindUpDirectory("external/fara-site-kit/src/FaraSiteKit.Razor");
+    private static readonly string Kit = FindUpDirectory("external/fara-blazor-component/src/FaraBlazorComponent.Razor");
 
     [Fact]
     public void Drawer_sets_breakpoint_Sm_and_leaves_the_mobile_variant_to_the_Mobile_switch()
@@ -28,9 +28,9 @@ public class MobileLayoutTests
     {
         var razor = Read(Kit, "Components", "SiteLayout.razor");
         var mobile = Section(razor, "@if (Mobile)\n        {\n            @MobileHeaderActions", "else");
-        Assert.Contains("Class=\"fsk-search-toggle\"", mobile);
+        Assert.Contains("Class=\"fbc-search-toggle\"", mobile);
         Assert.Contains("aria-label=\"検索\"", mobile);
-        Assert.Contains("aria-controls=\"fsk-search-sheet\"", mobile);
+        Assert.Contains("aria-controls=\"fbc-search-sheet\"", mobile);
         Assert.Contains("aria-expanded=\"@(searchOpen ? \"true\" : \"false\")\"", mobile);
         Assert.Contains("OnClick=\"OpenSearch\"", mobile);
     }
@@ -53,8 +53,8 @@ public class MobileLayoutTests
     public void Search_button_controls_the_sheet_element_that_exists_in_the_markup()
     {
         var layout = Read(Kit, "Components", "SiteLayout.razor");
-        Assert.Contains("aria-controls=\"fsk-search-sheet\"", layout);
-        Assert.Contains("<div id=\"fsk-search-sheet\" class=\"fsk-search-sheet\"", layout);
+        Assert.Contains("aria-controls=\"fbc-search-sheet\"", layout);
+        Assert.Contains("<div id=\"fbc-search-sheet\" class=\"fbc-search-sheet\"", layout);
         // 欄の枠は kit が持つ。このサイトの検索部品は、自分の id（site-search-sheet）を持たない（枠と二重にならない）
         var search = Read(Web, "Shared", "SiteSearch.razor");
         Assert.DoesNotContain("id=\"@(Sheet", search);
@@ -67,7 +67,7 @@ public class MobileLayoutTests
         var razor = Read(Web, "Shared", "SiteSearch.razor");
         var root = Section(razor, "<div class=\"site-search @(Sheet", "\n");
         Assert.Contains("@onkeydown=\"OnKeyDown\"", root);
-        // 検索の契約: 検索部品が Esc を先に使う（候補を閉じる・欄を閉じる）ので、kit の欄（#fsk-search-sheet）へは伝えない
+        // 検索の契約: 検索部品が Esc を先に使う（候補を閉じる・欄を閉じる）ので、kit の欄（#fbc-search-sheet）へは伝えない
         Assert.Contains("@onkeydown:stopPropagation=\"true\"", root);
         // 入力欄の keydown は、根の要素に移した（× ボタンや結果の上でも、Esc が届く）
         Assert.Contains("value=\"@query\" @oninput=\"OnInput\" />", razor);
@@ -87,7 +87,7 @@ public class MobileLayoutTests
     {
         var razor = Read(Kit, "Components", "SiteLayout.razor");
         var helper = Section(razor, "private async Task SetSearchSheetAsync(", "private async Task ApplyDesktopStateAsync()");
-        Assert.Contains("try { await JS.InvokeVoidAsync(\"faraSiteKit.searchSheet\", open, focus); }", helper);
+        Assert.Contains("try { await JS.InvokeVoidAsync(\"faraBlazorComponent.searchSheet\", open, focus); }", helper);
         Assert.Contains("catch (Exception ex) when (ex is JSException or JSDisconnectedException)", helper);   // kit v0.5.2: JS の失敗（使えない・回線切れ）だけ受ける
     }
 
@@ -104,14 +104,14 @@ public class MobileLayoutTests
     [Fact]
     public void Opening_the_search_does_not_wait_for_render_to_focus_it()
     {
-        // フォーカスは、押した流れの中で kit の fara-site-kit.js が行う（iOS の対策）。C# 側の OpenSearch は、状態だけを変える
+        // フォーカスは、押した流れの中で kit の fara-blazor-component.js が行う（iOS の対策）。C# 側の OpenSearch は、状態だけを変える
         var razor = Read(Kit, "Components", "SiteLayout.razor");
         var open = Section(razor, "private void OpenSearch()", "private void CloseSearch()");
         Assert.DoesNotContain("JS.", open);
         Assert.Contains("searchOpen = true;", open);
-        var js = Read(Kit, "wwwroot", "js", "fara-site-kit.js");
-        Assert.Contains("closest(\".fsk-search-toggle\")) api.searchSheet(true, true);", js);
-        Assert.Contains("classList.toggle(\"fsk-search-open\", !!open)", js);
+        var js = Read(Kit, "wwwroot", "js", "fara-blazor-component.js");
+        Assert.Contains("closest(\".fbc-search-toggle\")) api.searchSheet(true, true);", js);
+        Assert.Contains("classList.toggle(\"fbc-search-open\", !!open)", js);
         // このサイトの page.js には、検索欄の開閉・ボタンの click の処理を残さない（kit と二重にならない）
         var page = Read(Web, "wwwroot", "js", "page.js");
         Assert.DoesNotContain("faraSearchSheet", page);
@@ -137,15 +137,15 @@ public class MobileLayoutTests
     [Fact]
     public void Sheet_is_hidden_unless_the_mobile_search_is_open()
     {
-        // 枠（.fsk-search-sheet）の出し入れは kit の CSS（閉じているあいだは display: none。html.fsk-search-open で出す）。見た目（余白・背景）は app.css で、これまで通りにする
-        var kitCss = Read(Kit, "wwwroot", "css", "fara-site-kit.css");
-        Assert.Contains(".fsk-search-sheet {\n    display: none;\n}", kitCss);
-        Assert.Contains("html.fsk-search-open .fsk-search-sheet", kitCss);
+        // 枠（.fbc-search-sheet）の出し入れは kit の CSS（閉じているあいだは display: none。html.fbc-search-open で出す）。見た目（余白・背景）は app.css で、これまで通りにする
+        var kitCss = Read(Kit, "wwwroot", "css", "fara-blazor-component.css");
+        Assert.Contains(".fbc-search-sheet {\n    display: none;\n}", kitCss);
+        Assert.Contains("html.fbc-search-open .fbc-search-sheet", kitCss);
         var css = Read(Web, "wwwroot", "css", "app.css");
-        Assert.Contains("html.fsk-search-open .fsk-search-sheet {", css);
-        Assert.Contains("padding: 8px 56px 8px 12px;", Section(css, "html.fsk-search-open .fsk-search-sheet {", "}"));
+        Assert.Contains("html.fbc-search-open .fbc-search-sheet {", css);
+        Assert.Contains("padding: 8px 56px 8px 12px;", Section(css, "html.fbc-search-open .fbc-search-sheet {", "}"));
         // 検索部品は枠の中に position: static で入る（結果の一覧・× の位置の基準が、枠になる）
-        Assert.Contains("position: static;", Section(css, ".fsk-search-sheet .site-search-sheet {", "}"));
+        Assert.Contains("position: static;", Section(css, ".fbc-search-sheet .site-search-sheet {", "}"));
         // 16px 未満の入力欄は、iOS が入力のときに拡大するので、スマホの検索欄は 16px
         var sheet = Section(css, ".site-search-sheet .site-search-input {", "}");
         Assert.Contains("font-size: 1rem;", sheet);
@@ -155,9 +155,9 @@ public class MobileLayoutTests
     public void Search_button_meets_the_44px_tap_target()
     {
         // ボタンの大きさは kit の CSS と、このサイトの app.css の両方で 44px
-        foreach (var css in new[] { Read(Kit, "wwwroot", "css", "fara-site-kit.css"), Read(Web, "wwwroot", "css", "app.css") })
+        foreach (var css in new[] { Read(Kit, "wwwroot", "css", "fara-blazor-component.css"), Read(Web, "wwwroot", "css", "app.css") })
         {
-            var rule = Section(css, ".fsk-header .fsk-search-toggle {", "}");
+            var rule = Section(css, ".fbc-header .fbc-search-toggle {", "}");
             Assert.Contains("width: 44px;", rule);
             Assert.Contains("height: 44px;", rule);
         }
@@ -169,13 +169,13 @@ public class MobileLayoutTests
         // kit のレイアウトはスマホでも画面の高さに収める。このサイトのスマホは、これまで通りページ全体がスクロールする（app.css が、スマホだけ戻す）
         var css = Read(Web, "wwwroot", "css", "app.css");
         var mobile = Section(css, "@media (max-width: 767.98px) {\n    /* kit は、スマホでも", "/* 対戦画面を出している間は");
-        Assert.Contains(".fsk-page.mud-layout {\n        height: auto;\n        min-height: 100vh;\n        overflow: visible;", mobile);
-        Assert.Contains(".fsk-page .mud-main-content {\n        display: flex;\n        flex-direction: column;\n        box-sizing: border-box;\n        height: auto;", mobile);
+        Assert.Contains(".fbc-page.mud-layout {\n        height: auto;\n        min-height: 100vh;\n        overflow: visible;", mobile);
+        Assert.Contains(".fbc-page .mud-main-content {\n        display: flex;\n        flex-direction: column;\n        box-sizing: border-box;\n        height: auto;", mobile);
         // 本文が短いページでも、フッターが画面の下端に来る（本文の領域を画面の高さ以上にし、main が残りを埋める）
         Assert.Contains("min-height: 100dvh;", mobile);
-        Assert.Contains(".fsk-page .mud-main-content > main {\n        display: block;\n        flex: 1 0 auto;", mobile);
+        Assert.Contains(".fbc-page .mud-main-content > main {\n        display: block;\n        flex: 1 0 auto;", mobile);
         Assert.Contains("overflow-y: visible;", mobile);
-        Assert.Contains("html.fsk-sidebar-hidden .fsk-page .mud-main-content {\n        margin-left: 0 !important;", mobile);
+        Assert.Contains("html.fbc-sidebar-hidden .fbc-page .mud-main-content {\n        margin-left: 0 !important;", mobile);
     }
 
     private static string Section(string text, string startMarker, string endMarker)

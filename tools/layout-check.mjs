@@ -4,14 +4,14 @@
 import { access } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { startStaticServer } from "../external/fara-site-kit/tools/layout-check/serve-static.mjs";
+import { startStaticServer } from "../external/fara-blazor-component/tools/layout-check/serve-static.mjs";
 import {
   LayoutCheckConfigError,
   LayoutCheckRunError,
   RULE_NAMES,
   formatViolation,
   runLayoutCheck,
-} from "../external/fara-site-kit/tools/layout-check/index.mjs";
+} from "../external/fara-blazor-component/tools/layout-check/index.mjs";
 
 const SITE_ROOT = resolve("publish/wwwroot");
 const CONFIG_PATH = resolve("layout-check.config.mjs");

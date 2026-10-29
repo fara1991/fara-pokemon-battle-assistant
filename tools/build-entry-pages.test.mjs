@@ -1,6 +1,6 @@
 // 入口ページの静的 HTML・robots.txt・sitemap.xml・_headers の生成（tools/build-entry-pages.mjs）の確認。
 //   node --test tools/build-entry-pages.test.mjs
-// 作り方そのもの（head・区切り・CSP の形）は kit の検査（external/fara-site-kit/tests）が見る。ここでは pokemon の入力と、呼び出しの配線を見る。
+// 作り方そのもの（head・区切り・CSP の形）は kit の検査（external/fara-blazor-component/tests）が見る。ここでは pokemon の入力と、呼び出しの配線を見る。
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync } from "node:fs";

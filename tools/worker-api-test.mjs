@@ -348,7 +348,7 @@ try {
   check("以前の URL（/my-teams）も静的アセット（<route>.html）", (await fetch(`${base}/my-teams`)).status === 200);
   check("API 以外は今までどおり静的アセット（<route>.html）", page.status === 200 && (page.headers.get("content-type") ?? "").includes("text/html"));
 
-  // ゲームデータ（/api/game/*）は静的アセット。Worker を通して、そのまま返す（メンテナンス中だけ 503。external/fara-site-kit/worker/maintenance.test.mjs）
+  // ゲームデータ（/api/game/*）は静的アセット。Worker を通して、そのまま返す（メンテナンス中だけ 503。external/fara-blazor-component/worker/maintenance.test.mjs）
   // （Worker を通ると worker/index.js が X-Worker-Fallback を付けるので、それがあることで確かめる）
   const csv = await fetch(`${base}/api/game/datasets.csv`);
   const csvText = await csv.text();

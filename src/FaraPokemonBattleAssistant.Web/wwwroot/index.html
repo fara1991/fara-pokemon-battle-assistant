@@ -65,12 +65,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Outfit:wght@500;600;700&display=block" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link href="css/base.css" rel="stylesheet" />
-    <!-- 共通部品（fara-site-kit）の CSS。サイトの app.css より前に読む（同じ強さの規則は app.css が勝つ） -->
-    <link href="_content/FaraSiteKit.Razor/css/fara-site-kit.css" rel="stylesheet" />
+    <!-- 共通部品（fara-blazor-component）の CSS。サイトの app.css より前に読む（同じ強さの規則は app.css が勝つ） -->
+    <link href="_content/FaraBlazorComponent.Razor/css/fara-blazor-component.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <!-- 描画の前に、保存されたテーマ（ライト／ダーク）と PC のサイドバーを隠す設定を html に反映する（kit の theme-init.js）。
          data-storage-key・data-sidebar-key は、SiteOptions（Services/SiteInfo.cs の StorageKey・SidebarKey）と同じ値にする（違うと、起動の後にコンソールに警告が出る） -->
-    <script src="_content/FaraSiteKit.Razor/js/theme-init.js" data-storage-key="fara-pokemon-battle-assistant.settings" data-sidebar-key="fara-pokemon-battle-assistant.sidebar-hidden"></script>
+    <script src="_content/FaraBlazorComponent.Razor/js/theme-init.js" data-storage-key="fara-pokemon-battle-assistant.settings" data-sidebar-key="fara-pokemon-battle-assistant.sidebar-hidden"></script>
     <script src="js/site-init.js"></script>
     <!-- JavaScript が無いときは読み込み表示を出さない（静的な本文をそのまま読める）。インラインの script は CSP で使えないので style で隠す -->
     <noscript><style>#boot-indicator { display: none; }</style></noscript>
@@ -94,12 +94,12 @@
         <a href="" class="reload">再読み込み</a>
         <a class="dismiss">🗙</a>
     </div>
-    <script src="_content/FaraSiteKit.Razor/js/boot-indicator.js"></script>
-    <script src="_content/FaraSiteKit.Razor/js/fara-site-kit.js"></script>
+    <script src="_content/FaraBlazorComponent.Razor/js/boot-indicator.js"></script>
+    <script src="_content/FaraBlazorComponent.Razor/js/fara-blazor-component.js"></script>
     <script src="js/page.js"></script>
     <script src="js/motion.js"></script>
-    <script src="_content/FaraSiteKit.Razor/js/scroll-progress.js"></script>
-    <script src="_content/FaraSiteKit.Razor/js/report.js"></script>
+    <script src="_content/FaraBlazorComponent.Razor/js/scroll-progress.js"></script>
+    <script src="_content/FaraBlazorComponent.Razor/js/report.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
 </body>

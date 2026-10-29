@@ -1,4 +1,4 @@
-@* サイドバーの中身（MudBlazor の MudNavMenu / MudNavLink）。PC は Shared/MainLayout.razor（fara-site-kit の SiteLayout）の Mini ドロワーに入り、隠すとアイコンだけの細い列になる。
+@* サイドバーの中身（MudBlazor の MudNavMenu / MudNavLink）。PC は Shared/MainLayout.razor（fara-blazor-component の SiteLayout）の Mini ドロワーに入り、隠すとアイコンだけの細い列になる。
    スマホは、ハンバーガーで開く一時的なメニューで、上のほうに、全ページ共通の設定（ゲーム・バトル形式・ライト／ダーク・対戦画面で表示）を置く *@
 @using MudBlazor
 @inject AppState App
@@ -31,12 +31,12 @@
     </div>
 }
 
-<MudNavMenu Class="fsk-nav">
+<MudNavMenu Class="fbc-nav">
     @foreach (var group in Groups)
     {
         @if (group.Title is not null)
         {
-            <div class="fsk-nav-section">@group.Title</div>
+            <div class="fbc-nav-section">@group.Title</div>
         }
         @foreach (var (href, label, icon, needsCalc) in group.Items)
         {
@@ -54,7 +54,7 @@
 </MudNavMenu>
 
 @code {
-    /// <summary>スマホのメニュー（上のほうに共通の設定を出す）かどうか（768px 未満。kit の faraSiteKit.watchMobile が知らせる。SiteLayout の判定と同じ）。</summary>
+    /// <summary>スマホのメニュー（上のほうに共通の設定を出す）かどうか（768px 未満。kit の faraBlazorComponent.watchMobile が知らせる。SiteLayout の判定と同じ）。</summary>
     private bool Mobile { get; set; }
 
     private DotNetObjectReference<NavMenu>? self;
@@ -119,7 +119,7 @@
         try
         {
             self = DotNetObjectReference.Create(this);
-            Mobile = sync.Invoke<bool>("faraSiteKit.watchMobile", self);
+            Mobile = sync.Invoke<bool>("faraBlazorComponent.watchMobile", self);
         }
         catch { /* JS が使えないときは PC として扱う */ }
     }

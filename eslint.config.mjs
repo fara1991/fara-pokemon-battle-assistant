@@ -1,5 +1,5 @@
 // JavaScript の静的解析（npm run lint）。共通の中身は kit の tools/lint/eslint.config.shared.mjs（docs/lint.md の 1）。
-import shared, { createSharedConfig } from "./external/fara-site-kit/tools/lint/eslint.config.shared.mjs";
+import shared, { createSharedConfig } from "./external/fara-blazor-component/tools/lint/eslint.config.shared.mjs";
 
 export default [
   {

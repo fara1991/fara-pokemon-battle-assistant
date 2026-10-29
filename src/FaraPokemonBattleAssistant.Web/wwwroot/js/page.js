@@ -306,7 +306,7 @@ document.addEventListener("focusin", function (e) {
     if (t && t.tagName === "INPUT" && t.closest && t.closest(".searchable-select")) t.select();
 }, true);
 
-// サイドバーの開閉（PC）・スマホかどうかの判定・スマホの検索欄の開閉は、kit の js/fara-site-kit.js（window.faraSiteKit）が受け持つ（SiteLayout が呼ぶ）。
+// サイドバーの開閉（PC）・スマホかどうかの判定・スマホの検索欄の開閉は、kit の js/fara-blazor-component.js（window.faraBlazorComponent）が受け持つ（SiteLayout が呼ぶ）。
 
 // ヘッダーの検索欄へ移る: Ctrl+K（Mac は ⌘K）か「/」（文字を入力中は、「/」を奪わない）。欄は Blazor が描画する（Shared/SiteSearch.razor）
 document.addEventListener("keydown", function (e) {

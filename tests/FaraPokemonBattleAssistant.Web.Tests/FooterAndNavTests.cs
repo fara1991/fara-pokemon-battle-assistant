@@ -1,7 +1,7 @@
 using FaraPokemonBattleAssistant.Web.Services;
-using FaraSiteKit.Core;
-using FaraSiteKit.Razor;
-using FaraSiteKit.Razor.Components;
+using FaraBlazorComponent.Core;
+using FaraBlazorComponent.Razor;
+using FaraBlazorComponent.Razor.Components;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Web.Tests;
@@ -10,8 +10,8 @@ namespace FaraPokemonBattleAssistant.Web.Tests;
 public class FooterAndNavTests
 {
     private static readonly string Web = FindUpDirectory("src/FaraPokemonBattleAssistant.Web");
-    /// <summary>共通部品（fara-site-kit の Razor）のソース。フッターなどの中身は、ここにある。</summary>
-    private static readonly string Kit = FindUpDirectory("external/fara-site-kit/src/FaraSiteKit.Razor");
+    /// <summary>共通部品（fara-blazor-component の Razor）のソース。フッターなどの中身は、ここにある。</summary>
+    private static readonly string Kit = FindUpDirectory("external/fara-blazor-component/src/FaraBlazorComponent.Razor");
 
     [Fact]
     public void Footer_and_pages_use_the_contact_label_not_the_old_one()
@@ -48,7 +48,7 @@ public class FooterAndNavTests
         Assert.Contains("[Parameter] public string Title { get; set; } = \"問い合わせ\";", view);
         Assert.Contains("<PageTitle>@Title | @Site.Name</PageTitle>", view);
         Assert.Contains("@TitleHeading", view);                       // kit v0.5.1: 題名の見出しは 1 か所（既定はページの h1。HeadingLevel で変えられる）
-        Assert.Contains("\"fsk-page-title\"", view);
+        Assert.Contains("\"fbc-page-title\"", view);
     }
 
     [Fact]
@@ -67,19 +67,19 @@ public class FooterAndNavTests
     [Fact]
     public void Social_icon_color_wins_over_the_generic_footer_link_rules()
     {
-        // フッターの SNS のアイコン。.fsk-footer a の規則（文字色 inherit・下線・hover の文字色）より後ろに書いて、白い図形を保つ
+        // フッターの SNS のアイコン。.fbc-footer a の規則（文字色 inherit・下線・hover の文字色）より後ろに書いて、白い図形を保つ
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
-        Assert.Contains("a.fsk-footer-social {", css);
-        Assert.Contains("a.fsk-footer-social:hover {", css);
-        Assert.Contains("a.fsk-footer-social:focus-visible {", css);
+        Assert.Contains("a.fbc-footer-social {", css);
+        Assert.Contains("a.fbc-footer-social:hover {", css);
+        Assert.Contains("a.fbc-footer-social:focus-visible {", css);
         // 当たり判定は 44px（見た目の 22px は変えない）
-        Assert.Contains("a.fsk-footer-social::after {", css);
-        Assert.Contains("width: 44px; height: 44px;", RuleBodyAt(css, "a.fsk-footer-social::after {"));
-        Assert.True(css.IndexOf(".fsk-footer a {", StringComparison.Ordinal) < css.IndexOf("a.fsk-footer-social {", StringComparison.Ordinal),
-            "a.fsk-footer-social は .fsk-footer a より後ろに書く（同じ詳細度のため）");
-        var baseRule = css[css.IndexOf("a.fsk-footer-social {", StringComparison.Ordinal)..];
+        Assert.Contains("a.fbc-footer-social::after {", css);
+        Assert.Contains("width: 44px; height: 44px;", RuleBodyAt(css, "a.fbc-footer-social::after {"));
+        Assert.True(css.IndexOf(".fbc-footer a {", StringComparison.Ordinal) < css.IndexOf("a.fbc-footer-social {", StringComparison.Ordinal),
+            "a.fbc-footer-social は .fbc-footer a より後ろに書く（同じ詳細度のため）");
+        var baseRule = css[css.IndexOf("a.fbc-footer-social {", StringComparison.Ordinal)..];
         Assert.Contains("color: #fff;", baseRule[..baseRule.IndexOf('}')]);
-        var hoverRule = css[css.IndexOf("a.fsk-footer-social:hover {", StringComparison.Ordinal)..];
+        var hoverRule = css[css.IndexOf("a.fbc-footer-social:hover {", StringComparison.Ordinal)..];
         Assert.Contains("color: #fff;", hoverRule[..hoverRule.IndexOf('}')]);
     }
 
@@ -93,9 +93,9 @@ public class FooterAndNavTests
         Assert.DoesNotContain("非公式", report);
         Assert.DoesNotContain("service-twitter", report);
         var view = Read(Path.Combine(Kit, "Components", "ReportFormView.razor"));
-        Assert.Contains("<div class=\"fsk-page-header fsk-page-column\">", view);
-        Assert.Contains("<div class=\"fsk-pane-scroll fsk-page-pane\">", view);
-        Assert.Contains("fsk-report-card fsk-page-card", view);
+        Assert.Contains("<div class=\"fbc-page-header fbc-page-column\">", view);
+        Assert.Contains("<div class=\"fbc-pane-scroll fbc-page-pane\">", view);
+        Assert.Contains("fbc-report-card fbc-page-card", view);
         Assert.DoesNotContain("service-twitter", view);
         var privacy = Read(Path.Combine(Web, "Components", "Pages", "Privacy.razor"));
         // 長文のページ（プライバシー・権利表記）は、PC で横幅を広げる（page-column--wide・policy-card--wide）
@@ -126,7 +126,7 @@ public class FooterAndNavTests
         Assert.Contains("ページが見つかりません", view);
         Assert.Contains("URL が間違っているか、ページが移動した可能性があります。", view);
         Assert.Contains("ホームへ戻る", view);
-        Assert.Contains("class=\"fsk-not-found-code\"", view);
+        Assert.Contains("class=\"fbc-not-found-code\"", view);
     }
 
     [Fact]
@@ -137,13 +137,13 @@ public class FooterAndNavTests
         var page = Read(Path.Combine(Web, "MaintenancePage.razor"));
         Assert.Contains("<MaintenanceScreen Info=\"Info\">", page);
         Assert.Contains("お知らせは Twitter で", page);
-        Assert.Contains("class=\"fsk-maintenance-link\" href=\"https://twitter.com/game_fara\"", page);
+        Assert.Contains("class=\"fbc-maintenance-link\" href=\"https://twitter.com/game_fara\"", page);
         Assert.Contains("@@game_fara（Twitter）", page);
         var program = Read(Path.Combine(Web, "Program.cs"));
         Assert.Contains("builder.RootComponents.Add<MaintenancePage>(\"#app\");", program);
         // SiteOptions（kit の画面が読む）は、メンテナンスの分岐より前に登録する
-        Assert.True(program.IndexOf("AddFaraSiteKit(", StringComparison.Ordinal) < program.IndexOf("MaintenanceState.On", StringComparison.Ordinal));
-        // 画面の見た目は kit の CSS（.fsk-maintenance）。このサイトの CSS には、旧い .maintenance-screen を残さない
+        Assert.True(program.IndexOf("AddFaraBlazorComponent(", StringComparison.Ordinal) < program.IndexOf("MaintenanceState.On", StringComparison.Ordinal));
+        // 画面の見た目は kit の CSS（.fbc-maintenance）。このサイトの CSS には、旧い .maintenance-screen を残さない
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
         Assert.DoesNotContain(".maintenance-screen", css);
         Assert.DoesNotContain(".maintenance-twitter", css);
@@ -224,14 +224,14 @@ public class FooterAndNavTests
     public void Footer_hides_the_separators_on_narrow_screens_and_spaces_the_items_with_gap()
     {
         var css = Read(Path.Combine(Web, "wwwroot", "css", "app.css"));
-        var start = css.IndexOf("@media (max-width: 767.98px) {\n    .fsk-footer-line", StringComparison.Ordinal);
+        var start = css.IndexOf("@media (max-width: 767.98px) {\n    .fbc-footer-line", StringComparison.Ordinal);
         Assert.True(start >= 0, "狭い画面のフッターの規則が無い");
         var block = css[start..css.IndexOf("\n}\n", start, StringComparison.Ordinal)];
-        Assert.Contains(".fsk-footer-sep { display: none; }", block);            // 折り返しても、行頭・行末に | が出ない
-        Assert.Contains(".fsk-footer-line > * { white-space: nowrap; }", block);   // 「プライバシーポリシー」などを途中で改行しない（折り返しは項目の間だけ）
+        Assert.Contains(".fbc-footer-sep { display: none; }", block);            // 折り返しても、行頭・行末に | が出ない
+        Assert.Contains(".fbc-footer-line > * { white-space: nowrap; }", block);   // 「プライバシーポリシー」などを途中で改行しない（折り返しは項目の間だけ）
         Assert.Contains("column-gap: 0.9rem;", block);                          // 行間は kit の 22px（row-gap）に任せ、項目の間だけ空ける
-        Assert.Contains(".fsk-footer-line { display: flex; flex-wrap: wrap; justify-content: center;", css);   // PC の区切りは残す（規則は変えていない）
-        Assert.DoesNotContain(".fsk-footer-sep { display: none; }", css[..start]);
+        Assert.Contains(".fbc-footer-line { display: flex; flex-wrap: wrap; justify-content: center;", css);   // PC の区切りは残す（規則は変えていない）
+        Assert.DoesNotContain(".fbc-footer-sep { display: none; }", css[..start]);
     }
 
     private static string RuleBodyAt(string css, string selector)

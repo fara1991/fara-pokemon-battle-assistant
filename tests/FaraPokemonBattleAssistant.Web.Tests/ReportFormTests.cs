@@ -1,6 +1,6 @@
 using System.Text.Json;
 using FaraPokemonBattleAssistant.Web.Services;
-using FaraSiteKit.Core;
+using FaraBlazorComponent.Core;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Web.Tests;
@@ -27,7 +27,7 @@ public class ReportFormTests
     [Fact]
     public void Categories_match_the_server_names()
     {
-        // external/fara-site-kit/worker/report.js の CATEGORIES と同じ ID（画面と通知の食い違いを防ぐ）
+        // external/fara-blazor-component/worker/report.js の CATEGORIES と同じ ID（画面と通知の食い違いを防ぐ）
         Assert.Equal(new[] { "bug", "request", "other" }, ReportForm.Categories.Select(c => c.Id));
     }
 
@@ -84,8 +84,8 @@ public class ReportFormTests
     public void The_report_page_shows_the_code_point_count()
     {
         var dir = AppContext.BaseDirectory;
-        while (dir is not null && !Directory.Exists(Path.Combine(dir, "external", "fara-site-kit"))) dir = Path.GetDirectoryName(dir);
-        var view = File.ReadAllText(Path.Combine(dir!, "external", "fara-site-kit", "src", "FaraSiteKit.Razor", "Components", "ReportFormView.razor"));
+        while (dir is not null && !Directory.Exists(Path.Combine(dir, "external", "fara-blazor-component"))) dir = Path.GetDirectoryName(dir);
+        var view = File.ReadAllText(Path.Combine(dir!, "external", "fara-blazor-component", "src", "FaraBlazorComponent.Razor", "Components", "ReportFormView.razor"));
         Assert.Contains("ReportForm.CountCharacters(Form.Message.Trim())", view);
         Assert.DoesNotContain("Message.Trim().Length", view);
     }

@@ -29,11 +29,11 @@ public class SafeAreaTests
     public void The_insets_are_added_to_the_header_the_content_and_the_battle_screen()
     {
         // 値は :root の --safe-l / --safe-r / --safe-b に集め、各所はその変数を使う
-        Assert.Matches(@"\.fsk-header \.mud-toolbar\s*\{[^}]*var\(--safe-l\)[^}]*var\(--safe-r\)", Css);
-        Assert.Matches(@"\.fsk-content\s*\{\s*padding-right:\s*calc\(1\.5rem \+ var\(--safe-r\)\)", Css);
+        Assert.Matches(@"\.fbc-header \.mud-toolbar\s*\{[^}]*var\(--safe-l\)[^}]*var\(--safe-r\)", Css);
+        Assert.Matches(@"\.fbc-content\s*\{\s*padding-right:\s*calc\(1\.5rem \+ var\(--safe-r\)\)", Css);
         Assert.Matches(@"\.battle-ui\s*\{\s*inset:\s*3\.6rem var\(--safe-r\) var\(--safe-b\) var\(--safe-l\)", Css);
         Assert.Matches(@"\.result-bar\s*\{\s*padding:\s*0 var\(--safe-r\) var\(--safe-b\) var\(--safe-l\)", Css);
-        Assert.Matches(@"\.fsk-footer\s*\{\s*padding-bottom:\s*calc\(0\.55rem \+ var\(--safe-b\)\)", Css);
+        Assert.Matches(@"\.fbc-footer\s*\{\s*padding-bottom:\s*calc\(0\.55rem \+ var\(--safe-b\)\)", Css);
     }
 
     [Fact]

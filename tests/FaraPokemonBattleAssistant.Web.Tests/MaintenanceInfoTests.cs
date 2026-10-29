@@ -1,6 +1,6 @@
 using System.Net;
 using FaraPokemonBattleAssistant.Web.Services;
-using FaraSiteKit.Core;
+using FaraBlazorComponent.Core;
 using Xunit;
 
 namespace FaraPokemonBattleAssistant.Web.Tests;

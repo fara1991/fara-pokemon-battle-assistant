@@ -16,7 +16,7 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
   <ItemGroup>
-    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)external/fara-site-kit/tools/lint/dotnet.editorconfig" />
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)external/fara-blazor-component/tools/lint/dotnet.editorconfig" />
   </ItemGroup>
   <ItemGroup>
     <!-- 非同期の誤用（async void・同期の待ち）を見る。PrivateAssets=all なので、参照先には流れない -->

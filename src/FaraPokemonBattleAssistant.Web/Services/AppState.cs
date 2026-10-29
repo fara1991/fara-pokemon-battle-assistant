@@ -8,7 +8,7 @@ namespace FaraPokemonBattleAssistant.Web.Services;
 
 /// <summary>
 /// 全ページで共有する設定（データセット・バトル形式）。サイドバーで変更し、各ページが購読する。
-/// ライト／ダークは、共通部品（fara-site-kit の SiteThemeState）が同じ保存先の Theme に持つ。ここでは Theme を読み書きせず、保存のときは Theme を含む他の項目を残す。
+/// ライト／ダークは、共通部品（fara-blazor-component の SiteThemeState）が同じ保存先の Theme に持つ。ここでは Theme を読み書きせず、保存のときは Theme を含む他の項目を残す。
 /// </summary>
 public sealed class AppState
 {

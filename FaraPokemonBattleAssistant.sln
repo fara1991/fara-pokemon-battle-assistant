@@ -17,9 +17,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FaraPokemonBattleAssistant.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "external", "external", "{DA246D61-E86C-4170-9D7D-63413DB939B4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FaraSiteKit.Core", "external\fara-site-kit\src\FaraSiteKit.Core\FaraSiteKit.Core.csproj", "{59BFC9D6-E728-4761-88CE-AA0600093209}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FaraBlazorComponent.Core", "external\fara-blazor-component\src\FaraBlazorComponent.Core\FaraBlazorComponent.Core.csproj", "{59BFC9D6-E728-4761-88CE-AA0600093209}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FaraSiteKit.Razor", "external\fara-site-kit\src\FaraSiteKit.Razor\FaraSiteKit.Razor.csproj", "{89CA64A3-98C3-4BF9-87EE-AB54C59F374D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FaraBlazorComponent.Razor", "external\fara-blazor-component\src\FaraBlazorComponent.Razor\FaraBlazorComponent.Razor.csproj", "{89CA64A3-98C3-4BF9-87EE-AB54C59F374D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

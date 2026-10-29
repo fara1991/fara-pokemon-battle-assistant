@@ -1,4 +1,4 @@
-// レイアウトの自動計測（npm run layout-check）の設定。ルールと書き方は external/fara-site-kit/docs/layout-check.md。
+// レイアウトの自動計測（npm run layout-check）の設定。ルールと書き方は external/fara-blazor-component/docs/layout-check.md。
 // baseURL は tools/layout-check.mjs が、配信を始めたポートに差し替える（ここの値は使われない）。
 const SMOOTH_SCROLL =
   "Bootstrap の :root（smooth スクロール）で、Tab で入った直後の計測がスクロールの途中の位置になる（kit の計測は待たない）。" +
@@ -21,28 +21,28 @@ export default {
     { path: "/404.html", name: "404 ページ" },
   ],
   readySelector: ".mud-layout",
-  // 閉じる手段は、開いたドロワーの中の閉じるボタン（kit v0.7.0 の .fsk-drawer-close）で測る。ドロワーがメニューボタンを覆うため、ボタンだけでは判定できない
-  menuEsc: { buttonSelector: ".fsk-menu-toggle", closeSelector: ".fsk-drawer-close" },
+  // 閉じる手段は、開いたドロワーの中の閉じるボタン（kit v0.7.0 の .fbc-drawer-close）で測る。ドロワーがメニューボタンを覆うため、ボタンだけでは判定できない
+  menuEsc: { buttonSelector: ".fbc-menu-toggle", closeSelector: ".fbc-drawer-close" },
   exclusions: [
     // --- kit の部品（SiteFooter・SocialLinks・skip link）。直すには kit を変える（kit の課題として残す）
     {
       rule: "tap-target",
-      selector: "a.fsk-footer-social",
+      selector: "a.fbc-footer-social",
       reason: "kit のフッターの SNS アイコン（見た目 22px）。押せる範囲を広げると見た目が変わるため、kit で直す",
     },
     {
       rule: "tap-target",
-      selector: ".fsk-footer a:not(.fsk-footer-social)",
+      selector: ".fbc-footer a:not(.fbc-footer-social)",
       reason: "kit のフッターの「Fara」など（高さは 44px、幅は 25px）。押せる範囲は kit で直す",
     },
     {
       rule: "no-offscreen-focus",
-      selector: ".fsk-footer a",
+      selector: ".fbc-footer a",
       reason: SMOOTH_SCROLL,
     },
     {
       rule: "no-offscreen-focus",
-      selector: "a.fsk-skip-link",
+      selector: "a.fbc-skip-link",
       reason: "kit の skip link。フォーカスすると画面の上に出る（top の移動に transition がある）。計測の瞬間は移動の途中",
     },
     // --- 片付けの対象外（見た目は直す）

@@ -12,8 +12,8 @@ public class EntryPagesTests
 {
     private static readonly string Tools = FindUpDirectory("tools");
     private static readonly string Web = Path.Combine(FindUpDirectory("src"), "FaraPokemonBattleAssistant.Web");
-    /// <summary>共通部品（fara-site-kit の Razor）の静的ファイル。index.html からは _content/FaraSiteKit.Razor/... で読む。</summary>
-    private static readonly string KitJs = FindUpDirectory(Path.Combine("external", "fara-site-kit", "src", "FaraSiteKit.Razor", "wwwroot", "js"));
+    /// <summary>共通部品（fara-blazor-component の Razor）の静的ファイル。index.html からは _content/FaraBlazorComponent.Razor/... で読む。</summary>
+    private static readonly string KitJs = FindUpDirectory(Path.Combine("external", "fara-blazor-component", "src", "FaraBlazorComponent.Razor", "wwwroot", "js"));
 
     private static readonly Regex PageRoute = new("^@page \"/([^\"]*)\"", RegexOptions.Multiline);
     private static readonly Regex PageTitle = new("<PageTitle>(.*?)</PageTitle>");
@@ -117,7 +117,7 @@ public class EntryPagesTests
         Assert.DoesNotMatch(">[^<]*読み込み中", html[html.IndexOf("<body>", StringComparison.Ordinal)..]);
         Assert.Contains(".boot-indicator-label:empty::before", html);
         // 外部の js ファイルで外す（インライン script は CSP で使えない）。Blazor の起動より前に読む
-        Assert.True(html.IndexOf("_content/FaraSiteKit.Razor/js/boot-indicator.js", StringComparison.Ordinal) < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
+        Assert.True(html.IndexOf("_content/FaraBlazorComponent.Razor/js/boot-indicator.js", StringComparison.Ordinal) < html.IndexOf("_framework/blazor.webassembly.js", StringComparison.Ordinal));
         Assert.True(File.Exists(Path.Combine(KitJs, "boot-indicator.js")));
         // JavaScript が無いときは隠す（noscript の style は _headers の style-src 'unsafe-inline' で許可）
         Assert.Contains("<noscript><style>#boot-indicator { display: none; }</style></noscript>", html);
@@ -182,7 +182,7 @@ public class EntryPagesTests
     {
         var css = File.ReadAllText(Path.Combine(Web, "wwwroot", "css", "app.css"));
         Assert.Contains("height: 3.5rem;", RuleBody(css, ".entry-static-bar {"));
-        Assert.Contains("height: 3.5rem;", RuleBody(css, ".fsk-header.mud-appbar {"));
+        Assert.Contains("height: 3.5rem;", RuleBody(css, ".fbc-header.mud-appbar {"));
     }
 
     [Fact]
