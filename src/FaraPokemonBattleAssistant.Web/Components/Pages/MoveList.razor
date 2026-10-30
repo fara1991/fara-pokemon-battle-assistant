@@ -1,0 +1,269 @@
+@page "/move-list"
+@inherits AppPageBase
+@inject DataCatalog Catalog
+
+<PageTitle>わざ一覧 | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h1 class="h3">わざ一覧 <Help Title="わざ一覧">左のメニューで選んでいるゲームに収録されている技を、タイプ・分類・威力・命中・PP・説明とあわせて一覧にします。技名・タイプ・分類で絞り込め、見出しを押すと並べ替えられます。技を押すか、「覚えるポケモンを探す」で技を選ぶと、その技を覚えるポケモンが出ます。</Help></h1>
+    <p class="text-muted mb-0">@(data?.Info.Name ?? "")に収録されている技。条件で絞り込み、見出しを押すと並べ替えられます。</p>
+</div>
+
+@if (!string.IsNullOrEmpty(LoadError))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" NoIcon="true">@LoadError</MudAlert>
+}
+
+@if (data is not null)
+{
+    var f = s.Filter;
+    <MudCard Elevation="0" Class="card mb-2">
+        <MudCardContent Class="card-body dex-filters">
+            <div class="dex-filter-grid">
+                <div class="form-group">
+                    <label for="mv-name">技名</label>
+                    <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" Immediate="true" InputId="mv-name" Placeholder="カタカナ・ひらがな・ローマ字" Value="@(f.Name)" ValueChanged="@(v => { f.Name = v?.ToString() ?? ""; f.MoveId = 0; Refresh(); })" / />
+                </div>
+                <div class="form-group">
+                    <label for="mv-category">分類</label>
+                    <MudSelect T="string" Value="@((f.Category?.ToString() ?? "")?.ToString())" ValueChanged="@(v => { f.Category = Enum.TryParse<MoveCategory>(v?.ToString(), out var c) ? c : null; Refresh(); })" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="mv-category">
+                        <MudSelectItem T="string" Value="@("")">すべて</MudSelectItem>
+                        <MudSelectItem T="string" Value="@((MoveCategory.Physical).ToString())">物理</MudSelectItem>
+                        <MudSelectItem T="string" Value="@((MoveCategory.Special).ToString())">特殊</MudSelectItem>
+                        <MudSelectItem T="string" Value="@((MoveCategory.Status).ToString())">変化</MudSelectItem>
+                    </MudSelect>
+                </div>
+                <div class="form-group dex-select-field">
+                    <label>覚えるポケモンを探す <Help Title="覚えるポケモンを探す">技を選ぶと、その技だけを表示して、覚えるポケモンを開きます。</Help></label>
+                    <SearchableSelect TItem="Move" Items="allMoves" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
+                        SelectedValue="@(f.MoveId == 0 ? "" : f.MoveId.ToString())" SelectedValueChanged="@PickMove"
+                        Dropdown="true" EmptyOption="指定なし" Placeholder="技名を入力…" AriaLabel="覚えるポケモンを探す（技）">
+                        <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span>@m.Name</span><span class="text-muted ms-auto small">@MoveText.Category(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                    </SearchableSelect>
+                </div>
+            </div>
+            <div class="dex-type-row">
+                <span class="small fw-bold">タイプ</span>
+                <div class="dex-type-buttons">
+                    @foreach (var t in data.TypeChart.Types)
+                    {
+                        var type = t;
+                        var on = f.Type == type;
+                        <button type="button" class="dex-type-btn @(on ? "active" : "")" aria-pressed="@(on ? "true" : "false")" title="@TypeNames.ToJapanese(type)"
+                                @onclick="() => ToggleType(type)"><TypeIcon Type="@type" Small="true" /></button>
+                    }
+                </div>
+            </div>
+            <div class="dex-summary">
+                <strong>@results.Count 件</strong>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="ms-auto dex-clear" OnClick="ClearFilters">条件をクリア</MudButton>
+                <div class="dex-sort-mobile">
+                    @* スマホ: 向きまで含めた選択肢にする（PC は見出しを押して切り替える） *@
+                    <MudSelect T="string" Value="@((SortValue(f.Sort, f.Descending))?.ToString())" ValueChanged="@(v => SetSort(v?.ToString()))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" aria-label="並び順">
+                        @foreach (var (sort, label) in SortColumns)
+                        {
+                            <MudSelectItem T="string" Value="@((SortValue(sort, false)).ToString())">@label（@(sort == MoveSort.Name ? "五十音順" : sort == MoveSort.Type ? "昇順" : "低い順")）</MudSelectItem>
+                            <MudSelectItem T="string" Value="@((SortValue(sort, true)).ToString())">@label（@(sort == MoveSort.Name ? "逆順" : sort == MoveSort.Type ? "降順" : "高い順")）</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+            </div>
+        </MudCardContent>
+    </MudCard>
+
+    <div class="dex-list pane-scroll">
+        <div class="dex-row mv-row dex-head">
+            <button type="button" class="dex-sort mv-name @SortClass(MoveSort.Name)" title="@SortTitle(MoveSort.Name, "技名")" @onclick="() => SortBy(MoveSort.Name)">技名<span class="dex-sort-mark">@SortMark(MoveSort.Name)</span></button>
+            <button type="button" class="dex-sort mv-type @SortClass(MoveSort.Type)" title="@SortTitle(MoveSort.Type, "タイプ")" @onclick="() => SortBy(MoveSort.Type)">タイプ<span class="dex-sort-mark">@SortMark(MoveSort.Type)</span></button>
+            <div class="mv-cat">分類</div>
+            <button type="button" class="dex-sort mv-num @SortClass(MoveSort.Power)" title="@SortTitle(MoveSort.Power, "威力")" @onclick="() => SortBy(MoveSort.Power)">威力<span class="dex-sort-mark">@SortMark(MoveSort.Power)</span></button>
+            <button type="button" class="dex-sort mv-num @SortClass(MoveSort.Accuracy)" title="@SortTitle(MoveSort.Accuracy, "命中")" @onclick="() => SortBy(MoveSort.Accuracy)">命中<span class="dex-sort-mark">@SortMark(MoveSort.Accuracy)</span></button>
+            <button type="button" class="dex-sort mv-num @SortClass(MoveSort.PP)" title="@SortTitle(MoveSort.PP, "PP")" @onclick="() => SortBy(MoveSort.PP)">PP<span class="dex-sort-mark">@SortMark(MoveSort.PP)</span></button>
+            <div class="mv-desc">説明</div>
+        </div>
+        @if (results.Count == 0)
+        {
+            <Notice Empty="true" Class="m-3">条件に合う技はありません。</Notice>
+        }
+        <Virtualize TItem="Move" Items="results" Context="m" ItemSize="56" OverscanCount="8">
+            <div class="dex-item @(s.SelectedId == m.Id ? "selected" : "")" @key="m.Id">
+                <div class="dex-row mv-row" role="button" tabindex="0" aria-label="@($"{m.Name}の詳細")" aria-expanded="@(s.SelectedId == m.Id ? "true" : "false")"
+                     @onclick="() => ToggleRow(m.Id)" @onkeydown="e => OnRowKey(e, m.Id)">
+                    <div class="mv-name">@m.Name</div>
+                    <div class="mv-type"><TypeIcon Type="@m.Type" Small="true" /></div>
+                    <div class="mv-cat">@MoveText.Category(m)</div>
+                    <div class="mv-num" data-label="威力">@NumText(m.Power)</div>
+                    <div class="mv-num" data-label="命中">@NumText(m.Accuracy)</div>
+                    <div class="mv-num" data-label="PP">@NumText(m.PP)</div>
+                    <div class="mv-desc">@(string.IsNullOrEmpty(m.Description) ? "（説明なし）" : m.Description)</div>
+                </div>
+                @if (s.SelectedId == m.Id)
+                {
+                    var learners = MoveDex.Learners(data, m.Id);
+                    <div class="mv-learners">
+                        <div class="small fw-bold mb-1">@m.Name を覚えるポケモン（@learners.Count 匹）</div>
+                        @if (learners.Count == 0)
+                        {
+                            <div class="small text-muted">このゲームで覚えるポケモンはいません。</div>
+                        }
+                        else
+                        {
+                            <div class="mv-learner-list">
+                                @foreach (var p in learners)
+                                {
+                                    <a class="mv-learner" href="@($"type-chart?pokemon={p.Id}")" title="@p.Name のタイプ相性表を開く"><PokemonIcon Pokemon="p" Small="true" /><span>@p.Name</span></a>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </Virtualize>
+    </div>
+}
+else if (string.IsNullOrEmpty(LoadError))
+{
+    <div class="text-muted">読み込み中…</div>
+}
+
+@code {
+    private void ToggleRow(int id) => s.SelectedId = s.SelectedId == id ? 0 : id;
+
+    /// <summary>行をキーボードで開閉する（Enter / Space）。</summary>
+    private void OnRowKey(KeyboardEventArgs e, int id)
+    {
+        if (!e.Repeat && e.Key is "Enter" or " ") ToggleRow(id);
+    }
+
+    public sealed class State
+    {
+        public string DataSetKey { get; set; } = "";
+        public MoveFilter Filter { get; set; } = new();
+        /// <summary>押して開いている技（0 なら無し）。</summary>
+        public int SelectedId { get; set; }
+    }
+
+    private static readonly (MoveSort Sort, string Label)[] SortColumns =
+    {
+        (MoveSort.Name, "技名"),
+        (MoveSort.Type, "タイプ"),
+        (MoveSort.Power, "威力"),
+        (MoveSort.Accuracy, "命中"),
+        (MoveSort.PP, "PP"),
+    };
+
+    private State s = new();
+    private PokemonDataSet? data;
+    private IReadOnlyList<Move> allMoves = Array.Empty<Move>();
+    private List<Move> results = new();
+
+    protected override async Task OnAppReadyAsync()
+    {
+        s = PageStates.Get<State>("movedex");
+        await LoadAsync();
+    }
+
+    protected override Task OnAppChangedAsync() => LoadAsync();
+
+    private Task LoadAsync() => LoadSafelyAsync(LoadCoreAsync, () => { data = null; allMoves = Array.Empty<Move>(); results = new(); });
+
+    private async Task LoadCoreAsync(int version)
+    {
+        // ゲームが変わった直後は、読み込みが終わるまで前のゲームのデータを出さない（操作・計算にも使わせない）
+        if (!IsCurrentGame(data)) data = null;
+        var loaded = await Catalog.GetDataSetAsync(App.DataSetKey);
+        if (!IsLatestLoad(version)) return;   // 読み込みの間にゲームが変わったら、古いゲームのデータを入れない
+        data = loaded;
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            // 技の ID・タイプはゲームごとに違うことがあるので、並び順以外は戻す
+            s.DataSetKey = App.DataSetKey;
+            s.Filter = new MoveFilter { Sort = s.Filter.Sort, Descending = s.Filter.Descending };
+            s.SelectedId = 0;
+        }
+        allMoves = MoveDex.Query(data, new MoveFilter());
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        if (data is null) return;
+        results = MoveDex.Query(data, s.Filter).ToList();
+    }
+
+    /// <summary>「覚えるポケモンを探す」で技を選ぶ。その技だけを表示して、覚えるポケモンを開く。</summary>
+    private void PickMove(string value)
+    {
+        var id = int.TryParse(value, out var v) ? v : 0;
+        s.Filter.MoveId = id;
+        s.Filter.Name = "";
+        s.SelectedId = id;
+        Refresh();
+    }
+
+    private void ToggleType(string type)
+    {
+        s.Filter.Type = s.Filter.Type == type ? "" : type;
+        Refresh();
+    }
+
+    private void ClearFilters()
+    {
+        s.Filter = new MoveFilter { Sort = s.Filter.Sort, Descending = s.Filter.Descending };
+        s.SelectedId = 0;
+        Refresh();
+    }
+
+    /// <summary>
+    /// 見出しを押すたびに切り替える。威力・命中・PP は 大きい順 → 小さい順 → 技名順、
+    /// タイプは 昇順 → 降順 → 技名順、技名は 逆順 ↔ 五十音順。
+    /// </summary>
+    private void SortBy(MoveSort sort)
+    {
+        var f = s.Filter;
+        var numeric = sort is MoveSort.Power or MoveSort.Accuracy or MoveSort.PP;
+        if (f.Sort != sort)
+        {
+            f.Sort = sort;
+            f.Descending = numeric || sort == MoveSort.Name;
+        }
+        else if (sort == MoveSort.Name)
+        {
+            f.Descending = !f.Descending;
+        }
+        else if (f.Descending == numeric)
+        {
+            f.Descending = !numeric;   // 2 回目: 向きを反転
+        }
+        else
+        {
+            f.Sort = MoveSort.Name;
+            f.Descending = false;
+        }
+        Refresh();
+    }
+
+    private bool IsSorted(MoveSort sort) => s.Filter.Sort == sort && (sort != MoveSort.Name || s.Filter.Descending);
+
+    /// <summary>並べ替えている見出しには ▲（昇順）/ ▼（降順）、それ以外は薄い ⇅。</summary>
+    private string SortMark(MoveSort sort) => !IsSorted(sort) ? "⇅" : s.Filter.Descending ? "▼" : "▲";
+
+    private string SortClass(MoveSort sort) => IsSorted(sort) ? "sorted" : "";
+
+    private string SortTitle(MoveSort sort, string label) =>
+        !IsSorted(sort) ? $"{label}で並べ替え" : s.Filter.Descending ? $"{label}の降順で並べ替え中" : $"{label}の昇順で並べ替え中";
+
+    private static string SortValue(MoveSort sort, bool descending) => $"{sort}:{(descending ? "desc" : "asc")}";
+
+    /// <summary>スマホの並び順の選択欄（項目 + 向き）から並べ替えを決める。</summary>
+    private void SetSort(string? value)
+    {
+        var parts = (value ?? "").Split(':');
+        s.Filter.Sort = parts.Length == 2 && Enum.TryParse<MoveSort>(parts[0], out var sort) ? sort : MoveSort.Name;
+        s.Filter.Descending = parts.Length == 2 && parts[1] == "desc";
+        Refresh();
+    }
+
+    /// <summary>威力・命中・PP。0 は「-」（変化技の威力・必中技の命中など）。</summary>
+    private static string NumText(int value) => value > 0 ? value.ToString() : "-";
+}

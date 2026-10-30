@@ -1,0 +1,5035 @@
+/* ---- MudBlazor の土台 CSS が、素の button / option にも効く分を、元（Bootstrap のまま）に戻す ----
+   MudBlazor は index.html で先に読み込むので、同じ詳細度なら、ここ（後）が勝つ。:where で詳細度を足さないので、各部品の指定はこれまでどおり効く */
+button:where(:not([class*="mud-"])) {
+    display: inline-block;
+    vertical-align: baseline;
+    color: buttontext;
+}
+
+option {
+    padding: 0 2px 1px;
+}
+
+/* ---- テーマ（Bootstrap 5.3 の data-bs-theme に合わせる。fara-labs.com と同じ紫系） ---- */
+:root,
+[data-bs-theme="light"] {
+    /* ヘッダーの下端の線（.fbc-scroll-progress）。ヘッダーは暗い地色のままなので、ライトでもダークでも同じ色 */
+    --app-header-accent: linear-gradient(90deg, #c084fc 0%, #e879f9 100%);
+    --app-header-track: rgba(192, 132, 252, 0.22);
+    --app-body-bg: #f7f4fd;
+    --app-card-border: #d8cdf2;
+    --app-input-border: #9d8fc4;
+    --app-muted: #6b5f8a;
+    --app-panel-bg: #efe9fb;
+    --app-note-bg: #fff8c5;
+    --app-note-border: #e3c200;
+    --app-hp: #22a06b;
+    --app-hp-mid: #e0a100;
+    --app-hp-low: #e5484d;
+    --app-dmg: rgba(229, 72, 77, 0.9);
+    --app-dmg-range: rgba(229, 72, 77, 0.38);
+    --app-track: #e7e1f5;
+    --app-range-empty: #d9d6e3;
+    --app-win: #15803d;
+    --app-roll-ko-bg: #fde7ea;
+
+    --bs-primary: #7c3aed;
+    --bs-primary-rgb: 124, 58, 237;
+    --bs-primary-text-emphasis: #5b21b6;
+    --bs-primary-bg-subtle: #ede9fe;
+    --bs-primary-border-subtle: #c4b5fd;
+    --bs-link-color: #6d28d9;
+    --bs-link-color-rgb: 109, 40, 217;
+    --bs-link-hover-color: #a855f7;
+    --bs-link-hover-color-rgb: 168, 85, 247;
+    --bs-font-sans-serif: "Zen Kaku Gothic New", system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+}
+
+[data-bs-theme="dark"] {
+    --app-body-bg: #0c0616;
+    --app-card-border: rgba(200, 170, 255, 0.16);
+    --app-input-border: #6e5f94;
+    --app-muted: #b4a7d1;
+    --app-panel-bg: #1a1030;
+    --app-note-bg: #2b2208;
+    --app-note-border: #c9ad00;
+    --app-hp: #34d399;
+    --app-hp-mid: #fbbf24;
+    --app-hp-low: #fb7185;
+    --app-dmg: rgba(251, 113, 133, 0.9);
+    --app-dmg-range: rgba(251, 113, 133, 0.35);
+    --app-track: #261a40;
+    --app-range-empty: #33304a;
+    --app-win: #4ade80;
+    --app-roll-ko-bg: #3d1a2a;
+
+    --bs-body-bg: #0c0616;
+    --bs-body-bg-rgb: 12, 6, 22;
+    --bs-body-color: #f3edff;
+    --bs-body-color-rgb: 243, 237, 255;
+    --bs-emphasis-color: #ffffff;
+    --bs-secondary-color: #b4a7d1;
+    --bs-secondary-color-rgb: 180, 167, 209;
+    --bs-secondary-bg: #1a1030;
+    --bs-tertiary-color: #7f7399;
+    --bs-tertiary-bg: #140a26;
+    --bs-heading-color: #f3edff;
+    --bs-border-color: rgba(200, 170, 255, 0.16);
+    --bs-border-color-translucent: rgba(200, 170, 255, 0.16);
+    --bs-primary: #a855f7;
+    --bs-primary-rgb: 168, 85, 247;
+    --bs-primary-text-emphasis: #c4b5fd;
+    --bs-primary-bg-subtle: #2a194a;
+    --bs-primary-border-subtle: #5b3a9a;
+    --bs-link-color: #c4b5fd;
+    --bs-link-color-rgb: 196, 181, 253;
+    --bs-link-hover-color: #e879f9;
+    --bs-link-hover-color-rgb: 232, 121, 249;
+    --bs-code-color: #f0abfc;
+}
+
+body {
+    background: var(--app-body-bg);
+}
+
+/* html の地は透明にして、body の色を canvas に伝える（CSS の背景の伝播）。
+   html に地の色があると（kit の html・body の規則）、body の色は伝播せず body の箱に塗られ、
+   z-index: -1 の .bg-scene（バトルフィールドの背景）を覆って、フィールドが見えなくなる。下の「バトルフィールドの背景」を参照 */
+html,
+html[data-bs-theme] {
+    background: transparent;
+}
+
+.btn-primary {
+    --bs-btn-bg: #7c3aed;
+    --bs-btn-border-color: #7c3aed;
+    --bs-btn-hover-bg: #a855f7;
+    --bs-btn-hover-border-color: #a855f7;
+    --bs-btn-active-bg: #6d28d9;
+    --bs-btn-active-border-color: #6d28d9;
+    --bs-btn-disabled-bg: #7c3aed;
+    --bs-btn-disabled-border-color: #7c3aed;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--bs-primary);
+    --bs-btn-disabled-color: var(--bs-primary);
+    --bs-btn-disabled-border-color: var(--bs-primary);
+    --bs-btn-border-color: var(--bs-primary);
+    --bs-btn-hover-bg: #7c3aed;
+    --bs-btn-hover-border-color: #7c3aed;
+    --bs-btn-active-bg: #7c3aed;
+    --bs-btn-active-border-color: #7c3aed;
+}
+
+.form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+/* オン・オフの入力はすべてスイッチ（form-switch）。ライト/ダークとも、オフは枠と灰紫のつまみ、オンは紫地に白いつまみ */
+.form-switch {
+    padding-left: 3em;
+    min-height: 1.5rem;
+}
+
+.form-switch .form-check-input {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%238a7bb0'/%3e%3c/svg%3e");
+    width: 2.3em;
+    height: 1.3em;
+    margin-top: 0.1em;
+    margin-left: -3em;
+    background-color: var(--app-track);
+    border: 1px solid var(--app-input-border);
+    cursor: pointer;
+}
+
+[data-bs-theme="dark"] .form-switch .form-check-input {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23b4a7d1'/%3e%3c/svg%3e");
+}
+
+.form-switch .form-check-input:checked {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+.form-switch .form-check-input:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+.form-switch .form-check-input:disabled {
+    cursor: not-allowed;
+}
+
+.form-switch .form-check-label {
+    cursor: pointer;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #a855f7;
+    box-shadow: 0 0 0 0.25rem rgba(168, 85, 247, 0.25);
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid red;
+}
+
+.validation-message {
+    color: red;
+}
+
+/* 入力欄の枠をはっきりさせる */
+.form-control,
+.form-select {
+    border-color: var(--app-input-border);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+    opacity: 0.8;
+}
+
+.searchable-select {
+    position: relative;
+}
+
+.searchable-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--app-input-border);
+    border-top: none;
+    border-radius: 0 0 0.25rem 0.25rem;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.searchable-select-item {
+    padding: 0.35rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.searchable-select-item:hover {
+    background-color: var(--bs-tertiary-bg);
+}
+
+.searchable-select-group {
+    padding: 0.3rem 0.75rem 0.15rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--bs-secondary-color);
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.searchable-select-group:first-child {
+    border-top: none;
+}
+
+.split-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.split-half {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* 左右の列は同じ高さに。各列の最初のカード（攻撃側・防御側）が余りを埋める */
+.split-half > .card:first-child {
+    flex: 1 1 auto;
+}
+
+/* 登録ページ（育成ポケモン・自分チーム）: スマホ・狭い画面では 2 つの列を縦に並べる（PC の段組みは下の @media で作る） */
+.reg-col {
+    min-width: 0;
+}
+
+.reg-list .min-w-0 {
+    min-width: 0;
+}
+
+/* ---- 計算機・素早さ比較の段組み（広い画面では 3 列: 左 | 右 | 場の状態と結果） ---- */
+.calc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.calc-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+@media (min-width: 768px) {
+    .calc-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+    }
+
+    .calc-col > .card:first-child {
+        flex: 1 1 auto;
+    }
+
+    /* 2 列のときは、場の状態と結果を下に全幅で並べる */
+    .calc-side {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+        align-items: start;
+    }
+
+    .calc-side > .card:first-child {
+        flex: initial;
+    }
+}
+
+@media (min-width: 1400px) {
+    .calc-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .calc-side {
+        grid-column: auto;
+        display: flex;
+        align-items: stretch;
+    }
+}
+
+/* ---- 計算機・素早さ比較の入力欄（PC ではページをスクロールせずに見えるよう詰める） ---- */
+.build-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem 0.75rem;
+    align-items: start;
+}
+
+.build-grid .form-group {
+    margin-bottom: 0 !important;
+}
+
+/* スマホ: 2 列だと持ち物の名前が折り返すので、1 列に縦に並べて左右の端を揃える */
+@media (max-width: 575.98px) {
+    .build-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.build-grid .build-wide {
+    grid-column: 1 / -1;
+}
+
+.build-grid .build-check {
+    align-self: end;
+    margin-bottom: 0.4rem;
+}
+
+@media (min-width: 768px) {
+    .calc-grid .card-header {
+        padding: 0.45rem 0.85rem;
+    }
+
+    .calc-grid .card-body {
+        padding: 0.65rem 0.85rem;
+    }
+
+    .calc-grid .form-group {
+        margin-bottom: 0.45rem !important;
+    }
+
+    .calc-grid .build-grid .form-group {
+        margin-bottom: 0 !important;
+    }
+
+    .calc-grid .form-control:not(.form-control-sm),
+    .calc-grid .form-select:not(.form-select-sm) {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+        font-size: 0.92rem;
+    }
+
+    .calc-grid .fixed-field {
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding-top: 0.15rem;
+        padding-bottom: 0.15rem;
+    }
+
+    .calc-grid .stats-summary {
+        margin-top: 0.4rem;
+        padding: 0.3rem 0.6rem;
+    }
+
+    .calc-grid .result-main {
+        font-size: 1.35rem;
+    }
+
+    .calc-grid .result-card hr {
+        margin: 0.5rem 0;
+    }
+
+    /* 努力値: 入力欄と 0 / 最大のボタンを横に並べる */
+    .calc-grid .ev-cell {
+        display: grid;
+        grid-template-columns: minmax(3.2rem, 4.5rem) auto;
+        column-gap: 0.25rem;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .calc-grid .ev-cell .ev-label {
+        grid-column: 1 / -1;
+        text-align: left;
+    }
+
+    .calc-grid .ev-buttons {
+        margin-top: 0;
+    }
+
+    .calc-grid .ev-buttons .btn {
+        padding: 0.1rem 0.4rem;
+    }
+
+    .calc-grid .page-header {
+        margin-bottom: 0.75rem;
+    }
+}
+
+.poke-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 0.6rem;
+}
+
+.field-checks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.9rem;
+    font-size: 0.88rem;
+}
+
+.field-checks .form-check {
+    margin-bottom: 0;
+}
+
+.result-matchup {
+    font-size: 0.88rem;
+}
+
+@media (min-width: 768px) {
+    .calc-grid .hp-editor {
+        gap: 0.35rem;
+    }
+
+    .calc-grid .hp-input .input-group-text {
+        padding-left: 0.35rem;
+        padding-right: 0.35rem;
+    }
+
+    .calc-grid .result-card .card-body {
+        font-size: 0.88rem;
+    }
+
+    .calc-grid .result-card .chat-output {
+        font-size: 0.78rem;
+        padding: 0.5rem 0.65rem;
+    }
+
+    .calc-grid .speed-reference-card .table td,
+    .calc-grid .speed-reference-card .table th {
+        padding-top: 0.2rem;
+        padding-bottom: 0.2rem;
+    }
+}
+
+/* 閉じておける項目（努力値の推定など） */
+.collapsible-card > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.collapsible-card > summary::-webkit-details-marker {
+    display: none;
+}
+
+.collapsible-card > summary::before {
+    content: "▸";
+    color: var(--app-muted);
+    transition: transform 0.15s;
+}
+
+.collapsible-card[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.collapsible-card:not([open]) > summary {
+    border-bottom: 0;
+}
+
+/* ---- 性格（能力ごとの ▲ 上昇・▼ 下降。数値入力の上下ボタンのように押す） ---- */
+.nature-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.8rem;
+}
+
+.nature-picker .searchable-select {
+    flex: 1 1 11rem;
+    min-width: 9rem;
+    max-width: 16rem;
+}
+
+.nature-steppers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.nature-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.35rem 0.15rem 0.5rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.4rem;
+    background: var(--bs-body-bg, #fff);
+}
+
+.nature-stat-letter {
+    min-width: 0.9rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.nature-stat.is-up .nature-stat-letter { color: #dc3545; }
+.nature-stat.is-down .nature-stat-letter { color: #0d6efd; }
+
+.nature-stat-arrows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nature-arrow {
+    border: 0;
+    border-radius: 0.2rem;
+    background: transparent;
+    color: var(--bs-secondary-color, #6c757d);
+    font-size: 0.75rem;
+    line-height: 1.2;
+    padding: 0 0.4rem;
+    cursor: pointer;
+}
+
+.nature-arrow:hover { background: rgba(var(--bs-primary-rgb, 13, 110, 253), .15); }
+.nature-arrow:focus-visible { outline: 2px solid var(--bs-primary, #0d6efd); outline-offset: 1px; }
+@media (pointer: coarse) { .nature-arrow { padding: 0.3rem 0.6rem; font-size: 0.85rem; } }
+/* スマホ: 5 つの能力を 1 行に等分で並べる（S だけ折り返さない） */
+@media (max-width: 575.98px) {
+    .nature-steppers { flex: 1 1 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.25rem; }
+    .nature-stat { justify-content: space-between; padding: 0.15rem 0.2rem 0.15rem 0.4rem; }
+    .nature-arrow { padding: 0.3rem 0.45rem; }
+}
+/* さらに狭い画面（幅 360px 未満）では、セルの余白を詰めて重ならないようにする */
+@media (max-width: 359.98px) {
+    .nature-stat { padding-left: 0.25rem; gap: 0.1rem; }
+    .nature-stat-letter { min-width: 0.75rem; }
+    .nature-arrow { padding: 0.3rem 0.3rem; }
+}
+.nature-arrow.up.active { background: #dc3545; color: #fff; }
+.nature-arrow.down.active { background: #0d6efd; color: #fff; }
+
+/* チャットコマンド: 例のボタン（見た目はリンク。ページ移動はせず、コマンド欄に入れる） */
+.cmd-example-btn {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--bs-link-color);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cmd-example-btn:hover code,
+.cmd-example-btn:focus-visible code {
+    color: var(--bs-link-hover-color);
+    text-decoration: underline;
+}
+
+.cmd-example-btn:focus-visible {
+    outline: 2px solid var(--bs-link-color);
+    outline-offset: 2px;
+    border-radius: 0.2rem;
+}
+
+/* コマンドを作る欄: 種類から順に入力欄を並べる（収まらない幅では折り返す）。縦を取りすぎず、PC でコマンド一覧の表示範囲を広く保つ */
+.cmd-build {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.cmd-build > div {
+    min-width: 0;
+}
+
+/* 種類は先頭に置き、収まる幅ではポケモン・特性と同じ 1 行目に並べる（縦を取りすぎない） */
+.cmd-build .cmd-f-kind { flex: 0 0 15rem; }
+.cmd-build .cmd-f-num { flex: 0 0 8.5rem; }
+/* 性格は自分の行を使う。名前で探す欄と、上昇・下降のボタンを 1 行にそろえる（ボタンは押しやすい大きさ） */
+.cmd-build .cmd-f-nature { flex: 1 1 100%; order: 4; }
+.cmd-build .cmd-f-ability { flex: 0 0 14rem; order: 2; }
+.cmd-build .cmd-f-item { flex: 1 1 11rem; order: 6; }
+/* set -r の見えた技: ポイント・性格のあとに、4 つを並べる（持ち物はその後ろ） */
+.cmd-build .cmd-f-rmove { flex: 1 1 7.5rem; order: 5; }
+.cmd-build .cmd-f-opt { flex: 1 1 10rem; }
+.cmd-build .cmd-f-evs { flex: 0 0 auto; order: 3; }
+.cmd-build .cmd-f-none { align-self: end; }
+
+.cmd-evs {
+    display: grid;
+    grid-template-columns: repeat(6, 3.6rem);
+    gap: 0.3rem;
+}
+
+.cmd-evs .form-control {
+    width: 100%;
+}
+
+.cmd-build .cmd-f-poke { flex: 1 1 7rem; }
+/* set -r: ポケモンの欄は短くし、性格（名前で探す欄・▲▼・選択解除）はポイントの右に並べる */
+.cmd-build .cmd-f-poke.cmd-f-poke-short { flex: 0 0 11rem; }
+.cmd-build .cmd-f-nature.cmd-f-nature-inline { flex: 1 1 38rem; }
+.cmd-build .cmd-break { flex: 0 0 100%; height: 0; order: 3; margin-top: -0.5rem; }
+.cmd-build .cmd-f-move { flex: 1 1 7rem; }
+.cmd-build .cmd-f-weather { flex: 0 0 6.2rem; }
+.cmd-build .cmd-f-terrain { flex: 0 0 8.4rem; }
+.cmd-build .cmd-f-damage { flex: 0 0 7.5rem; }
+
+.cmd-build .form-label {
+    white-space: nowrap;
+}
+
+@media (max-width: 767.98px) {
+    .cmd-build .cmd-break { display: none; }
+    .cmd-build > div,
+    .cmd-build .cmd-f-kind,
+    .cmd-build .cmd-f-nature,
+    .cmd-build .cmd-f-weather,
+    .cmd-build .cmd-f-terrain,
+    .cmd-build .cmd-f-ability,
+    .cmd-build .cmd-f-rmove,
+    .cmd-build .cmd-f-poke,
+    .cmd-build .cmd-f-move,
+    .cmd-build .cmd-f-item,
+    .cmd-build .cmd-f-opt,
+    .cmd-build .cmd-f-num,
+    .cmd-build .cmd-f-damage,
+    .cmd-build .cmd-f-evs,
+    .cmd-build .cmd-f-poke.cmd-f-poke-short,
+    .cmd-build .cmd-f-nature.cmd-f-nature-inline {
+        flex: 1 1 100%;
+    }
+
+    .cmd-evs {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0.3rem;
+    }
+}
+
+/* ---- 通知（トースト）は MudBlazor の Snackbar（Services/ToastService.cs）。スマホは、画面の上部に全幅で出す ---- */
+@media (max-width: 767.98px) {
+    .mud-snackbar-location-top-right {
+        top: 0.5rem;
+        left: 0.5rem;
+        right: 0.5rem;
+    }
+}
+
+/* ---- 残り HP ---- */
+.hp-editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hp-editor .form-range {
+    flex: 1 1 5rem;
+    min-width: 4.5rem;
+}
+
+/* 残り HP のスライダー: 背景に溶けないよう、HP バーと同じ色で残り HP の分を塗り、空の分は見える灰色にする。つまみは白地に同じ色の縁 */
+.hp-range { --hp: 100%; --hp-color: var(--app-hp); --hp-empty: var(--app-range-empty); background: transparent; height: 1.5rem; }
+.hp-range[data-level="mid"] { --hp-color: var(--app-hp-mid); }
+.hp-range[data-level="low"] { --hp-color: var(--app-hp-low); }
+/* 塗りは「空の色の上に、残り HP の分だけ色を重ねる」描き方にする（色の境目のにじみで、右端に同じ色が残って見えないように） */
+.hp-range::-webkit-slider-runnable-track {
+    box-sizing: border-box; height: 0.75rem; border-radius: 999px; border: 1px solid var(--app-card-border);
+    background-color: var(--hp-empty);
+    background-image: linear-gradient(var(--hp-color), var(--hp-color));
+    background-repeat: no-repeat; background-position: left center; background-size: var(--hp) 100%;
+}
+.hp-range::-moz-range-track {
+    box-sizing: border-box; height: 0.75rem; border-radius: 999px; border: 1px solid var(--app-card-border);
+    background-color: var(--hp-empty);
+    background-image: linear-gradient(var(--hp-color), var(--hp-color));
+    background-repeat: no-repeat; background-position: left center; background-size: var(--hp) 100%;
+}
+.hp-range::-webkit-slider-thumb {
+    box-sizing: border-box; width: 1.2rem; height: 1.2rem; margin-top: -0.26rem; border: 3px solid var(--hp-color); background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.hp-range::-moz-range-thumb {
+    box-sizing: border-box; width: 1.2rem; height: 1.2rem; border: 3px solid var(--hp-color); background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.hp-range:focus { box-shadow: none; }
+.hp-range:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+
+.hp-input {
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.hp-input .form-control {
+    width: 3.4rem;
+    flex: 0 0 auto;
+}
+
+.searchable-select-item.active {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.stat-up {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.stat-down {
+    color: #0d6efd;
+    font-weight: bold;
+}
+
+#blazor-error-ui {
+    background: lightyellow;
+    color: #212529;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 2100;   /* 結果バー（1040）・対戦画面（1020）・トースト（2000）より前に出す */
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+@media (max-width: 767.98px) {
+    .split-row {
+        flex-direction: column;
+    }
+}
+
+/* 入口ページの静的な本文（tools/build-entry-pages.mjs が #app の中に書く）。WebAssembly が起動すると Blazor が置き換える。
+   見た目は起動後のアプリに近づける（ヘッダーの帯・背景・カードの色は app-header と .card に合わせる） */
+/* 入口ページの静的な本文の色は、アプリの body と同じ変数（--app-body-bg・--bs-body-color。ライト・ダークの両方が定義されている） */
+.entry-static {
+    min-height: 100vh;
+    background: var(--app-body-bg);
+    color: var(--bs-body-color);
+}
+
+/* ヘッダーの帯は、起動後の .fbc-header（高さ 3.5rem・同じ地色）と同じ大きさにして、起動の前後で段がずれないようにする */
+.entry-static-bar {
+    box-sizing: border-box;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(90deg, #140a26 0%, #241243 100%);
+    color: #fff;
+    padding: 0 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.entry-static-body {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+    line-height: 1.8;
+}
+
+.entry-static-card {
+    background: var(--glass, rgba(255, 255, 255, 0.72));
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.entry-static h1 {
+    font-size: 1.4rem;
+    margin-bottom: 0.75rem;
+}
+
+/* リンクは、アプリのリンク（MudBlazor の primary）と同じ色・下線なし。箇条書きの記号は出さず、2 列に並べる（起動前の素の青いリンクを出さない） */
+.entry-static-nav ul {
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 1.5rem;
+}
+
+.entry-static-nav a {
+    color: #7c3aed;
+    text-decoration: none;
+}
+
+.entry-static-nav a:hover,
+.entry-static-nav a:focus-visible {
+    text-decoration: underline;
+}
+
+[data-bs-theme="dark"] .entry-static-nav a {
+    color: #a855f7;
+}
+
+.entry-static-note {
+    padding: 1rem;
+}
+
+/* ---- 努力値・ランク ---- */
+.ev-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.ev-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 6.5rem;
+}
+
+.ev-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--app-muted);
+    text-align: center;
+}
+
+.ev-buttons {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+}
+
+.ev-buttons .btn {
+    flex: 1;
+    padding: 0.05rem 0.3rem;
+    font-size: 0.75rem;
+}
+
+/* ---- タイプ相性表 ----
+   マスの大きさ（--tc-cell）は画面に合わせて縮め、PC（1400×900 / 1920×1080 など）では
+   表全体（右端の合計列も含む）がスクロールせずに見えるようにする。スマホも同じく、画面の幅を列の数で割って縮める */
+.type-chart {
+    --tc-cell: 2.4rem;
+    width: auto;
+    font-size: calc(var(--tc-cell) * 0.42);
+    text-align: center;
+}
+
+@media (min-width: 768px) {
+    .type-chart {
+        /* 縦: 画面の高さから見出し・凡例の分を引いて 19 行（見出し行 + 18 タイプ）で割る
+           横: 画面の幅からサイドバー・右のパネル・余白を引いて 21 列（見出し + 18 タイプ + 合計）で割る */
+        --tc-cell: clamp(1.5rem, min(calc((100vh - 17rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem);
+    }
+}
+
+.type-chart .type-head,
+.type-chart .type-corner {
+    white-space: nowrap;
+    font-weight: 600;
+    background: var(--app-panel-bg);
+    width: var(--tc-cell);
+    height: var(--tc-cell);
+    padding: 0.1rem;
+}
+
+.type-chart .type-icon {
+    width: calc(var(--tc-cell) - 0.45rem);
+    height: calc(var(--tc-cell) - 0.45rem);
+}
+
+.type-chart .poke-icon {
+    width: var(--tc-cell);
+    height: var(--tc-cell);
+}
+
+.type-chart .type-corner {
+    font-size: 0.6rem;
+}
+
+.type-chart td {
+    position: relative;
+    width: var(--tc-cell);
+    min-width: var(--tc-cell);
+    height: var(--tc-cell);
+    padding: 0;
+    vertical-align: middle;
+    font-weight: 700;
+    cursor: default;
+}
+
+/* 右端: 選んだポケモンに当たったときの最終的な倍率（特性込み）。ほかの列と同じ記号で出す */
+.type-chart td.type-total {
+    border-left: 2px solid var(--bs-primary);
+}
+
+/* 記号（◎ ○ △ ▲ ▼）は同じ Geometric Shapes ブロックの字で、どのフォントでも絵文字にならない */
+.type-chart .mk {
+    display: inline-block;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.type-chart th.type-total-head {
+    border-left: 2px solid var(--bs-primary);
+    background: var(--bs-primary-bg-subtle);
+}
+
+.type-chart td.type-total-ability {
+    outline: 2px dashed #d97706;
+    outline-offset: -3px;
+}
+
+/* 特性で倍率が変わるマスの印 */
+.ability-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    padding: 0 2px;
+    border-radius: 3px;
+    background: #d97706;
+    color: #fff;
+    font-size: max(0.55rem, calc(var(--tc-cell, 2.4rem) * 0.26));
+    line-height: 1.2;
+    font-weight: 700;
+}
+
+.type-mark .ability-badge {
+    position: static;
+    font-size: 0.7rem;
+}
+
+.ability-effects {
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid #d97706;
+    background: var(--app-panel-bg);
+    border-radius: 0.25rem;
+}
+
+.counter-note {
+    flex-basis: 100%;
+    font-size: 0.72rem;
+    color: #b45309;
+}
+
+[data-bs-theme="dark"] .counter-note {
+    color: #fbbf24;
+}
+
+.type-ability {
+    min-width: 9rem;
+}
+
+/* 記号で区別し、色は控えめな補助にする */
+.type-weak {
+    background: rgba(220, 53, 69, 0.18) !important;
+    color: #c81e2f;
+}
+
+.type-resist {
+    background: rgba(13, 110, 253, 0.14) !important;
+    color: #0a58ca;
+}
+
+.type-immune {
+    background: rgba(108, 117, 125, 0.35) !important;
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .type-weak {
+    color: #ff8a95;
+}
+
+[data-bs-theme="dark"] .type-resist {
+    color: #8fb8ff;
+}
+
+.type-chart .type-hover {
+    outline: 2px solid #f0b400;
+    outline-offset: -2px;
+}
+
+/* ポケモンを選んだとき: そのタイプの列（受ける側）を強調し、ほかは少し薄くする */
+.type-chart-focus .type-dim {
+    opacity: 0.4;
+}
+
+.type-chart-focus td.type-selected {
+    box-shadow: inset 2px 0 0 var(--bs-primary), inset -2px 0 0 var(--bs-primary);
+}
+
+.type-chart-focus th.type-selected {
+    background: var(--bs-primary-bg-subtle);
+    box-shadow: inset 0 0 0 2px var(--bs-primary);
+}
+
+.type-chart-focus tbody tr:last-child td.type-selected {
+    box-shadow: inset 2px 0 0 var(--bs-primary), inset -2px 0 0 var(--bs-primary), inset 0 -2px 0 var(--bs-primary);
+}
+
+/* ポケモンを選んでいる間の攻撃タイプ（行見出し）は押せるボタン。選んだ行は枠で囲む */
+.type-chart th.type-head-toggle {
+    padding: 0;
+}
+
+.type-chart .type-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: var(--tc-cell);
+    padding: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    cursor: pointer;
+}
+
+.type-chart .type-toggle:hover {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.type-chart .type-toggle:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: -2px;
+}
+
+.type-chart .type-toggle.active {
+    background: var(--bs-primary);
+    box-shadow: inset 0 0 0 2px #f0b400;
+}
+
+.type-chart-focus td.type-row-picked {
+    opacity: 1;
+    box-shadow: inset 0 2px 0 #f0b400, inset 0 -2px 0 #f0b400;
+}
+
+.type-pick-hint {
+    padding: 0.3rem 0.5rem;
+    border-left: 3px solid #f0b400;
+    background: var(--app-panel-bg);
+    border-radius: 0.25rem;
+}
+
+.type-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.45rem;
+    border: 2px solid #f0b400;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+.type-chip:hover {
+    background: var(--bs-primary);
+    color: #fff;
+}
+
+.type-attacker-list {
+    max-height: none;
+}
+
+.type-attacker-list li {
+    align-items: flex-start;
+    padding: 0.2rem 0.4rem;
+}
+
+.type-attacker-body {
+    min-width: 0;
+    flex: 1;
+}
+
+.type-attacker-moves {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.type-attacker-move {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    white-space: nowrap;
+}
+
+/* 自分の特性で作る天候・フィールドの補正込み（例: サイコフィールド込み） */
+.type-attacker-move .field-note {
+    font-size: 0.68rem;
+    color: #b45309;
+}
+
+[data-bs-theme="dark"] .type-attacker-move .field-note {
+    color: #fbbf24;
+}
+
+.type-chart-layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+.type-chart-main {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.matchup-panel {
+    flex: 1 1 18rem;
+    min-width: 0;
+}
+
+/* PC では表の横に置き、パネルが長くても中でスクロールして表を押し下げない。
+   スクロールするのは結果（.matchup-results）だけにし、ポケモンを選ぶ欄の候補一覧はパネルの外まで出せるようにする */
+@media (min-width: 768px) {
+    .type-chart-layout {
+        flex-wrap: nowrap;
+    }
+
+    /* 表の列の幅は表に合わせる（凡例は折り返す）。凡例の 1 行の長さで列が広がり、表と右のパネルの間に空白ができないようにする */
+    .type-chart-main {
+        width: min-content;
+        /* 表がまだ無い（読み込み中の）ときも、表と同じくらいの幅を取って凡例が縦に潰れないようにする（.type-chart の --tc-cell × ポケモンを選んでいないときの 19 列。選ぶと列が増え、表に合わせて広がる） */
+        min-width: calc(clamp(1.5rem, min(calc((100vh - 17rem) / 19.6), calc((100vw - 230px - 20rem - 6rem) / 21)), 2.6rem) * 19);
+    }
+
+    .matchup-panel .card {
+        max-height: calc(100vh - 12rem);
+    }
+
+    .matchup-panel .card-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .matchup-panel .matchup-results {
+        min-height: 0;
+        overflow-y: auto;
+    }
+}
+
+.counter-list {
+    max-height: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+    gap: 0.4rem;
+    border: none;
+}
+
+.counter-list li {
+    padding: 0.15rem 0.4rem;
+}
+
+.counter-list li,
+.counter-list li + li {
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.25rem;
+}
+
+.counter-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.counter-good {
+    color: #198754;
+    font-weight: 700;
+}
+
+[data-bs-theme="dark"] .counter-good {
+    color: #6ee7a8;
+}
+
+.matchup-list {
+    list-style: none;
+    padding: 0;
+    max-height: 420px;
+    overflow-y: auto;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.25rem;
+}
+
+.matchup-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9rem;
+}
+
+.matchup-list li + li {
+    border-top: 1px solid var(--app-card-border);
+}
+
+.type-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.9rem;
+}
+
+.type-mark {
+    display: inline-block;
+    min-width: 1.6rem;
+    padding: 0 0.15rem;
+    height: 1.6rem;
+    line-height: 1.6rem;
+    text-align: center;
+    font-weight: 700;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.25rem;
+    margin-right: 0.25rem;
+}
+
+.type-icon {
+    width: 32px;
+    height: 32px;
+    vertical-align: middle;
+}
+
+.type-icon-sm {
+    width: 26px;
+    height: 26px;
+}
+
+/* タイプ「？？？」（第 2〜4 世代の のろい）。画像の代わりに灰色の丸に「?」 */
+.type-icon-unknown {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #68a090;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.type-icon-unknown.type-icon-sm {
+    font-size: 0.8rem;
+}
+
+.type-icons {
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+    margin-left: 0.25rem;
+}
+
+/* ---- ポケモンの画像 ---- */
+.poke-icon {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    vertical-align: middle;
+    image-rendering: pixelated;
+}
+
+.poke-icon-sm {
+    width: 44px;
+    height: 44px;
+}
+
+.poke-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* ---- ヘルプ（Excel のコメント風。Components/Help.razor。吹き出しは MudBlazor の MudPopover） ---- */
+.help-wrap {
+    display: inline-block;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+
+.help-wrap .help-btn.mud-icon-button {
+    width: 1.1rem;
+    height: 1.1rem;
+    padding: 0;
+    border: 1px solid var(--app-input-border);
+    background: var(--bs-body-bg);
+    color: var(--app-muted);
+}
+
+.help-wrap .help-btn.mud-icon-button .mud-icon-root {
+    width: 0.8rem;
+    height: 0.8rem;
+}
+
+.help-wrap .help-btn.mud-icon-button:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.mud-popover.help-popover {
+    width: 18rem;
+    max-width: 80vw;
+    background: var(--app-note-bg);
+    border: 1px solid var(--app-note-border);
+    border-radius: 0.25rem;
+    z-index: 1100;
+}
+
+.help-note {
+    position: relative;
+    padding: 0.5rem 1.4rem 0.5rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--bs-body-color);
+    white-space: normal;
+    text-align: left;
+}
+
+.help-close {
+    position: absolute;
+    right: 0.25rem;
+    top: 0.15rem;
+    border: none;
+    background: transparent;
+    color: var(--app-muted);
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* ---- 全体の見やすさ（画面の幅いっぱいを使う） ---- */
+.fbc-content {
+    max-width: none;
+}
+
+.page-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--app-card-border);
+}
+
+.page-header h1,
+.page-header h3 {
+    margin-bottom: 0.25rem;
+}
+
+/* kit の報告フォームのカード（.fbc-card・.fbc-card-body）の構造。base.css の .card・.card-body と同じ。枠線・影・背景は、次の .card の規則を共有する */
+.fbc-card {--bs-card-spacer-y:1rem;--bs-card-spacer-x:1rem;--bs-card-title-spacer-y:0.5rem;--bs-card-title-color: ;--bs-card-subtitle-color: ;--bs-card-border-width:var(--bs-border-width);--bs-card-border-color:var(--bs-border-color-translucent);--bs-card-border-radius:var(--bs-border-radius);--bs-card-box-shadow: ;--bs-card-inner-border-radius:calc(var(--bs-border-radius) - (var(--bs-border-width)));--bs-card-cap-padding-y:0.5rem;--bs-card-cap-padding-x:1rem;--bs-card-cap-bg:rgba(var(--bs-body-color-rgb), 0.03);--bs-card-cap-color: ;--bs-card-height: ;--bs-card-color: ;--bs-card-bg:var(--bs-body-bg);--bs-card-img-overlay-padding:1rem;--bs-card-group-margin:0.75rem;position:relative;display:flex;flex-direction:column;min-width:0;height:var(--bs-card-height);color:var(--bs-body-color);word-wrap:break-word;background-color:var(--bs-card-bg);background-clip:border-box;border:var(--bs-card-border-width) solid var(--bs-card-border-color);border-radius:var(--bs-card-border-radius)}
+.fbc-card-body {flex:1 1 auto;padding:var(--bs-card-spacer-y) var(--bs-card-spacer-x);color:var(--bs-card-color)}
+
+.card,
+.fbc-card {
+    border: 1px solid var(--app-card-border);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.card-header {
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid var(--app-card-border);
+}
+
+.card-header h5,
+.card-header h6 {
+    margin-bottom: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.form-group label,
+.form-label,
+.fbc-form-label,
+.side-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--bs-body-color);
+    margin-bottom: 0.2rem;
+}
+
+.form-group,
+.fbc-form-group {
+    margin-bottom: 0.75rem !important;
+}
+
+.stats-summary {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    background: var(--app-panel-bg);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.result-card {
+    border-left: 4px solid #1b6ec2;
+}
+
+.result-main {
+    font-size: 1.6rem;
+    line-height: 1.3;
+}
+
+.result-main .badge {
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+.table-sm td,
+.table-sm th {
+    vertical-align: middle;
+}
+
+.chat-output {
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+}
+
+.cmd-table code {
+    white-space: nowrap;
+}
+
+/* コマンドの書式: 置き換える値は色付きの斜体のチップ、それ以外はそのまま打つ文字 */
+.cmd-syntax {
+    color: var(--bs-body-color);
+}
+
+.cmd-table code.cmd-syntax,
+.cmd-table .cmd-example code {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.cmd-table .cmd-col-syntax {
+    min-width: 14rem;
+    width: 32%;
+}
+
+.cmd-table .cmd-col-kind {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.cmd-table .cmd-col-desc {
+    min-width: 12rem;
+    width: 30%;
+}
+
+.cmd-table .cmd-col-example {
+    min-width: 12rem;
+}
+
+/* コマンドの種類（ポケモン・チーム・対戦・ヘルプ）の小さなラベル */
+.cmd-kind {
+    display: inline-block;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-card-border);
+    color: var(--bs-body-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* 説明文と一覧の間の区切り */
+.cmd-legend {
+    padding-bottom: 0.7rem;
+    margin-bottom: 0.7rem !important;
+    border-bottom: 1px solid var(--app-card-border);
+}
+
+.cmd-ph,
+.cmd-table .cmd-example code {
+    white-space: nowrap;
+}
+
+.cmd-ph {
+    display: inline-block;
+    margin: 0 0.1em;
+    padding: 0 0.3em;
+    border-radius: 0.25rem;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+    border: 1px dashed var(--bs-primary-border-subtle);
+    font-style: italic;
+    font-family: var(--bs-font-sans-serif);
+}
+
+.cmd-example {
+    font-size: 0.85rem;
+    color: var(--app-muted);
+}
+
+.cmd-table .cmd-example code {
+    font-size: 0.85rem;
+}
+
+/* スマホ: コマンド一覧・オプションの表は 1 行ずつのカードにして縦に並べる（横スクロールなし） */
+@media (max-width: 767.98px) {
+    .cmd-table,
+    .cmd-table tbody,
+    .cmd-table tr,
+    .cmd-table td,
+    .cmd-options,
+    .cmd-options tbody,
+    .cmd-options tr,
+    .cmd-options td {
+        display: block;
+        width: auto;
+        min-width: 0;
+    }
+
+    .cmd-table thead,
+    .cmd-options thead {
+        display: none;
+    }
+
+    .cmd-table tr,
+    .cmd-options tr {
+        padding: 0.5rem 0.1rem;
+        border-bottom: 1px solid var(--app-card-border);
+    }
+
+    .cmd-table td,
+    .cmd-options td {
+        padding: 0.1rem 0;
+        border: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .cmd-table td.cmd-col-syntax,
+    .cmd-table td.cmd-col-kind,
+    .cmd-table td.cmd-col-desc,
+    .cmd-table td.cmd-col-example {
+        min-width: 0;
+        width: auto;
+    }
+
+    .cmd-table td.cmd-col-syntax code {
+        font-size: 0.9rem;
+    }
+
+    .cmd-table td.cmd-col-desc {
+        font-size: 0.9rem;
+    }
+
+    /* カードでは、種類を小さなラベルにして一番上に出す */
+    .cmd-table tr {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cmd-table td.cmd-col-kind {
+        order: -1;
+        align-self: flex-start;
+        margin-bottom: 0.2rem;
+    }
+
+    .cmd-table .cmd-example::before {
+        content: "例";
+        display: inline-block;
+        margin-right: 0.4rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .cmd-table .cmd-example {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 0.5rem;
+    }
+
+    .cmd-table .cmd-example code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+    }
+
+    .cmd-table .cmd-example > div {
+        flex: 1 1 100%;
+        min-width: 0;
+        padding-left: 0;
+    }
+
+    .cmd-table .cmd-example::before {
+        flex: 0 0 100%;
+        margin: 0;
+    }
+
+    .cmd-options td:nth-child(1) {
+        font-weight: 600;
+    }
+
+    .cmd-options td:empty {
+        display: none;
+    }
+
+    .cmd-options td:nth-child(3) {
+        font-size: 0.85rem;
+        color: var(--app-muted);
+    }
+}
+
+.text-muted,
+.fbc-muted {
+    color: var(--app-muted) !important;
+}
+
+@media (max-width: 767.98px) {
+    .result-main {
+        font-size: 1.25rem;
+    }
+}
+
+/* ---- サイドバー（テーマに関係なく濃い背景なので文字は明るくする） ---- */
+.fbc-sidebar .side-settings {
+    position: relative;
+    color: #f1f3f5;
+}
+
+.fbc-sidebar .side-label {
+    color: #f1f3f5;
+}
+
+.fbc-sidebar .side-note {
+    font-size: 0.75rem;
+    color: rgba(241, 243, 245, 0.8);
+    margin-top: 0.25rem;
+    line-height: 1.3;
+}
+
+.fbc-sidebar .help-wrap .help-btn.mud-icon-button {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #f1f3f5;
+}
+
+.fbc-sidebar .help-wrap .help-btn.mud-icon-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.fbc-sidebar .form-select {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ---- 素早さ比較 ---- */
+.speed-vs {
+    font-size: 1.4rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.speed-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.speed-versus {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.speed-versus .poke-label {
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.speed-versus .poke-label strong {
+    white-space: nowrap;
+}
+
+.speed-reference {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+    gap: 1rem;
+}
+
+.speed-reference-table {
+    overflow-x: auto;
+}
+
+/* ---- 変えられない項目（メガストーン・特性が 1 つ）。入力欄と見分けが付くよう、破線の枠と鍵・「固定」を付ける ---- */
+.fixed-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.4rem;
+    min-height: calc(1.5em + 0.75rem + 2px);
+    padding: 0.3rem 0.6rem;
+    border: 1px dashed var(--app-input-border);
+    border-radius: var(--bs-border-radius);
+    background: var(--app-panel-bg);
+    cursor: not-allowed;
+}
+
+.fixed-field-sm {
+    min-height: calc(1.5em + 0.5rem + 2px);
+    padding: 0.15rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.fixed-lock {
+    flex: none;
+    color: var(--app-muted);
+}
+
+.fixed-value {
+    font-weight: 600;
+}
+
+.fixed-badge {
+    padding: 0 0.35rem;
+    border-radius: 0.25rem;
+    background: var(--app-muted);
+    color: var(--bs-body-bg);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+/* ---- 結果を見えたままにする ----
+   PC（3 列）: 結果カードを列の中で固定。狭い画面: 画面の下に要点のバー（押すと詳細を開く） */
+.result-bar {
+    display: none;
+}
+
+@media (min-width: 1400px) {
+    .result-sticky {
+        position: sticky;
+        top: 0.75rem;
+        z-index: 1;
+    }
+}
+
+@media (max-width: 1399.98px) {
+    .result-bar {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1040;
+        background: var(--bs-body-bg);
+        border-top: 2px solid var(--bs-primary);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.25);
+    }
+
+    .result-bar-summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem 0.5rem;
+        width: 100%;
+        padding: 0.5rem 1rem;
+        border: 0;
+        background: transparent;
+        color: var(--bs-body-color);
+        text-align: left;
+        font-size: 0.95rem;
+    }
+
+    .result-bar-toggle {
+        margin-left: auto;
+        color: var(--app-muted);
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+
+    .result-bar-detail {
+        max-height: 55vh;
+        overflow-y: auto;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--app-card-border);
+        font-size: 0.88rem;
+    }
+
+    /* バーで下の入力欄が隠れないよう、その分だけ余白を空ける */
+    .has-result-bar {
+        padding-bottom: 4rem;
+    }
+}
+
+/* サイドバーがある幅では、バーをサイドバーの右に出す */
+@media (min-width: 768px) and (max-width: 1399.98px) {
+    .result-bar {
+        left: 230px;
+    }
+}
+
+.speed-ref-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.3rem;
+}
+
+.speed-ref-tabs .btn {
+    padding: 0.1rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* ---- タイプ相性表（スマホ）: 表の代わりに、受ける倍率をアイコンの一覧で出す ---- */
+.type-compact,
+.type-view-toggle {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .type-compact {
+        display: block;
+    }
+
+    /* ポケモンを選ぶ欄は表より上に出す。パネルの枠を外して、選ぶ欄・切り替え・表・結果の順に並べる */
+    .type-chart-layout {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .matchup-panel,
+    .matchup-panel .card,
+    .matchup-panel .card-body {
+        display: contents;
+    }
+
+    .matchup-panel .card-header {
+        order: 0;
+        padding: 0;
+        border: 0;
+        background: none;
+    }
+
+    .matchup-panel .card-header h5 {
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    .matchup-panel .form-group {
+        order: 1;
+    }
+
+    .type-view-toggle {
+        order: 2;
+    }
+
+    .type-chart-main {
+        order: 3;
+    }
+
+    .matchup-results {
+        order: 4;
+    }
+
+    /* 表は画面の幅に収める（390px でも 360px でも横スクロールしない）。
+       マスの大きさは「画面の幅 ÷ 列の数」で決め、アイコンと記号の大きさもそれに合わせる */
+    .type-chart-wrap {
+        margin-inline: -1rem;
+        overflow-x: hidden;
+    }
+
+    .type-chart {
+        --tc-cell: min(2.4rem, calc((100vw - 1rem) / var(--tc-cols, 20)));
+        width: 100%;
+        table-layout: fixed;
+        font-size: calc(var(--tc-cell) * 0.62);
+    }
+
+    .type-chart th,
+    .type-chart td {
+        padding: 0;
+        line-height: 1;
+        overflow: hidden;
+    }
+
+    .type-chart .type-head,
+    .type-chart .type-corner {
+        padding: 0;
+    }
+
+    .type-chart .type-icon {
+        width: calc(var(--tc-cell) - 3px);
+        height: calc(var(--tc-cell) - 3px);
+    }
+
+    .type-chart .type-corner {
+        font-size: calc(var(--tc-cell) * 0.3);
+        white-space: normal;
+    }
+
+    .type-chart .poke-icon {
+        width: calc(var(--tc-cell) - 2px);
+        height: calc(var(--tc-cell) - 2px);
+    }
+
+    .type-chart td.type-total,
+    .type-chart th.type-total-head {
+        border-left-width: 1px;
+    }
+
+    .type-chart .ability-badge {
+        top: 0;
+        right: 0;
+        padding: 0 1px;
+        border-radius: 2px;
+        font-size: calc(var(--tc-cell) * 0.38);
+        line-height: 1.1;
+    }
+
+    .type-legend {
+        gap: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    .type-view-toggle {
+        display: flex;
+    }
+
+    .type-chart-layout:not(.show-table) .type-chart-main {
+        display: none;
+    }
+
+    .type-chart-layout.show-table .type-compact {
+        display: none;
+    }
+}
+
+/* スマホの一覧の凡例（表の凡例は一覧のときは隠れるため） */
+.compact-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.6rem;
+}
+
+.compact-legend .type-weak,
+.compact-legend .type-resist,
+.compact-legend .type-immune {
+    background: none !important;
+    font-weight: 700;
+    margin-right: 0.1rem;
+}
+
+.compact-group + .compact-group {
+    margin-top: 0.35rem;
+}
+
+.compact-group-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+}
+
+.compact-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.25rem;
+}
+
+.compact-cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.05rem;
+    min-width: 0;
+    padding: 0.2rem 0 0.15rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.3rem;
+    background: var(--app-panel-bg);
+    color: var(--bs-body-color);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+button.compact-cell {
+    cursor: pointer;
+}
+
+.compact-cell .type-icon {
+    width: 1.75rem;
+    height: 1.75rem;
+}
+
+.compact-cell.active {
+    outline: 2px solid #f0b400;
+    outline-offset: -1px;
+    box-shadow: 0 0 0 2px rgba(240, 180, 0, 0.35);
+}
+
+.compact-cell .ability-badge {
+    font-size: 0.55rem;
+}
+
+/* タイプ名は、アイコンの下に少し間をあけて置く。「フェアリー」など 5 文字の名前も、狭い画面（6 列）でセルの幅に収まる大きさにする */
+.compact-pick {
+    gap: 0.15rem;
+    padding-bottom: 0.25rem;
+}
+
+.compact-pick .compact-name {
+    max-width: 100%;
+    font-size: 0.62rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+}
+
+.compact-pick.active {
+    background: var(--bs-primary-bg-subtle);
+}
+
+/* ---- ポケモン一覧 ---- */
+.dex-filters .form-group {
+    margin-bottom: 0 !important;
+}
+
+.dex-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+    gap: 0.5rem 0.75rem;
+}
+
+.dex-type-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.6rem;
+    margin-top: 0.6rem;
+}
+
+.dex-type-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+}
+
+.dex-type-btn {
+    padding: 0.1rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.35rem;
+    background: transparent;
+    line-height: 0;
+    cursor: pointer;
+}
+
+.dex-type-btn:hover {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.dex-type-btn.active {
+    background: var(--bs-primary);
+    border-color: #f0b400;
+    box-shadow: 0 0 0 2px rgba(240, 180, 0, 0.45);
+}
+
+.dex-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 1rem;
+    margin-top: 0.6rem;
+}
+
+.dex-sort-mobile {
+    display: none;
+    flex: 1 1 100%;
+    gap: 0.3rem;
+}
+
+.dex-list {
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.375rem;
+    background: var(--bs-body-bg);
+}
+
+@media (min-width: 768px) {
+    /* PC: 絞り込みは固定にして、一覧の中だけがスクロールする（見出し行は一覧の上に固定） */
+    .dex-list {
+        min-height: 12rem;
+    }
+}
+
+/* 読み込み中の骨格（スマホ）。一覧・更新履歴が届いて入ると、下のフッターが大きく動く（CLS）。
+   読み込み中は最初の画面の高さを取っておき、フッターを画面の外に置く。届いた後に動くのは画面の外だけになる（PC は枠の中で動かないので対象外） */
+@media (max-width: 767.98px) {
+    .load-skeleton {
+        min-height: 100vh;
+        min-height: 100svh;
+    }
+
+    /* 図鑑の説明文は、データが届くと（ゲーム名・世代の文が入って）3 行になる。読み込み前も 3 行ぶんの高さを取り、届いた後に見出しの下が伸びないようにする */
+    .dex-intro {
+        min-height: 4.5em;
+    }
+}
+
+.dex-row {
+    display: grid;
+    grid-template-columns: 3.4rem minmax(12.5rem, 1.3fr) 4.6rem minmax(8rem, 2fr) repeat(6, 3rem) 3.6rem;
+    align-items: center;
+    gap: 0 0.4rem;
+    min-height: 52px;
+    padding: 0.1rem 0.6rem;
+    border-bottom: 1px solid var(--app-card-border);
+    cursor: pointer;
+}
+
+.dex-row:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: -2px; }
+
+.dex-row:hover {
+    background: var(--app-panel-bg);
+}
+
+/* 見出しの行はスクロールしても上に残す */
+.dex-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    min-height: 2.2rem;
+    background: var(--app-panel-bg);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: default;
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+.dex-sort {
+    padding: 0.35rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.dex-sort:hover {
+    color: var(--bs-primary);
+}
+
+.dex-sort.dex-no {
+    text-align: left;
+}
+
+.dex-no {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.dex-name {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    font-weight: 600;
+}
+
+.dex-name .poke-icon-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.dex-abilities {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+}
+
+.dex-stat {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.dex-total {
+    font-weight: 700;
+}
+
+.dex-item.selected > .dex-row {
+    background: var(--bs-primary-bg-subtle);
+}
+
+.dex-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.6rem 0.5rem 4rem;
+    border-bottom: 1px solid var(--app-card-border);
+    background: var(--bs-primary-bg-subtle);
+}
+
+/* スマホ: 1 匹ずつのカード（名前とタイプ / 特性 / 種族値 7 つ） */
+@media (max-width: 767.98px) {
+    .dex-head {
+        display: none;
+    }
+
+    .dex-sort-mobile {
+        display: flex;
+        order: 2;
+    }
+
+    /* 「条件をクリア」は絞り込み欄の最後に全幅で置く */
+    .dex-clear {
+        order: 3;
+        flex: 1 1 100%;
+        margin-left: 0 !important;
+    }
+
+    .dex-row {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.1rem 0.25rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    .dex-row .dex-no {
+        grid-column: 1;
+        grid-row: 1;
+        font-size: 0.7rem;
+    }
+
+    .dex-row .dex-name {
+        grid-column: 2 / 6;
+        grid-row: 1;
+    }
+
+    .dex-row .dex-types-cell {
+        grid-column: 6 / 8;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    .dex-row .dex-abilities {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        font-size: 0.75rem;
+    }
+
+    .dex-row .dex-stat {
+        grid-row: 3;
+        text-align: center;
+        font-size: 0.82rem;
+    }
+
+    .dex-row .dex-stat::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--app-muted);
+        font-size: 0.62rem;
+        font-weight: 400;
+    }
+
+    .dex-actions {
+        padding-left: 0.6rem;
+    }
+}
+
+/* 2 つ選んでいるときの、ほかのタイプ（外すまで選べない） */
+.type-chart .type-toggle.blocked,
+.compact-cell.blocked,
+.dex-type-btn.blocked {
+    opacity: 0.35;
+    filter: grayscale(0.6);
+    cursor: not-allowed;
+}
+
+.type-chart .type-toggle.blocked:hover,
+.dex-type-btn.blocked:hover {
+    background: transparent;
+}
+
+.type-full-hint {
+    color: #b45309;
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .type-full-hint {
+    color: #fbbf24;
+}
+
+/* 並べ替えの印（並べ替えている見出しは色付きの ▲▼、それ以外は薄い ⇅） */
+.dex-sort-mark {
+    margin-left: 0.15rem;
+    font-size: 0.75em;
+    opacity: 0.35;
+}
+
+.dex-sort.sorted {
+    color: var(--bs-primary);
+}
+
+[data-bs-theme="dark"] .dex-sort.sorted {
+    color: #c4b5fd;
+}
+
+.dex-sort.sorted .dex-sort-mark {
+    opacity: 1;
+}
+
+/* 登録ページのデータ共有 */
+/* 入力欄（MudTextField の .app-field）は親の幅に合わせる。min-width: 0 がないと、狭い幅で 28px ほどに潰れていた */
+.sync-card .sync-join { max-width: 32rem; flex: 1 1 20rem; min-width: 0; flex-wrap: wrap; }
+.sync-card .sync-join > .app-field { flex: 1 1 12rem; min-width: 0; width: auto; }
+@media (max-width: 575.98px) {
+    /* スマホではアクセスキーの入力欄を 1 行、ボタンをその下に */
+    .sync-card .sync-join { max-width: none; flex: 1 1 100%; flex-direction: column; flex-wrap: nowrap; gap: 0.4rem; }
+    .sync-card .sync-join > .app-field { flex: none; }   /* 縦に並べるとき、flex-basis は高さになるので打ち消す */
+    .sync-card .sync-join > .app-field,
+    .sync-card .sync-join > .form-control,
+    .sync-card .sync-join > .btn { width: 100%; margin-left: 0; border-radius: var(--bs-border-radius-sm); }
+}
+.sync-card .sync-key { word-break: break-all; user-select: all; }
+
+/* ポケモン一覧: フォーム名（括弧の部分）はまとめて折り返す */
+.dex-form {
+    display: inline-block;
+}
+
+@media (min-width: 768px) {
+    .dex-form {
+        white-space: nowrap;
+    }
+}
+
+/* スマホ: 特性・技の選択欄は 1 行ずつ使い、「指定なし（入力して検索）」が切れないようにする */
+@media (max-width: 575.98px) {
+    .dex-filter-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ---- 操作に応じた動き（wwwroot/js/motion.js。ここは見た目だけ。動きは JS が付ける） ---- */
+[data-swap] {
+    display: inline-block;
+}
+
+/* ダメージ計算: 「計算」と「相手の振り方を推定」の切り替え */
+.calc-mode { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+.calc-mode-btn {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; flex: 1 1 14rem; max-width: 26rem;
+    padding: 0.5rem 0.9rem; border: 1px solid var(--app-card-border); border-radius: 0.7rem;
+    background: var(--glass); color: var(--bs-body-color); text-align: left; cursor: pointer;
+}
+.calc-mode-btn small { color: var(--app-muted); font-size: 0.75rem; }
+.calc-mode-btn.active { border-color: var(--bs-primary); box-shadow: inset 0 0 0 1px var(--bs-primary); background: color-mix(in srgb, var(--bs-primary) 14%, var(--glass)); }
+.calc-mode-btn:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.estimate-kind { flex: 0 0 auto; width: auto; min-width: 10.5rem; }
+.estimate-card .input-group > .form-control { min-width: 0; }
+.estimate-steps { padding-left: 1.2rem; margin-bottom: 0.75rem; color: var(--app-muted); }
+.estimate-unknown { padding: 0.7rem 0.9rem; border: 2px dashed var(--app-card-border); border-radius: 0.7rem; background: color-mix(in srgb, var(--bs-primary) 6%, transparent); }
+
+/* ダメージ計算: 相手のポイントの推定結果（実数値の範囲と、性格補正ごとのポイントの帯） */
+.estimate-stat { font-size: 1rem; }
+.estimate-stat strong { font-size: 1.5rem; margin-left: 0.4rem; font-variant-numeric: tabular-nums; }
+.estimate-bands { display: grid; gap: 0.6rem; }
+.estimate-band { padding: 0.5rem 0.7rem; border: 1px solid var(--app-card-border); border-radius: 0.6rem; background: color-mix(in srgb, var(--bs-body-bg) 60%, transparent); }
+.estimate-band-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.estimate-band-label { font-weight: 700; }
+.estimate-band-label small { font-weight: 400; color: var(--app-muted); }
+.estimate-band-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.estimate-bar { position: relative; height: 0.8rem; margin-top: 0.35rem; border-radius: 999px; background: var(--app-range-empty); overflow: hidden; }
+.estimate-bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--bs-primary); }
+.estimate-band[data-mod="up"] .estimate-bar-fill { background: var(--app-dmg); }
+.estimate-band[data-mod="down"] .estimate-bar-fill { background: #3b82f6; }
+.estimate-band[data-mod="none"] .estimate-bar-fill { background: var(--app-hp); }
+.estimate-band-stat { margin-top: 0.2rem; }
+
+/* ダメージ計算: 乱数 16 通りの折りたたみ（閉じていても最小〜最大を 1 行で出す） */
+.rolls-details { margin: 0.7rem 0 0.4rem; border: 1px solid var(--app-card-border); border-radius: 0.6rem; }
+.rolls-details > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.7rem; padding: 0.5rem 0.8rem; cursor: pointer; list-style: none; font-weight: 700; }
+.rolls-details > summary::-webkit-details-marker { display: none; }
+.rolls-details > summary::before { content: "▸"; margin-right: -0.3rem; color: var(--app-muted); }
+.rolls-details[open] > summary::before { content: "▾"; }
+.rolls-details > summary small { font-weight: 400; font-variant-numeric: tabular-nums; }
+.rolls-details > summary:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.rolls-details > .rolls-block { margin: 0; padding: 0 0.8rem 0.6rem; }
+
+/* 晴れ: 画面の上の外にある光から、コートの中心に向けて広がる線（動かない）。
+   光の位置（--sun-x / --sun-y）から、コートの中心（--sun-tx / --sun-ty）への向きを、角度（--sun-dir）にする */
+.bg-scene { --sun-x: 82vw; --sun-y: -55vh; --sun-tx: calc(50vw + var(--stage-shift)); --sun-ty: 58vh; }
+@supports (background: conic-gradient(from calc(atan2(1px, 1px) + 1deg), red, blue)) {
+    .bg-scene { --sun-dir: calc(atan2(var(--sun-tx) - var(--sun-x), var(--sun-y) - var(--sun-ty)) + 360deg); }
+}
+@media (max-aspect-ratio: 1/1) { .bg-scene { --sun-ty: 43vh; } }
+@media (orientation: landscape) and (max-height: 560px) { .bg-scene { --sun-ty: 52vh; --sun-tx: 50vw; } }
+.wx-layer::before { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s; pointer-events: none;
+    /* 光源は画面の上の外。そこから下へ向かう、まっすぐな線を 5 本だけ出す */
+    /* 5 本のうち 3 本目が、コートの中心に向かう。1 本ごとの間隔は 30 度、線の太さは 5 度 */
+    background: conic-gradient(from calc(var(--sun-dir, 198deg) - 62.5deg) at var(--sun-x) var(--sun-y),
+        rgba(255, 214, 90, 0.55) 0 5deg, transparent 5deg 30deg,
+        rgba(255, 214, 90, 0.55) 30deg 35deg, transparent 35deg 60deg,
+        rgba(255, 214, 90, 0.55) 60deg 65deg, transparent 65deg 90deg,
+        rgba(255, 214, 90, 0.55) 90deg 95deg, transparent 95deg 120deg,
+        rgba(255, 214, 90, 0.55) 120deg 125deg, transparent 125deg);
+    -webkit-mask-image: linear-gradient(180deg, #000 0, transparent 90%); mask-image: linear-gradient(180deg, #000 0, transparent 90%); }
+.bg-scene.wx-sun .wx-layer::before { opacity: 0.55; }
+.bg-scene.wx-sun.battle .wx-layer::before { opacity: 1; }
+
+/* PC（横長でサイドバーがある幅）の対戦画面: 自分の枠を、右上の枠と同じように左下の隅に置く（枠の下に隙間を作らない） */
+@media (min-width: 768px) and (min-height: 561px) {
+    .bv-bottom:not(.bv-bottom-moves) > .bv-mine { position: absolute; left: 0; bottom: 0; }
+    .bv-bottom:not(.bv-bottom-moves) > .bv-msg { width: min(44rem, calc(100% - 42rem)); min-width: 22rem; }
+}
+/* 幅 768〜1229px（iPad の横向きなど）は、中央寄せだと、左下の自分の枠（幅 19rem）と技のメッセージが重なる。自分の枠の右に置く */
+@media (min-width: 768px) and (max-width: 1229.98px) and (min-height: 561px) {
+    .bv-bottom:not(.bv-bottom-moves) > .bv-mine ~ .bv-msg {
+        align-self: flex-start;
+        margin-left: calc(min(19rem, 46%) + 0.75rem);
+        width: calc(100% - min(19rem, 46%) - 0.75rem);
+        min-width: 0;
+        max-width: 44rem;
+    }
+}
+
+/* スマホ: 右下の「いちばん上へ」ボタン（index.html の #scroll-top。スクロールすると出る） */
+.scroll-top { display: none; }
+@media (max-width: 767.98px) {
+    .scroll-top {
+        position: fixed; right: 0.9rem; bottom: 1rem; z-index: 1090; width: 2.9rem; height: 2.9rem; padding: 0;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid var(--app-card-border); border-radius: 50%; background: var(--bs-primary); color: #fff;
+        font-size: 1.3rem; line-height: 1; box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+        opacity: 0; pointer-events: none; transform: translateY(0.5rem); transition: opacity 0.2s, transform 0.2s;
+    }
+    .scroll-top.show { opacity: 0.92; pointer-events: auto; transform: none; }
+    /* 画面の下に結果のバーが出ているときは、その上に出す */
+    .scroll-top.above-bar { bottom: 4.8rem; }
+}
+
+/* ダメージ計算: 結果の「通常」「急所」の札 */
+.result-kind { display: inline-block; min-width: 2.6rem; margin-right: 0.45rem; padding: 0.05rem 0.4rem; border-radius: 0.4rem; background: rgba(120, 120, 160, 0.2); font-size: 0.78rem; font-weight: 700; text-align: center; vertical-align: 0.1em; }
+.result-main-crit .result-kind { background: rgba(229, 72, 77, 0.22); }
+.hp-calc-name .result-kind { min-width: 0; margin-right: 0.3rem; }
+.result-bar-crit { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.88rem; }
+
+/* ダメージ計算: 防御側の HP バー */
+.hp-calc {
+    margin: 0.6rem 0 0.4rem;
+}
+
+.hp-calc-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-size: 0.85em;
+    color: var(--app-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.hp-calc-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.hp-calc-bar {
+    position: relative;
+    height: 1rem;
+    border-radius: 999px;
+    background: var(--app-track);
+    overflow: hidden;
+}
+
+.hp-calc-bar > div {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+}
+
+.hp-calc-fill {
+    background: var(--app-hp);
+    border-radius: 999px;
+    transition: background-color 0.5s 0.3s;
+}
+
+.hp-calc-fill[data-level="mid"] {
+    background: var(--app-hp-mid);
+}
+
+.hp-calc-fill[data-level="low"] {
+    background: var(--app-hp-low);
+}
+
+.hp-calc-range {
+    background: repeating-linear-gradient(-45deg, var(--app-dmg-range) 0 6px, transparent 6px 11px);
+    border-left: 2px solid var(--app-dmg);
+}
+
+.hp-calc-gone {
+    background: var(--app-dmg);
+    opacity: 0.18;
+}
+
+.hp-calc-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.9rem;
+    margin-top: 0.35rem;
+    font-size: 0.78em;
+    color: var(--app-muted);
+}
+
+.hp-calc-legend i {
+    display: inline-block;
+    width: 1.1rem;
+    height: 0.6rem;
+    border-radius: 3px;
+    vertical-align: -1px;
+    margin-right: 0.25rem;
+}
+
+.hp-key-keep {
+    background: var(--app-hp);
+}
+
+
+.hp-key-gone {
+    background: var(--app-dmg);
+    opacity: 0.25;
+}
+
+.hp-key-range {
+    background: repeating-linear-gradient(-45deg, var(--app-dmg-range) 0 4px, transparent 4px 7px);
+    border-left: 2px solid var(--app-dmg);
+}
+
+/* ダメージ計算: 乱数 16 通りのマス */
+.rolls-block {
+    margin: 0.7rem 0 0.4rem;
+}
+
+.rolls-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.5rem;
+    margin: 0 0 0.3rem;
+    font-weight: 700;
+}
+
+.rolls-title small {
+    font-weight: 400;
+    color: var(--app-muted);
+}
+
+.rolls {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.rolls span {
+    text-align: center;
+    font-size: 0.9em;
+    font-variant-numeric: tabular-nums;
+    border-radius: 6px;
+    padding: 1px 0;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-card-border);
+}
+
+.rolls span.ko {
+    background: var(--app-roll-ko-bg);
+    border-color: var(--app-dmg);
+    font-weight: 700;
+}
+
+.rolls-cap {
+    margin: 0.35rem 0 0;
+    font-size: 0.85em;
+    color: var(--app-muted);
+}
+
+/* 素早さ比較: 素早さの棒 */
+.speed-race {
+    position: relative;
+    display: grid;
+    gap: 0.6rem;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.race-lane {
+    display: grid;
+    grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr) 2.6rem;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.race-who {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.race-who span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.race-track {
+    position: relative;
+    height: 0.75rem;
+    border-radius: 999px;
+    background: var(--app-track);
+}
+
+.race-bar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 999px;
+    background: var(--bs-primary);
+    opacity: 0.75;
+    transition: background-color 0.4s, opacity 0.4s;
+}
+
+.race-bar.first {
+    background: var(--app-win);
+    opacity: 1;
+}
+
+.race-num {
+    font-weight: 700;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* タイプ相性表: 強調する列の切り替えを軽くなじませる */
+.type-chart td,
+.type-chart th {
+    transition: opacity 0.25s ease;
+}
+
+.compact-matchup {
+    position: relative;
+}
+
+/* ページの切り替え: 画面の前後をなじませる（サイドバーは別の層にして、動かさない） */
+html.vt-nav .fbc-sidebar {
+    view-transition-name: nav-side;
+}
+
+/* 上のヘッダー（ハンバーガーとサイト名）も、サイドバーと同じく別の層にして、ページの切り替えの間も動かさず、消えないようにする */
+html.vt-nav .fbc-header {
+    view-transition-name: app-header;
+}
+
+::view-transition-group(app-header) {
+    animation: none;
+}
+
+::view-transition-old(app-header) {
+    display: none;
+}
+
+::view-transition-new(app-header) {
+    animation: none;
+}
+
+::view-transition-group(nav-side) {
+    animation: none;
+}
+
+::view-transition-old(nav-side) {
+    display: none;
+}
+
+::view-transition-new(nav-side) {
+    animation: none;
+}
+
+::view-transition-old(root) {
+    animation: vt-out 0.18s ease both;
+}
+
+::view-transition-new(root) {
+    animation: vt-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vt-out {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes vt-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .race-lane {
+        grid-template-columns: minmax(6rem, 8rem) minmax(0, 1fr) 2.4rem;
+        gap: 0.4rem;
+    }
+}
+
+/* ---- PC: ページ全体ではなく、一覧・長い表の中だけがスクロールする ----
+   外側（ページ）の高さは Shared/MainLayout.razor.css で画面に固定している。
+   ページは、その中で高さを埋める部分に .pane-fill、スクロールさせる部分に .pane-scroll を付ける。
+   スマホ（767.98px 以下）は今まで通りページ全体がスクロールする（内側スクロールが入れ子になると操作しにくいため） */
+@media (min-width: 768px) {
+    .fbc-content > * {
+        flex-shrink: 0;
+    }
+
+    .fbc-content > .pane-fill,
+    .pane-fill > .pane-fill {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .pane-scroll {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .cmd-scroll,
+    .dex-list.pane-scroll {
+        overflow-x: auto;
+    }
+
+    /* 枠の中のスクロールの余白は、枠の外と同じ幅にそろえる */
+    .pane-scroll {
+        scrollbar-gutter: stable;
+    }
+
+    /* 問い合わせ・プライバシー: 枠は画面の幅いっぱいのまま、スクロールバーの余白を左右に同じだけ取る。
+       こうすると、枠の中心と見出し（.page-column）の中心が同じになり、左右の端がそろう */
+    .page-pane {
+        scrollbar-gutter: stable both-edges;
+    }
+}
+
+/* 計算機・素早さ比較（PC）: 攻撃側 | 防御側 | 場の状態と結果 の各列が画面内に収まり、はみ出す列の中だけがスクロールする。
+   768〜1399px は 2 列（右の列に 防御側 → 場の状態 → 結果 を重ねる。結果の要点は画面下のバーにも出る）、1400px 以上は 3 列 */
+.calc-right {
+    display: contents;
+}
+
+@media (min-width: 768px) {
+    .calc-grid.pane-fill {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr);
+        min-height: 18rem;
+    }
+
+    .calc-grid.pane-fill > .calc-col,
+    .calc-grid.pane-fill > .calc-right {
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+    }
+
+    .calc-grid.pane-fill .calc-col > *,
+    .calc-grid.pane-fill .calc-right > * {
+        flex-shrink: 0;
+    }
+
+    .calc-grid.pane-fill .calc-col > .card:first-child {
+        flex: 0 0 auto;
+    }
+
+    /* 列の最後のカードは、列の下端まで伸ばす（入力が少ないときに、カードの下が大きく空いて左右の高さがずれないように）。
+       中身が長いときは、そのままの高さで列の中がスクロールする */
+    .calc-grid.pane-fill > .calc-col > .card:last-child {
+        flex: 1 0 auto;
+    }
+
+    /* 場の状態・結果のカードは、列の幅いっぱいにする（768px 以上の .calc-side の align-items: start が残ると、中身の幅に縮む） */
+    .calc-grid.pane-fill .calc-side {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        grid-column: auto;
+    }
+
+    /* has-result-bar の下余白は、バーに隠れる分。バーは画面の下に固定なので、列の中の余白で確保する */
+    .calc-grid.pane-fill.has-result-bar {
+        padding-bottom: 0;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1399.98px) {
+    .calc-grid.pane-fill > .calc-right {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .calc-grid.pane-fill.has-result-bar > .calc-col,
+    .calc-grid.pane-fill.has-result-bar > .calc-right {
+        padding-bottom: 3.5rem;
+    }
+}
+
+@media (min-width: 1400px) {
+    .calc-grid.pane-fill > .calc-right {
+        display: contents;
+    }
+
+    .calc-grid.pane-fill > .calc-right > .calc-col {
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+    }
+}
+
+/* 育成ポケモン・自分チーム（PC）: 左（入力フォーム）と右（一覧）がそれぞれ画面内に収まり、中だけがスクロールする */
+@media (min-width: 768px) {
+    .reg-layout.pane-fill {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(0, 1fr);
+        gap: 0 1rem;
+        min-height: 20rem;
+    }
+
+    .reg-layout > .reg-col {
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
+        /* スクロール枠の上端とカードの枠・見出しが重なって切れて見えないよう、上に少し余白を取る */
+        padding-top: 0.25rem;
+    }
+}
+
+/* データ共有ページ: 読みやすい幅に収める */
+.sync-page {
+    max-width: 54rem;
+    padding-top: 0.25rem;
+}
+
+/* チャットコマンド（PC）: 一覧の枠は画面内に収め、表とオプション表だけがスクロールする。表の見出し行は上に固定 */
+@media (min-width: 768px) {
+    .cmd-scroll .cmd-example code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .cmd-list-card {
+        min-height: 20rem;
+        margin-bottom: 0;
+    }
+
+    .cmd-list-card > .card-body {
+        padding-bottom: 0;
+    }
+
+    /* 見出し行を固定するため、表の横スクロール枠は外す（幅は表が収まる分だけ） */
+    .cmd-scroll .table-responsive {
+        overflow: visible;
+    }
+
+    .cmd-scroll thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background-color: var(--app-panel-bg);
+        box-shadow: 0 1px 0 var(--app-card-border);
+    }
+
+    .cmd-scroll > :last-child {
+        padding-bottom: 1rem;
+    }
+}
+
+/* PC のスクロール枠の中でも、候補リスト・ヘルプの吹き出しが切れないよう画面基準で置く（js/page.js の JS が位置を決める） */
+.searchable-select-dropdown.is-floating {
+    position: fixed;
+    right: auto;
+    z-index: 1060;
+}
+
+.searchable-select-dropdown.is-floating.is-up {
+    border-top: 1px solid var(--app-input-border);
+    border-bottom: none;
+    border-radius: 0.25rem 0.25rem 0 0;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hp-calc-fill,
+    .race-bar,
+    .type-chart td,
+    .type-chart th,
+
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+        animation: none !important;
+    }
+}
+
+/* ---- お知らせ・空の状態（Notice.razor）。文字は本文と同じ色・大きさ、リンクは通常のリンク色 ---- */
+.mud-alert.app-notice {
+    align-items: baseline;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--bs-primary-border-subtle);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-body-color);
+    font-size: var(--bs-body-font-size); /* 計算結果カードなど、親が文字を小さくしていても本文と同じ大きさ */
+}
+
+/* 空の状態は背景だけ薄くする（枠・角丸・余白・文字は同じ） */
+.mud-alert.app-notice-empty {
+    background: color-mix(in srgb, var(--bs-primary-bg-subtle) 40%, transparent);
+}
+
+.mud-alert.app-notice .mud-alert-icon {
+    color: var(--bs-primary);
+    margin-right: 0.6rem;
+    align-self: center;
+}
+
+.mud-alert.app-notice .mud-alert-message {
+    min-width: 0;
+    padding: 0;
+}
+
+/* =========================================================
+   バトルフィールドの背景（Shared/BattleStageBackground.razor の .bg-scene）
+   - 空・観客席・地平線は水平。コートは床の上で回して、自分の陣地を左下・相手の陣地を右上に置く
+   - 足場には、ダメージ計算機・素早さ比較で選んだ 2 体（どちらも未選択ならランダムな 2 体）が立つ（Services/BattleStage.cs）
+   - 動くのは照明・足場の輪・ポケモンの揺れ・観客席のフラッシュ・光のぼかし
+   元に戻すときは、この節と MainLayout.razor の <BattleStageBackground /> を消す
+   ========================================================= */
+:root,
+[data-bs-theme="light"] {
+    /* ライトの背景のフィールドは、白っぽくなりすぎないよう、少し濃い紫にして、コートの線・足場・ポケモンもはっきり出す */
+    --space-0: #e6dcf9;
+    --space-1: #d3c3f1;
+    --space-glow: rgba(124, 58, 237, 0.24);
+    --nebula-1: rgba(168, 85, 247, 0.36);
+    --nebula-2: rgba(232, 121, 249, 0.26);
+    --nebula-3: rgba(99, 102, 241, 0.24);
+    --nebula-blend: normal;
+    --field-line: rgba(91, 33, 182, 0.5);
+    --field-fill: rgba(124, 58, 237, 0.15);
+    --field-band: rgba(124, 58, 237, 0.1);
+    --field-pad: rgba(91, 33, 182, 0.4);
+    --field-pad-fill: rgba(124, 58, 237, 0.14);
+    --field-beam: rgba(124, 58, 237, 0.16);
+    --field-sky: rgba(167, 139, 250, 0.4);
+    --field-stand: rgba(91, 33, 182, 0.16);
+    --field-mon-opacity: 0.8;
+    --glass: rgba(255, 255, 255, 0.72);
+    /* ホームのサイト名の文字: ライトはバイオレット、ダークは淡いラベンダー（3 サイト共通。ピンクに寄りすぎないように） */
+    --brand-grad: linear-gradient(120deg, #7c3aed 0%, #6d28d9 100%);
+}
+
+[data-bs-theme="dark"] {
+    --space-0: #0c0616;
+    --space-1: #140a26;
+    --space-glow: rgba(124, 58, 237, 0.35);
+    --nebula-1: rgba(168, 85, 247, 0.55);
+    --nebula-2: rgba(232, 121, 249, 0.4);
+    --nebula-3: rgba(99, 102, 241, 0.35);
+    --nebula-blend: screen;
+    --field-line: rgba(216, 200, 255, 0.3);
+    --field-fill: rgba(124, 58, 237, 0.1);
+    --field-band: rgba(196, 181, 253, 0.04);
+    --field-pad: rgba(196, 181, 253, 0.2);
+    --field-pad-fill: rgba(168, 85, 247, 0.07);
+    --field-beam: rgba(196, 181, 253, 0.09);
+    --field-sky: rgba(76, 29, 149, 0.45);
+    --field-stand: rgba(196, 181, 253, 0.08);
+    --field-mon-opacity: 0.6;
+    --glass: rgba(26, 14, 48, 0.66);
+    --brand-grad: linear-gradient(135deg, #d1c4e9 0%, #b39ddb 45%, #9575cd 100%);
+}
+
+.bg-scene {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, var(--space-glow), transparent 70%),
+        linear-gradient(180deg, var(--space-0) 0%, var(--space-1) 100%);
+    /* PC では左のサイドバー（230px）を除いた範囲の真ん中にコートを置く */
+    --stage-shift: 115px;
+    /* コートの大きさの単位。横長の画面では高さも見て、下が切れないようにする */
+    --u: min(1.5vw, 2.1vh);
+}
+
+.bg-layer { position: absolute; }
+
+.field-sky { position: absolute; inset: 0 0 66% 0; background: linear-gradient(180deg, var(--field-sky), transparent); }
+.field-horizon { position: absolute; left: 0; right: 0; top: 34%; height: 2px; background: linear-gradient(90deg, transparent, var(--field-pad), transparent); box-shadow: 0 0 24px 6px var(--field-beam); }
+.field-stands {
+    position: absolute; left: 0; right: 0; top: 16%; height: 18%;
+    background: repeating-linear-gradient(180deg, var(--field-stand) 0 3px, transparent 3px 14px);
+    mask-image: linear-gradient(180deg, transparent, #000 60%);
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%);
+}
+.field-flash { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 4px rgba(255, 255, 255, 0.7); opacity: 0; animation: field-flash 7s ease-out infinite; }
+@keyframes field-flash { 0%, 90%, 100% { opacity: 0; } 92% { opacity: 0.9; } }
+
+.field-floor { position: absolute; left: 0; right: 0; top: 34%; bottom: 0; perspective: 900px; perspective-origin: 50% -20%; background: linear-gradient(180deg, var(--field-fill), transparent 120%); }
+/* コートの面（真上から見た長方形）。奥へ倒してから、床の上で時計回りに回す */
+/* 床の上でゆっくり 1 周回り続ける（2 分で 1 周）。回っても地平線を越えにくいよう、中心は床の真ん中あたり */
+.field-plane { position: absolute; left: calc(50% + var(--stage-shift)); top: 40%; width: calc(30 * var(--u)); height: calc(49 * var(--u)); margin: calc(-24.5 * var(--u)) 0 0 calc(-15 * var(--u)); transform: rotateX(62deg) rotateZ(60deg); animation: field-spin 120s linear infinite; }
+@keyframes field-spin { from { transform: rotateX(62deg) rotateZ(60deg); } to { transform: rotateX(62deg) rotateZ(420deg); } }
+@keyframes field-spin-tall { from { transform: rotateX(66deg) rotateZ(48deg); } to { transform: rotateX(66deg) rotateZ(408deg); } }
+.field-court { position: absolute; inset: 0; width: 100%; height: 100%; }
+.field-court .cl { fill: none; stroke: var(--field-line); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.field-court .cf { fill: var(--field-fill); }
+.field-court .band { fill: var(--field-band); }
+.field-court .em { fill: var(--field-line); opacity: 0.5; }
+
+/* 足場（床に描いた円。遠近で楕円に見える） */
+.field-pad { position: absolute; left: 50%; width: calc(8.5 * var(--u)); height: calc(8.5 * var(--u)); margin-left: calc(-4.25 * var(--u)); border-radius: 50%; border: 2px solid var(--field-pad); background: radial-gradient(circle, var(--field-pad-fill), transparent 70%); }
+.field-pad::before, .field-pad::after { content: ""; position: absolute; border-radius: 50%; border: 2px dashed var(--field-pad); }
+.field-pad::before { inset: 14%; }
+.field-pad::after { inset: 34%; border-style: solid; animation: field-pad-pulse 4s ease-in-out infinite; }
+@keyframes field-pad-pulse { 50% { transform: scale(1.25); opacity: 0.3; } }
+/* 足場はコートの両端（トレーナー側）に寄せる */
+.field-pad-foe { top: 12%; }
+.field-pad-foe::after { animation-delay: -2s; }
+.field-pad-mine { top: 88%; margin-top: calc(-8.5 * var(--u)); }
+/* ダブルバトル: 2 つ目の足場は、ダブルのときだけ出す。それぞれの側の足場を左右に分ける */
+.field-pad-foe2, .field-pad-mine2 { display: none; }
+.field-pad-foe2 { top: 12%; }
+.field-pad-foe2::after { animation-delay: -1s; }
+.field-pad-mine2 { top: 88%; margin-top: calc(-8.5 * var(--u)); }
+.bg-scene.doubles .field-pad-foe2, .bg-scene.doubles .field-pad-mine2 { display: block; }
+.bg-scene.doubles .field-pad-foe, .bg-scene.doubles .field-pad-mine { left: 27%; }
+.bg-scene.doubles .field-pad-foe2, .bg-scene.doubles .field-pad-mine2 { left: 73%; }
+
+/* ポケモン：床とは別の平らな画像。足場の位置を JS（js/page.js の faraPlaceStage）で測って、足場の真ん中に足元を合わせる。
+   床の傾きを打ち消して立たせる作り（preserve-3d）は、iPhone のブラウザで床に寝てつぶれるため使わない */
+.field-mon { position: fixed; left: 0; top: 0; visibility: hidden; image-rendering: pixelated; opacity: var(--field-mon-opacity); animation: field-mon-idle 2.6s ease-in-out infinite; }
+/* 向き（左右反転）は faraPlaceStage が、2 体が向き合うように毎フレーム決める */
+.field-mon-mine { animation-delay: -1.3s; }
+.field-mon-foe2 { animation-delay: -0.6s; }
+.field-mon-mine2 { animation-delay: -1.9s; }
+@keyframes field-mon-idle { 50% { translate: 0 -4%; } }
+
+.field-beam { position: absolute; top: -10%; width: 260px; height: 130%; transform-origin: top center; background: linear-gradient(180deg, var(--field-beam), transparent 75%); clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); animation: field-beam-sway 14s ease-in-out infinite alternate; }
+.field-beam-1 { left: 22%; transform: rotate(-18deg); }
+.field-beam-2 { right: 10%; transform: rotate(16deg); animation-duration: 18s; animation-delay: -6s; }
+@keyframes field-beam-sway { 0% { rotate: -8deg; } 100% { rotate: 10deg; } }
+
+/* スマホ（サイドバーは上のバー）では、真ん中をずらさない */
+@media (max-width: 767.98px) {
+    .bg-scene { --stage-shift: 0px; }
+}
+
+/* 縦長の画面：地平線を上げ、コートと足場を画面幅に合わせて大きくする */
+@media (max-aspect-ratio: 1/1) {
+    .bg-scene { --u: min(1.3vw, 1.8vh); }
+    .field-sky { inset: 0 0 66% 0; }
+    .field-stands { top: 20%; height: 14%; }
+    .field-horizon, .field-floor { top: 34%; }
+    .field-plane { top: 50%; width: calc(46 * var(--u)); height: calc(72 * var(--u)); margin: calc(-36 * var(--u)) 0 0 calc(-23 * var(--u)); transform: rotateX(66deg) rotateZ(48deg); animation-name: field-spin-tall; }
+    .field-pad { width: calc(11 * var(--u)); height: calc(11 * var(--u)); margin-left: calc(-5.5 * var(--u)); }
+    .field-pad-foe { top: 12%; }
+    .field-pad-mine, .field-pad-mine2 { top: 88%; margin-top: calc(-11 * var(--u)); }
+    .field-beam { width: 160px; }
+}
+
+/* ---- 対戦画面（「対戦画面で表示」をオンにしたとき。Shared/BattleOverlay.razor）----
+   フィールドの回転を止めて、自分側を左下・相手側を右上に固定する（回転の最初の向きと同じ）。
+   結果は、その上に重ねた枠（左下＝自分側、右上＝相手側、下＝技とダメージ）に出す。入力欄は隠す（入力した内容は残る） */
+.bg-scene.battle { --field-mon-opacity: 1; }
+.bg-scene.battle .field-plane { animation: none; }
+/* 横長の画面（PC）では、コートの奥が観客席にはみ出ないよう、観客席・地平線を上に上げる（コートの位置は変えない） */
+@media (min-aspect-ratio: 1/1) {
+    .bg-scene.battle .field-sky { inset: 0 0 76% 0; }
+    .bg-scene.battle .field-stands { top: 7%; height: 17%; }
+    .bg-scene.battle .field-horizon, .bg-scene.battle .field-floor { top: 24%; }
+    .bg-scene.battle .field-plane { top: 47%; }
+}
+
+/* 縦長の画面（スマホ）では、対戦画面のフィールドと、観客席・地平線を上に詰める */
+@media (max-aspect-ratio: 1/1) {
+    .bg-scene.battle .field-sky { inset: 0 0 80% 0; }
+    .bg-scene.battle .field-stands { top: 8%; height: 12%; }
+    .bg-scene.battle .field-horizon, .bg-scene.battle .field-floor { top: 20%; }
+    /* コートが、上の相手の枠と、下の自分の枠・技の枠に隠れない位置にする（枠のあいだの真ん中） */
+    .bg-scene.battle .field-plane { top: 28%; }
+    /* 対戦画面は、コートを大きめに出す（画面の左右は少し切れてよい） */
+    .bg-scene.battle { --u: min(1.55vw, 2.1vh); }
+}
+/* 画面の高さが低いとき（ブラウザのバーが出ている iPhone など）は、枠のあいだに収まるようコートを小さくする */
+@media (max-aspect-ratio: 1/1) and (max-height: 700px) {
+    .bg-scene.battle { --u: min(1.55vw, 0.62vh); }
+}
+@media (max-aspect-ratio: 1/1) and (max-height: 660px) {
+    .bg-scene.battle { --u: min(1.55vw, 0.5vh); }
+}
+.fbc-page.battle-active main { visibility: hidden; }
+
+/* 対戦画面がオンなのに、まだ出す内容が無いときの案内（入力欄は出したまま） */
+.battle-hint {
+    margin-bottom: 0.75rem; padding: 0.5rem 0.8rem; border: 1px solid var(--bs-primary); border-radius: 0.6rem;
+    background: color-mix(in srgb, var(--bs-primary) 10%, var(--glass)); font-size: 0.88rem;
+}
+.battle-hint strong { margin-right: 0.4rem; }
+
+/* サイドバーのスイッチ（暗い背景なので文字は明るく）。スマホでは上のバーのスイッチ（.top-battle）を使う */
+.fbc-sidebar .side-battle { color: rgba(255, 255, 255, 0.85); font-size: 0.85rem; }
+.top-battle { display: none; }
+@media (max-width: 767.98px) {
+    .fbc-sidebar .side-battle { display: none; }
+    .top-battle {
+        display: inline-flex; flex: none; margin: 0 0 0 auto; padding: 0; color: rgba(255, 255, 255, 0.85);
+    }
+    .top-battle.mud-switch { flex-direction: column; align-items: center; }
+    .top-battle .mud-typography, .top-battle .mud-switch-label { font-size: 0.68rem; line-height: 1; white-space: nowrap; color: rgba(255, 255, 255, 0.85); }
+}
+
+.battle-ui {
+    position: fixed;
+    inset: 3.6rem 0 0 0;
+    z-index: 1020;
+    pointer-events: none;
+    --bv-gap: 0.75rem;
+}
+.battle-ui > * { pointer-events: auto; }
+@media (min-width: 768px) {
+    .battle-ui { inset: 3.5rem 0 0 230px; --bv-gap: 1.25rem; }
+}
+
+.bv-box,
+.bv-msg {
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 0.8rem;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    color: var(--bs-body-color);
+}
+.bv-box { width: min(19rem, 46%); }
+.bv-foe { position: absolute; top: var(--bv-gap); right: var(--bv-gap); }
+/* 左下の自分側の枠と、下の技・ダメージの枠は、縦に並べる（技の枠が 2〜3 行に増えても重ならない） */
+.bv-bottom { position: absolute; left: var(--bv-gap); right: var(--bv-gap); bottom: var(--bv-gap); display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+.bv-name { font-weight: 700; margin-bottom: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bv-bar { height: 0.9rem; }
+.hp-calc-bar.bv-bar > div { transition: width 0.6s ease, left 0.6s ease, background-color 0.5s 0.3s; }
+.bv-hp { margin-top: 0.25rem; text-align: right; font-size: 0.82rem; color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.bv-msg { align-self: stretch; }
+@media (min-width: 768px) {
+    .bv-msg { align-self: center; width: min(44rem, 100%); }
+}
+/* 育成ポケモン: 左下に自分側、右下に技 4 つ（縦 1 列・4 行。右端に威力） */
+.bv-bottom-moves { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 0.75rem; }
+.bv-moves { display: grid; grid-template-columns: 1fr; gap: 0.4rem; width: min(19rem, 58%); }
+.bv-move {
+    display: flex; align-items: center; gap: 0.4rem; min-width: 0;
+    padding: 0.55rem 0.7rem; border: 1px solid var(--app-card-border); border-radius: 0.7rem;
+    background: var(--glass); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); color: var(--bs-body-color); font-weight: 700;
+}
+.bv-move span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bv-move-power { margin-left: auto; padding-left: 0.4rem; flex-shrink: 0; font-weight: 400; color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.bv-move-empty { justify-content: center; color: var(--app-muted); font-weight: 400; }
+@media (max-width: 575.98px) {
+    .bv-moves { width: 58%; gap: 0.35rem; }
+    .bv-move { padding: 0.4rem 0.55rem; font-size: 0.85rem; }
+    .bv-bottom-moves .bv-box { width: 38%; padding: 0.45rem 0.55rem; }
+    .bv-bottom-moves .bv-name { font-size: 0.85rem; }
+}
+
+/* スマホ（タッチ操作）: 背景が動くので、枠のぼかし（backdrop-filter）は毎フレーム再計算になって重い。ぼかさず、少し濃くする */
+@media (pointer: coarse) {
+    .bv-box, .bv-msg, .bv-move {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        background: color-mix(in srgb, var(--bs-body-bg) 88%, transparent);
+    }
+}
+
+/* 横向きのスマホ（高さが低い）: 枠を小さくし、自分の枠は左下、技・ダメージの枠は右下に並べて、真ん中のコートとポケモンを見えるようにする */
+@media (orientation: landscape) and (max-height: 560px) {
+    .battle-ui { --bv-gap: 0.4rem; }
+    .bv-box { width: min(14rem, 30%); padding: 0.3rem 0.55rem; }
+    .bv-name { font-size: 0.82rem; margin-bottom: 0.15rem; }
+    .bv-bar { height: 0.55rem; }
+    .bv-hp { margin-top: 0.1rem; font-size: 0.68rem; }
+    .bv-unknown { font-size: 0.95rem; }
+    .bv-bottom { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 0.5rem; }
+    .bv-bottom .bv-mine { flex: 0 0 auto; }
+    .bv-bottom .bv-msg { align-self: flex-end; width: min(24rem, 52%); padding: 0.3rem 0.6rem; min-width: 0; }
+    .bv-msg-move { font-size: 0.82rem; }
+    .bv-msg-dmg { margin-top: 0.1rem; gap: 0.15rem 0.35rem; }
+    .bv-msg-range { font-size: 0.9rem; }
+    .bv-msg-kind { min-width: 2.2rem; font-size: 0.68rem; padding: 0.02rem 0.3rem; }
+    .bv-kind-up, .bv-kind-down, .bv-kind-none { min-width: 6.2rem; }
+    .bv-msg .badge { font-size: 0.62rem; padding: 0.2em 0.4em; }
+    .bv-msg-sub { font-size: 0.68rem; }
+    .bv-conditions { max-width: 40%; }
+    .bv-cond { padding: 0.25rem 0.45rem; font-size: 0.68rem; }
+    .bv-moves { width: min(13rem, 45%); gap: 0.25rem; }
+    .bv-move { padding: 0.22rem 0.45rem; font-size: 0.78rem; }
+    /* コートは枠のあいだの真ん中に、小さめに置く */
+    .bg-scene.battle { --u: min(1.7vw, 2.3vh); }
+    .bg-scene.battle .field-plane { top: 46%; left: 50%; }
+}
+/* 幅 768px 以上の横向き（サイドバーが出る）: 枠の外の、見えている範囲の中央にコートを置き、技・ダメージの枠を広めにして確定数が折り返さないようにする */
+@media (orientation: landscape) and (max-height: 560px) and (min-width: 768px) {
+    .bg-scene.battle .field-plane { left: calc(50% + var(--stage-shift)); }
+    .bv-bottom .bv-msg { width: min(30rem, 66%); }
+    .bv-box { width: min(14rem, 28%); }
+}
+
+/* 育成ポケモン: 登録一覧の行を選んで編集する */
+.reg-item { cursor: pointer; }
+.reg-item:hover { background: color-mix(in srgb, var(--bs-primary) 6%, transparent); }
+.reg-item.reg-selected { background: color-mix(in srgb, var(--bs-primary) 14%, transparent); box-shadow: inset 3px 0 0 var(--bs-primary); }
+.reg-item:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: -2px; }
+
+/* 天候・フィールドの表示（左上の札） */
+.bv-conditions { position: absolute; top: var(--bv-gap); left: var(--bv-gap); display: flex; flex-wrap: wrap; gap: 0.35rem; max-width: 46%; }
+.bv-cond { padding: 0.4rem 0.65rem; font-size: 0.8rem; font-weight: 700; color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); }
+.bv-cond-weather { background: #4f7cd6; }
+.bv-cond-terrain { background: #5aa05a; }
+
+/* ---- 天候・フィールド（開いているページで入力している内容を、背景のフィールドに見た目で出す）----
+   対戦画面（.battle）のときは濃く、そうでないときは控えめに出す。
+   雨・砂嵐・雪の粒は js/page.js の faraWeather がキャンバス（.wx-canvas）に描く。ここは色の味付けと、床の色 */
+.wx-layer { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.6s; --wx-tint: transparent; background: var(--wx-tint); }
+.wx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bg-scene.wx-rain .wx-layer, .bg-scene.wx-sun .wx-layer, .bg-scene.wx-sand .wx-layer, .bg-scene.wx-snow .wx-layer,
+.bg-scene.tr-electric .wx-layer, .bg-scene.tr-grassy .wx-layer, .bg-scene.tr-psychic .wx-layer, .bg-scene.tr-misty .wx-layer { opacity: 1; }
+.bg-scene.wx-rain .wx-layer { --wx-tint: linear-gradient(180deg, rgba(50, 85, 160, 0.1), rgba(50, 85, 160, 0.04)); }
+.bg-scene.wx-rain.battle .wx-layer { --wx-tint: linear-gradient(180deg, rgba(50, 85, 160, 0.2), rgba(50, 85, 160, 0.08)); }
+.bg-scene.wx-sand .wx-layer { --wx-tint: linear-gradient(180deg, rgba(190, 145, 80, 0.1), rgba(190, 145, 80, 0.05)); }
+.bg-scene.wx-sand.battle .wx-layer { --wx-tint: linear-gradient(180deg, rgba(190, 145, 80, 0.2), rgba(190, 145, 80, 0.1)); }
+.bg-scene.wx-snow .wx-layer { --wx-tint: linear-gradient(180deg, rgba(200, 225, 255, 0.08), rgba(200, 225, 255, 0.02)); }
+.bg-scene.wx-snow.battle .wx-layer { --wx-tint: linear-gradient(180deg, rgba(200, 225, 255, 0.16), rgba(200, 225, 255, 0.05)); }
+.bg-scene.wx-sun .wx-layer {
+    --wx-tint:
+        radial-gradient(circle at 82% 8%, rgba(255, 214, 90, 0.4) 0, rgba(255, 190, 60, 0.18) 18%, transparent 44%),
+        linear-gradient(180deg, rgba(255, 170, 60, 0.06), transparent);
+}
+.bg-scene.wx-sun.battle .wx-layer {
+    --wx-tint:
+        radial-gradient(circle at 82% 8%, rgba(255, 214, 90, 0.7) 0, rgba(255, 190, 60, 0.32) 18%, transparent 46%),
+        linear-gradient(180deg, rgba(255, 170, 60, 0.14), rgba(255, 200, 100, 0.04));
+}
+
+/* フィールド: 床の線・面の色。控えめ（通常）→ 濃く（対戦画面） */
+.bg-scene.tr-electric { --field-line: rgba(245, 190, 20, 0.5); --field-fill: rgba(250, 210, 40, 0.12); --field-band: rgba(250, 210, 40, 0.07); --field-pad: rgba(245, 190, 20, 0.4); --field-pad-fill: rgba(250, 210, 40, 0.1); }
+.bg-scene.tr-grassy { --field-line: rgba(50, 160, 70, 0.5); --field-fill: rgba(70, 190, 90, 0.13); --field-band: rgba(70, 190, 90, 0.07); --field-pad: rgba(50, 160, 70, 0.4); --field-pad-fill: rgba(70, 190, 90, 0.1); }
+.bg-scene.tr-psychic { --field-line: rgba(220, 70, 180, 0.5); --field-fill: rgba(235, 90, 200, 0.12); --field-band: rgba(235, 90, 200, 0.07); --field-pad: rgba(220, 70, 180, 0.4); --field-pad-fill: rgba(235, 90, 200, 0.1); }
+.bg-scene.tr-misty { --field-line: rgba(240, 130, 190, 0.5); --field-fill: rgba(255, 170, 215, 0.14); --field-band: rgba(255, 170, 215, 0.08); --field-pad: rgba(240, 130, 190, 0.4); --field-pad-fill: rgba(255, 170, 215, 0.12); }
+.bg-scene.tr-electric.battle { --field-line: rgba(245, 190, 20, 0.85); --field-fill: rgba(250, 210, 40, 0.28); --field-band: rgba(250, 210, 40, 0.16); --field-pad: rgba(245, 190, 20, 0.7); --field-pad-fill: rgba(250, 210, 40, 0.2); }
+.bg-scene.tr-grassy.battle { --field-line: rgba(50, 160, 70, 0.85); --field-fill: rgba(70, 190, 90, 0.3); --field-band: rgba(70, 190, 90, 0.17); --field-pad: rgba(50, 160, 70, 0.7); --field-pad-fill: rgba(70, 190, 90, 0.2); }
+.bg-scene.tr-psychic.battle { --field-line: rgba(220, 70, 180, 0.85); --field-fill: rgba(235, 90, 200, 0.28); --field-band: rgba(235, 90, 200, 0.16); --field-pad: rgba(220, 70, 180, 0.7); --field-pad-fill: rgba(235, 90, 200, 0.2); }
+.bg-scene.tr-misty.battle { --field-line: rgba(240, 130, 190, 0.85); --field-fill: rgba(255, 170, 215, 0.3); --field-band: rgba(255, 170, 215, 0.18); --field-pad: rgba(240, 130, 190, 0.7); --field-pad-fill: rgba(255, 170, 215, 0.22); }
+.bg-scene.tr-misty .field-floor::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 75%, rgba(255, 200, 230, 0.1), transparent 70%); }
+.bg-scene.tr-misty.battle .field-floor::after { background: radial-gradient(ellipse at 50% 75%, rgba(255, 200, 230, 0.2), transparent 70%); }
+
+/* 育成ポケモン: 技の 4 枠と、登録一覧の技 */
+.move-pick-summary { list-style: none; padding: 0; }
+.move-pick-summary li { display: flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0; }
+.move-pick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+.reg-move { display: inline-flex; align-items: center; gap: 0.2rem; margin-right: 0.6rem; }
+
+.bv-msg-move { font-size: 1.05rem; }
+.bv-msg-dmg { margin-top: 0.2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; }
+.bv-msg-range { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bv-msg-kind { min-width: 2.6rem; padding: 0.05rem 0.4rem; border-radius: 0.4rem; background: rgba(120, 120, 160, 0.25); font-size: 0.78rem; font-weight: 700; text-align: center; }
+.bv-msg-kind-crit { background: rgba(229, 72, 77, 0.25); }
+/* 相手の振り方の推定（対戦画面）: 性格補正ごとの札と、相手の枠の実数値 */
+.bv-kind-up { background: rgba(229, 72, 77, 0.25); }
+.bv-kind-down { background: rgba(59, 130, 246, 0.25); }
+.bv-kind-none { background: rgba(34, 160, 107, 0.25); }
+.bv-kind-up, .bv-kind-down, .bv-kind-none { min-width: 8.2rem; text-align: left; }
+.bv-msg-sub { color: var(--app-muted); }
+.bv-nowrap { white-space: nowrap; }
+.bv-unknown { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bv-first { color: var(--app-win); }
+
+/* 光のぼかし（fara-labs.com と同じ紫・ピンク・青） */
+.bg-blob span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    filter: blur(70px);
+    mix-blend-mode: var(--nebula-blend);
+    animation: nebula-float 24s ease-in-out infinite alternate;
+}
+
+.blob-1 { width: 520px; height: 520px; top: -120px; left: 80px; }
+.blob-1 span { background: radial-gradient(circle, var(--nebula-1), transparent 65%); animation-duration: 18s; }
+.blob-2 { width: 460px; height: 460px; top: 30%; right: -120px; }
+.blob-2 span { background: radial-gradient(circle, var(--nebula-2), transparent 65%); }
+.blob-3 { width: 600px; height: 600px; top: 65%; left: 30%; }
+.blob-3 span { background: radial-gradient(circle, var(--nebula-3), transparent 65%); animation-duration: 30s; }
+
+@keyframes nebula-float {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(60px, -40px) scale(1.1); }
+    100% { transform: translate(-50px, 50px) scale(0.94); }
+}
+
+/* 半透明のカード（中の表も背景を透かす）。
+   backdrop-filter（ぼかし）は使わない: 付けた要素が position: fixed の基準になり、
+   画面基準で置く候補リスト（faraPlaceDropdown）やヘルプの吹き出しがずれたり、カードの外で切れたりする */
+.card,
+.fbc-card {
+    --bs-card-bg: var(--glass);
+}
+
+.card .table {
+    --bs-table-bg: transparent;
+}
+
+/* 入力欄・一覧・お知らせ・コマンドの小さな印も、カードと同じく半透明にして、背景のバトルフィールドを透かす。入力した文字が読めるよう、不透明度は高め。
+   （表の見出し行・ドロップダウンの候補は、スクロールで重なる・文字が読みにくくなるので、そのまま） */
+:root,
+[data-bs-theme="light"] {
+    --glass-field: rgba(255, 255, 255, 0.8);
+    --glass-pop: rgba(255, 255, 255, 0.88);
+    --glass-field-off: rgba(233, 236, 239, 0.55);
+    --glass-notice: rgba(237, 233, 254, 0.7);
+    --glass-chip: rgba(237, 233, 254, 0.7);
+}
+
+[data-bs-theme="dark"] {
+    --glass-field: rgba(12, 6, 22, 0.62);
+    --glass-pop: rgba(18, 10, 34, 0.9);
+    --glass-field-off: rgba(26, 16, 48, 0.5);
+    --glass-notice: rgba(42, 25, 74, 0.6);
+    --glass-chip: rgba(42, 25, 74, 0.6);
+}
+
+.form-control,
+.form-select,
+.nature-stat,
+.searchable-select-combo {
+    background-color: var(--glass-field);
+}
+
+.form-control:disabled,
+.form-control[readonly],
+.form-select:disabled,
+.searchable-select-combo:disabled,
+.searchable-select-combo[readonly] {
+    background-color: var(--glass-field-off);
+}
+
+.dex-list {
+    background: var(--glass);
+}
+
+.cmd-kind {
+    background: var(--glass-chip);
+}
+
+.cmd-ph {
+    background: color-mix(in srgb, var(--bs-primary-bg-subtle) 55%, transparent);
+}
+
+.mud-alert.app-notice {
+    background: var(--glass-notice);
+}
+
+.card > .card-header {
+    background: transparent;
+}
+
+/* サイト名・数値の書体（fara-labs.com の見出しと同じ Outfit） */
+.navbar-brand,
+.home-title {
+    font-family: "Outfit", var(--bs-font-sans-serif);
+    font-weight: 600;
+}
+
+/* ホームのサイト名：グラデーションの文字（色は --brand-grad） */
+.home-title {
+    font-size: clamp(2rem, 4.2vw, 3.4rem);
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+    background: var(--brand-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: home-rise 0.7s cubic-bezier(.16, 1, .3, 1) 0.1s backwards;
+}
+
+.home-lead {
+    max-width: 44em;
+    animation: home-rise 0.7s cubic-bezier(.16, 1, .3, 1) 0.25s backwards;
+}
+
+@keyframes home-rise { from { opacity: 0; transform: translateY(14px); } }
+
+/* ホーム：ほかの機能のリスト */
+.home-tools {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.home-tools li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.8rem 1rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.home-tools li:first-child { border-top: 0; }
+.home-tools .home-tool-text { flex: 1 1 auto; min-width: 0; }
+.home-tools .home-tool-text p { margin: 0; font-size: 0.875rem; color: var(--bs-secondary-color); }
+.home-tools .home-tool-actions { flex: none; display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+
+/* カード全体のリンク: 機能名のリンクの ::after を、カード（li）いっぱいに広げる */
+.home-tools .home-tool-card { position: relative; transition: background-color 0.15s ease; }
+.home-tools .home-tool-card:hover { background: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent); }
+.home-tools .home-tool-link { display: block; font-weight: 700; color: inherit; text-decoration: none; }
+.home-tools .home-tool-link::after { content: ""; position: absolute; inset: 0; }
+.home-tools .home-tool-card:hover .home-tool-link { color: var(--mud-palette-primary); text-decoration: underline; text-underline-offset: 3px; }
+.home-tools .home-tool-link:focus-visible { outline: none; }
+.home-tools .home-tool-link:focus-visible::after { outline: 2px solid var(--mud-palette-primary); outline-offset: -3px; border-radius: 4px; }
+.home-tools .home-tool-arrow { flex: none; color: var(--mud-palette-primary); font-weight: 700; transition: transform 0.15s ease; }
+.home-tools .home-tool-card:hover .home-tool-arrow { transform: translateX(3px); }
+
+@media (prefers-reduced-motion: reduce) {
+    .home-tools .home-tool-card, .home-tools .home-tool-arrow { transition: none; }
+}
+
+@media (min-width: 992px) {
+    .home-tools-2col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .home-tools-2col li:nth-child(2) { border-top: 0; }
+    .home-tools-2col li:nth-child(even) { border-left: 1px solid var(--bs-border-color); }
+}
+
+@media (max-width: 575.98px) {
+    .home-tools li:not(.home-tool-card) { flex-wrap: wrap; }
+    .home-tools .home-tool-actions { justify-content: flex-start; }
+}
+
+/* 計算結果の割合を大きく、数値の書体で */
+.result-main strong {
+    font-family: "Outfit", var(--bs-font-sans-serif);
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bg-scene *,
+    .bg-scene *::before,
+    .bg-scene *::after,
+    .home-title,
+    .home-lead {
+        animation: none !important;
+    }
+}
+
+/* 持ち物のアイコン＋名前 */
+.item-label { display: inline-flex; align-items: center; gap: 0.2rem; vertical-align: middle; }
+/* アイコンの場所は、画像が無い持ち物でも同じ幅で空ける（名前の位置をそろえる） */
+.item-icon-slot { display: inline-block; flex: none; width: 2.25rem; height: 2.25rem; }
+.item-icon { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+/* 検索入力の候補・固定欄の中では、行の高さに合わせて小さくする */
+.searchable-select-item .item-icon-slot, .fixed-field .item-icon-slot { width: 1.75rem; height: 1.75rem; }
+.searchable-select-item .item-label, .fixed-field .item-label { gap: 0.4rem; }
+
+/* 連続技・おやこあい: HP バーの下の「何回当たったか」の目印（押すと切り替わる） */
+.hp-ticks { position: relative; height: 1.7rem; margin: 0.15rem 0.7rem 0; }
+.hp-tick {
+    position: absolute; top: 0; transform: translateX(-50%);
+    min-width: 1.5rem; height: 1.5rem; padding: 0 0.35rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700; line-height: 1;
+    border: 1px solid var(--bs-primary); background: transparent; color: var(--bs-primary); cursor: pointer;
+}
+.hp-tick::before { content: ""; position: absolute; left: 50%; top: -0.35rem; width: 2px; height: 0.35rem; background: var(--bs-primary); transform: translateX(-50%); }
+.hp-tick.active { background: var(--bs-primary); color: #fff; }
+.hp-tick:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.hit-details > summary { cursor: pointer; color: var(--app-muted); }
+
+/* 選んでいる持ち物・特性の名前の横に説明の「?」を出す */
+.with-desc { display: flex; align-items: center; gap: 0.35rem; }
+.with-desc > :first-child { flex: 1 1 auto; min-width: 0; }
+.with-desc .help-wrap { margin-left: 0; }
+.fixed-field .help-wrap { margin-left: 0.1rem; }
+@media (max-width: 767.98px) {
+    /* スマホ: 吹き出しを、入力欄の幅いっぱいに、下に出す（右端の「?」から出すと画面の外にはみ出すため） */
+    .with-desc, .fixed-field { position: relative; }
+    .with-desc .help-wrap, .fixed-field .help-wrap { position: static; }
+    .with-desc .help-note, .fixed-field .help-note { left: 0; right: 0; top: 100%; width: auto; max-width: none; margin-top: 0.25rem; }
+    .with-desc .help-note::before, .fixed-field .help-note::before { display: none; }
+}
+
+/* ---- わざ一覧（ポケモン一覧の一覧表と同じ作り） ---- */
+.mv-row {
+    grid-template-columns: minmax(9rem, 1.2fr) 4.6rem 3rem 3.2rem 3.2rem 3rem minmax(14rem, 4fr);
+    min-height: 56px;
+}
+
+.mv-name {
+    font-weight: 600;
+}
+
+.mv-type {
+    line-height: 0;
+}
+
+.mv-cat,
+.mv-num {
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.mv-num {
+    text-align: right;
+}
+
+.mv-desc {
+    color: var(--app-muted);
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.dex-sort.mv-type,
+.dex-sort.mv-name {
+    text-align: left;
+}
+
+.mv-row .mv-desc {
+    padding-left: 0.6rem;
+}
+
+.mv-learners {
+    padding: 0.5rem 0.6rem 0.6rem;
+    border-bottom: 1px solid var(--app-card-border);
+    background: var(--bs-primary-bg-subtle);
+}
+
+.mv-learner-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.35rem;
+    max-height: 14rem;
+    overflow-y: auto;
+}
+
+.mv-learner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    padding: 0 0.5rem 0 0.1rem;
+    border: 1px solid var(--app-card-border);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: 0.82rem;
+    text-decoration: none;
+}
+
+.mv-learner:hover {
+    border-color: var(--bs-primary);
+}
+
+.mv-learner .poke-icon-sm {
+    width: 32px;
+    height: 32px;
+}
+
+/* スマホ: 1 つの技を 3 段のカードにする（技名とタイプ / 分類・威力・命中・PP / 説明） */
+@media (max-width: 767.98px) {
+    .mv-row {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.15rem 0.25rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    .mv-row .mv-name {
+        grid-column: 1 / 4;
+        grid-row: 1;
+    }
+
+    .mv-row .mv-type {
+        grid-column: 4;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    .mv-row .mv-cat,
+    .mv-row .mv-num {
+        grid-row: 2;
+        text-align: center;
+    }
+
+    .mv-row .mv-num::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--app-muted);
+        font-size: 0.62rem;
+        font-weight: 400;
+    }
+
+    .mv-row .mv-desc {
+        grid-column: 1 / -1;
+        grid-row: 3;
+    }
+}
+
+/* チャットコマンド画面の説明: スマホでは 2 行、PC では 1 行に続ける */
+.command-note-legend { display: block; margin-top: .25rem; }
+@media (min-width: 992px) {
+    .command-note-legend { display: inline; margin: 0; }
+}
+
+/* ---- レイアウト（MudBlazor の MudLayout / MudAppBar / MudDrawer。Shared/MainLayout.razor・NavMenu.razor） ----
+   - ヘッダー: 上に固定（3.5rem）。ハンバーガー・サイト名・検索・設定（PC）／ハンバーガー・サイト名・対戦画面のスイッチ・検索ボタン（スマホ）
+   - サイドバー: PC は Mini ドロワー（隠すと、アイコンだけの細い列。マウスを乗せると広げて、ページの上にかぶせる）。スマホは、ハンバーガーで開く一時的なメニュー
+   - 隠している間の余白（対戦画面・結果バー・背景のコート）は、html の fbc-sidebar-hidden クラス（MainLayout が付け外し）で決める */
+.fbc-page.mud-layout {
+    position: relative;
+    min-height: 100vh;
+}
+
+.fbc-header.mud-appbar {
+    height: 3.5rem;
+    z-index: 1040;
+    color: #fff;
+    background: linear-gradient(90deg, #140a26 0%, #241243 100%);
+}
+
+.fbc-header .mud-toolbar {
+    height: 3.5rem;
+    min-height: 3.5rem;
+    gap: 12px;
+    padding: 0 12px;
+}
+
+.fbc-header .fbc-menu-toggle {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.fbc-header .fbc-menu-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.fbc-brand {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.fbc-brand:hover {
+    color: #fff;
+}
+
+/* スマホのヘッダー: 検索ボタン（44px）が入る分だけ、サイト名を縮める（入りきらないところは …） */
+@media (max-width: 767.98px) {
+    .fbc-brand {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 0.9rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+@media (max-width: 380px) {
+    .fbc-brand { font-size: 0.84rem; }
+}
+
+/* ヘッダーの検索ボタン（スマホ。タップの大きさは 44px） */
+.fbc-header .fbc-search-toggle {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.fbc-header .fbc-search-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.fbc-header :focus-visible {
+    outline-color: #e9d5ff;
+}
+
+/* ヘッダーの下端の線 = ページを読んだ量。下端の線（2px）の地（track）の上に、読んだ量の分だけ色（accent）を左から伸ばす。
+   js/scroll-progress.js が、この要素の --scroll-progress に 0〜1 を入れる。見るだけの表示なので、押せない・読み上げない */
+.fbc-scroll-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--app-header-track);
+    pointer-events: none;
+}
+
+.fbc-scroll-progress::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--app-header-accent);
+    transform-origin: left;
+    transform: scaleX(var(--scroll-progress, 0));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .fbc-scroll-progress::before {
+        transition: transform 0.12s linear;
+    }
+}
+
+/* サイドバー（後ろの宇宙の背景がわずかに透けるよう、少しだけ半透明） */
+.fbc-sidebar.mud-drawer {
+    color: #d7d7d7;
+    background-color: #1a0d33;
+    background-image: linear-gradient(180deg, rgba(20, 10, 38, 0.92) 0%, rgba(36, 18, 67, 0.92) 60%, rgba(45, 27, 78, 0.92) 100%);
+    border-right: 1px solid rgba(200, 170, 255, 0.14);
+}
+
+.fbc-sidebar .mud-nav-link {
+    color: #d7d7d7;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.fbc-sidebar .mud-nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.fbc-sidebar .mud-nav-link.active {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+.fbc-sidebar .mud-nav-link .mud-icon-root {
+    color: inherit;
+}
+
+.fbc-sidebar .mud-nav-link.mud-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* グループの見出し（配信 など）。小さな文字で、項目より控えめに。細い列のときは、文字だけ消して、高さは残す（アイコンが動かない） */
+.fbc-sidebar .fbc-nav-section {
+    padding: 0 1rem;
+    margin-top: 0.4rem;
+    margin-bottom: 0.2rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.fbc-sidebar.mud-drawer--closed:not(:hover) .fbc-nav-section,
+.fbc-sidebar.mud-drawer-mini:not(.mud-drawer--open):not(:hover) .fbc-nav-section {
+    opacity: 0;
+}
+
+@media (min-width: 768px) {
+    /* ページ全体はスクロールさせず、画面の高さに収める。中身は各ページの .pane-fill / .pane-scroll が受け持ち、一覧や長い表の中だけがスクロールする */
+    .fbc-page.mud-layout {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .fbc-page .mud-main-content {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        min-height: 0;
+    }
+
+    .fbc-page .mud-main-content > main {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* 収まらない画面（高さが低いとき）は、ここがスクロールして何も切れないようにする */
+    .fbc-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        padding-bottom: 1rem;
+    }
+
+    /* 隠している間は、細い列にマウスを乗せて広げても、ページの中身は動かさない（広げた分は、ページの上にかぶせる。MudBlazor の既定は、中身を押し出す） */
+    html.fbc-sidebar-hidden .fbc-page .mud-main-content {
+        margin-left: var(--mud-drawer-width-mini-left) !important;
+    }
+
+    /* 設定は、ヘッダーに出すので、サイドバーの上のほうの同じ欄は、PC では出さない（スマホは、そのまま出す） */
+    .fbc-sidebar .side-settings {
+        display: none;
+    }
+
+    /* サイドバー（230px）を前提にした配置は、隠している間は、細い列（56px）の分にする（対戦画面・結果バー・背景のコート） */
+    html.fbc-sidebar-hidden .battle-ui {
+        inset: 3.5rem 0 0 3.5rem;
+    }
+
+    html.fbc-sidebar-hidden .result-bar {
+        left: 3.5rem;
+    }
+
+    html.fbc-sidebar-hidden .bg-scene {
+        --stage-shift: 1.75rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .fbc-page .mud-main-content > main {
+        width: 100%;
+    }
+
+    .fbc-header .mud-toolbar {
+        gap: 8px;
+    }
+}
+
+.fbc-content {
+    padding-top: 1.1rem;
+}
+
+/* ---- kit のレイアウト（_content/FaraBlazorComponent.Razor/css/fara-blazor-component.css）との違いを、このサイトのこれまでの見た目・動作に合わせる ---- */
+/* kit は html・body の高さを 100% にする。このサイトは、これまで指定していない（スマホは、ページ全体がスクロールする） */
+html,
+body {
+    height: auto;
+}
+
+/* 選べない項目（未対応のゲーム）: kit は項目ごと薄くする（opacity 0.4）。このサイトは、これまで、文字だけが MudBlazor の既定で薄く、アイコンは白のまま */
+.fbc-sidebar .mud-nav-link.mud-nav-link-disabled {
+    opacity: 1;
+}
+
+/* 本文の左右の余白は 1.5rem（これまでは article に px-4 を付けていた。kit の既定は 1rem） */
+.fbc-content {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+@media (max-width: 767.98px) {
+    /* kit は、スマホでもページ全体を画面の高さに収めて、本文の中だけをスクロールさせる。
+       このサイトのスマホは、これまで通り、ページ全体（window）がスクロールする（内側スクロールが入れ子になると操作しにくいため）。フッターはページの最後に出る */
+    .fbc-page.mud-layout {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+    }
+
+    /* 本文が短いページでも、フッターが画面の途中に浮かず、画面の下端に来るようにする（本文が伸びて残りを埋める） */
+    .fbc-page .mud-main-content {
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    .fbc-page .mud-main-content > main {
+        display: block;
+        flex: 1 0 auto;
+    }
+
+    .fbc-content {
+        display: block;
+        overflow-y: visible;
+        padding-bottom: 0;
+    }
+
+    /* 枠の中だけがスクロールするのは PC だけ（問い合わせなど。kit の .fbc-pane-scroll は全幅に効く） */
+    .fbc-pane-scroll {
+        flex: none;
+        overflow: visible;
+        scrollbar-gutter: auto;
+    }
+
+    .fbc-page-pane {
+        scrollbar-gutter: auto;
+    }
+
+    /* 細い列に隠す設定（PC）は、スマホでは使わない（スマホは一時的なメニュー） */
+    html.fbc-sidebar-hidden .fbc-page .mud-main-content {
+        margin-left: 0 !important;
+    }
+}
+
+/* 対戦画面を出している間は、フッター（kit は main の外に置く）と、ヘッダーの読んだ量の線も出さない */
+.fbc-page.battle-active .fbc-footer {
+    visibility: hidden;
+}
+
+.fbc-page.battle-active .fbc-scroll-progress::before {
+    transform: scaleX(0);
+}
+
+/* ---- スマホの検索欄（ヘッダーの検索ボタンで、ヘッダーの下に開く。Shared/SiteSearch.razor の Sheet） ----
+   欄の枠（#fbc-search-sheet）は kit の SiteLayout が出し入れする（閉じているあいだは出さない。開くと、ヘッダーの下に全幅で固定する。PC の検索欄は、ヘッダーの中に常に出る）。
+   中の検索部品（.site-search-sheet）は、枠に position: static で入れ、結果の一覧・× の位置の基準を、枠にする */
+.fbc-search-sheet .site-search-sheet {
+    position: static;
+}
+
+.site-search-close {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-top: -22px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #d8c7f5;
+    cursor: pointer;
+}
+
+.site-search-close svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.site-search-close:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 767.98px) {
+    html.fbc-search-open .fbc-search-sheet {
+        padding: 8px 56px 8px 12px;
+        background: linear-gradient(90deg, #140a26 0%, #241243 100%);
+        border-bottom: 1px solid rgba(200, 170, 255, 0.14);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .site-search-sheet .site-search-input {
+        height: 44px;
+        padding: 0 12px 0 38px;
+        font-size: 1rem;   /* 16px 未満だと、iOS は入力のとき拡大する */
+    }
+
+    .site-search-sheet .site-search-list {
+        left: 12px;
+        right: 12px;
+        min-width: 0;
+        max-height: calc(100vh - 9.5rem);
+    }
+}
+
+/* ---- ヘッダーの検索欄・全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク） ---- */
+.hdr-controls {
+    display: none;
+}
+
+/* ライト／ダークのスイッチ（MudBlazor の MudSwitch。ON = ダーク（月）、OFF = ライト（太陽）） */
+.theme-switch.mud-switch {
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.site-search {
+    position: relative;
+}
+
+.site-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    margin-top: -9px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    color: #b9acd6;
+    pointer-events: none;
+}
+
+.site-search-input {
+    width: 100%;
+    height: 40px;
+    padding: 0 76px 0 38px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font: inherit;
+    font-size: 0.95rem;
+}
+
+.site-search-input::placeholder {
+    color: #b9acd6;
+}
+
+.site-search-input:focus {
+    outline: none;
+    border-color: #c084fc;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.site-search-input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.site-search-hint {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 4px;
+    pointer-events: none;
+}
+
+.site-search:focus-within .site-search-hint {
+    opacity: 0;
+}
+
+.site-search-hint kbd {
+    padding: 1px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    background: transparent;
+    color: #d8c7f5;
+    font: inherit;
+    font-size: 0.75rem;
+}
+
+.site-search-list {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    min-width: min(520px, 90vw);
+    z-index: 1060;
+    max-height: min(72vh, 600px);
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.site-search-row {
+    border-radius: 8px;
+}
+
+.site-search-row:hover,
+.site-search-row.is-active {
+    background: var(--bs-tertiary-bg);
+}
+
+.site-search-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 9px 12px 6px;
+    color: inherit;
+    text-decoration: none;
+    line-height: 1.5;
+}
+
+.site-search-item:hover {
+    color: inherit;
+}
+
+.site-search-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.site-search-kind {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+    font-weight: 600;
+    vertical-align: 1px;
+}
+
+.site-search-kind.sk-pokemon {
+    background: #7c3aed;
+    color: #fff;
+}
+
+.site-search-kind.sk-move {
+    background: #db2777;
+    color: #fff;
+}
+
+.site-search-kind.sk-ability {
+    background: #0d9488;
+    color: #fff;
+}
+
+.site-search-kind.sk-command {
+    background: #2563eb;
+    color: #fff;
+}
+
+.site-search-kind.sk-term {
+    background: #d97706;
+    color: #fff;
+}
+
+.site-search-where {
+    color: var(--bs-secondary-color);
+    font-size: 0.78rem;
+}
+
+.site-search-snippet {
+    color: var(--bs-secondary-color);
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+}
+
+.site-search-list mark {
+    background: rgba(250, 204, 21, 0.4);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 1px;
+}
+
+.site-search-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 12px 8px;
+}
+
+.site-search-chip {
+    padding: 1px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    color: inherit;
+    font-size: 0.75rem;
+    text-decoration: none;
+}
+
+.site-search-chip:hover,
+.site-search-chip.is-active {
+    background: var(--bs-secondary-bg);
+    color: inherit;
+}
+
+.site-search-chip.is-active {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.35);
+}
+
+.site-search-empty {
+    padding: 12px;
+    color: var(--bs-secondary-color);
+    font-size: 0.88rem;
+}
+
+@media (min-width: 768px) {
+    .fbc-header .site-search {
+        flex: 1 1 220px;
+        min-width: 140px;
+        max-width: 420px;
+        margin-left: auto;
+    }
+
+    .fbc-brand {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .hdr-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 0 0 auto;
+    }
+
+    .hdr-field {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .hdr-field .hdr-label {
+        margin: 0;
+        color: #d8c7f5;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    /* MudSelect: 白い入力欄（ヘッダーの暗い背景の上で、これまでと同じ見た目） */
+    .hdr-select.mud-input-control {
+        margin: 0;
+    }
+
+    .hdr-select .mud-input.mud-input-outlined {
+        height: 34px;
+        background: #fff;
+        color: #1e1433;
+        font-size: 0.875rem;
+    }
+
+    .hdr-select .mud-input-outlined .mud-input-outlined-border {
+        border-color: rgba(0, 0, 0, 0.25);
+    }
+
+    .hdr-select .mud-input-slot.mud-select-input {
+        padding-top: 0;
+        padding-bottom: 0;
+        text-overflow: ellipsis;
+    }
+
+    .hdr-dataset {
+        width: 210px;
+    }
+
+    .hdr-format {
+        width: 110px;
+    }
+
+    .hdr-note {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #f59e0b;
+        color: #1a0b33;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: help;
+    }
+
+    .hdr-battle {
+        margin: 0;
+        color: #fff;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .hdr-battle .mud-typography,
+    .hdr-battle .mud-switch-label {
+        color: #fff;
+        font-size: 0.85rem;
+    }
+
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .hdr-field .hdr-label,
+    .site-search-hint {
+        display: none;
+    }
+
+    .hdr-dataset {
+        width: 170px;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .fbc-brand {
+        display: none;
+    }
+}
+
+
+/* ---- MudBlazor のスイッチ・チェック（ラベル付き）を、これまでの form-check と同じく横に並べる ---- */
+.app-check-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    margin-right: 1rem;
+}
+
+.app-check-row .mud-switch,
+.app-check-row .mud-checkbox {
+    margin: 0;
+}
+
+/* 入力欄＋ボタン（.input-group）の中の MudBlazor の入力欄・セレクトは、残りの幅いっぱいに広げる（Bootstrap の .form-control / .form-select と同じ） */
+.input-group > .mud-input-control {
+    position: relative;
+    flex: 1 1 auto;
+    width: 1%;
+    min-width: 0;
+    margin: 0;
+}
+
+/* ---- サイドバーを開く・閉じる間、項目の文字が折り返して崩れないようにする ----
+   MudBlazor のドロワーは、幅を動かして開閉する。その間も、項目は本来の幅（230px）のまま並べて、はみ出した分は、ドロワーで切る */
+.fbc-sidebar.mud-drawer {
+    overflow: hidden;
+}
+
+.fbc-sidebar .mud-drawer-content {
+    overflow-x: hidden;
+}
+
+.fbc-sidebar .mud-navmenu {
+    width: var(--mud-drawer-width-left, 230px);
+    /* 先頭の「ホーム」がヘッダーにくっつかないよう、少し間を空ける（アバター・Bot のサイトと同じ） */
+    padding-top: 0.75rem;
+}
+
+.fbc-sidebar .mud-nav-link,
+.fbc-sidebar .mud-nav-link-text,
+.fbc-sidebar .fbc-nav-section {
+    white-space: nowrap;
+}
+
+/* ライト／ダークのスイッチ: ダークのとき、つまみ（紫）の上のアイコンが同じ色で見えなくなるので、白にする */
+.theme-switch .mud-switch-base.mud-checked [class*="mud-switch-thumb"] svg {
+    color: #fff !important;
+    fill: #fff !important;
+}
+
+/* セレクトの中のグループの見出し（コマンドの種類など） */
+.mud-list-item.app-select-group.mud-disabled {
+    opacity: 1;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--bs-secondary-color);
+    min-height: 1.8rem;
+}
+
+
+/* ---- 入力欄・選択欄・候補の一覧も、フォーカス中・開いている間も半透明にする（Bootstrap の :focus は不透明な白に戻す） ---- */
+.form-control:focus,
+.form-select:focus,
+.searchable-select-combo:focus,
+.nature-stat:focus-within {
+    background-color: var(--glass-field);
+}
+
+.searchable-select-dropdown {
+    background: var(--glass-pop);
+}
+
+.searchable-select-item:hover {
+    background-color: color-mix(in srgb, var(--bs-primary) 14%, transparent);
+}
+
+/* 入力欄の文字と、薄い案内の文字（プレースホルダー）を、半透明の背景の上でも読めるようにする */
+.form-control,
+.form-select,
+.searchable-select-combo {
+    color: var(--bs-emphasis-color);
+}
+
+.form-control::placeholder,
+.searchable-select-combo::placeholder,
+.mud-input-slot::placeholder {
+    color: var(--bs-secondary-color);
+    opacity: 1;
+}
+
+/* キーボードで入力欄・選択欄に入ったときの見える表示（MudBlazor は、フォーカスした要素そのものの枠の色を変えないため、outline で示す）。
+   MudBlazor の「:focus { outline: 0 }」より強い指定にする（html body を付ける） */
+html body .mud-input > .mud-input-root:focus-visible,
+html body div.mud-input-slot.mud-input-root:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+/* MudBlazor の入力欄・セレクト: 余白を 0 にして（ラベルと同じ高さにそろう）、背景も半透明にする */
+.app-select.mud-input-control,
+.app-field.mud-input-control,
+.fbc-select.mud-input-control,
+.fbc-field.mud-input-control {
+    margin: 0 !important;
+}
+
+.app-select .mud-input.mud-input-outlined,
+.app-field .mud-input.mud-input-outlined,
+.fbc-select .mud-input.mud-input-outlined,
+.fbc-field .mud-input.mud-input-outlined {
+    background: var(--glass-field);
+}
+
+.mud-popover.mud-popover-open .mud-list {
+    background: var(--glass-pop);
+}
+
+/* コマンドを作る欄: ラベル（「?」付きも）の高さをそろえて、どの種類でも、入力欄の上端が同じになるようにする */
+.cmd-build .form-label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 1.6rem;
+    margin-bottom: 0.2rem;
+}
+
+/* サイドバーのアイコンは、グレーではなく白にする（文字より少し明るく） */
+.fbc-sidebar .mud-nav-link .mud-icon-root,
+.fbc-sidebar .mud-nav-link .mud-nav-link-icon {
+    color: #fff !important;
+}
+
+.fbc-sidebar .mud-nav-link.active .mud-icon-root,
+.fbc-sidebar .mud-nav-link.active .mud-nav-link-icon {
+    color: #f3e8ff !important;
+}
+
+.fbc-sidebar .mud-nav-link {
+    color: #ece6f7;
+}
+
+/* 更新履歴（ホームは新しい数件の見出しだけ、更新履歴ページは細かい内容まで） */
+.changelog-date { font-size: 0.78rem; color: var(--bs-secondary-color, #8b80a8); font-variant-numeric: tabular-nums; margin-right: 0.35rem; }
+.changelog-entry .changelog-date { display: block; margin: 0 0 0.15rem; }
+.changelog-recent { list-style: none; margin: 0 0 0.6rem; padding: 0; }
+.changelog-recent li { padding: 0.15rem 0; }
+.changelog-entry ul { padding-left: 1.2rem; }
+.changelog-entry li { margin-bottom: 0.25rem; }
+
+/* ダブルバトルの素早さ比較: 4 体の動く順番 */
+.speed-order { list-style: none; margin: 0; padding: 0; }
+.speed-order-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; padding: 0.35rem 0.1rem; border-bottom: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); }
+.speed-order-row:last-child { border-bottom: 0; }
+.speed-order-rank { min-width: 3.2rem; font-weight: 700; }
+.speed-order-first .speed-value { color: var(--bs-success, #198754); }
+.speed-order-row .speed-value { margin-left: auto; font-size: 1.15rem; font-weight: 700; }
+.speed-order-team { font-weight: 600; }
+.speed-order-mine { background: var(--bs-primary, #7c3aed); color: #fff; }
+.speed-order-foe { background: #6b5f8a; color: #fff; }
+
+/* ダブルバトル: 何体目のポケモンを入力するかの切り替え（選んだ 1 体の入力欄だけを出す） */
+.slot-picker { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.4rem; margin: 0 0 0.6rem; }
+.slot-picker-title { align-self: center; font-weight: 700; margin-right: 0.2rem; }
+.slot-picker-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; min-width: 6.5rem; padding: 0.3rem 0.7rem; border: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.4)); border-radius: 0.5rem; background: var(--glass-field, transparent); color: inherit; cursor: pointer; text-align: left; }
+.slot-picker-btn small { color: var(--bs-secondary-color, #8b80a8); max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-picker-btn.active { border-color: var(--bs-primary, #7c3aed); box-shadow: 0 0 0 1px var(--bs-primary, #7c3aed) inset; }
+
+/* ダブルバトルのダメージ計算機: 2 体ずつの結果 */
+.calc-summary-row { padding: 0.45rem 0.1rem; border-bottom: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); }
+.calc-summary-row:last-child { border-bottom: 0; }
+.calc-summary-row.active .calc-summary-title { color: var(--bs-primary, #7c3aed); }
+.calc-summary-title { display: block; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.calc-summary-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin-top: 0.2rem; }
+
+/* フッター（3 サイト共通の形: サイト名 | 問い合わせ | プライバシーポリシー | © 公開年 Fara ＋ SNS のアイコン）。
+   PC はページ全体をスクロールさせない作りなので、フッターは中身の下に固定の 1 行（中身だけがスクロール）、スマホはページの最後に出す */
+.fbc-footer { flex: none; border-top: 1px solid var(--bs-border-color, rgba(128, 128, 160, 0.25)); font-size: 0.78rem; color: var(--bs-secondary-color, #8b80a8); text-align: center; background: var(--glass-field, transparent); }
+.fbc-footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.fbc-footer a:hover { color: var(--bs-primary, #7c3aed); }
+.fbc-footer-line { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 0.6rem; }
+.fbc-footer-sep { opacity: 0.5; }
+.fbc-footer-socials { display: inline-flex; gap: 0.35rem; margin-left: 0.2rem; align-items: center; }
+/* スマホ・狭い画面: 折り返したとき、行頭・行末に区切りの | が出ないよう、区切りは出さず、項目の間を空ける */
+@media (max-width: 767.98px) {
+    .fbc-footer-line { column-gap: 0.9rem; }
+    .fbc-footer-sep { display: none; }
+    .fbc-footer-line > * { white-space: nowrap; }   /* 項目（リンク・サイト名・©）は途中で改行しない。折り返しは項目の間だけ */
+}
+/* SNS のアイコン（白い図形を、サービス色の地に置く）。.fbc-footer a（文字色・下線）より詳細度を上げ、色とホバーの文字色に負けないようにする */
+a.fbc-footer-social { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--brand, #7c3aed); color: #fff; text-decoration: none; }
+/* 当たり判定は 44px 四方（見た目の 22px は変えない）。隣との間隔は 0.35rem なので、判定どうしは少し重なる（重なりは前に描かれた方が取る） */
+a.fbc-footer-social::after { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+a.fbc-footer-social:hover { color: #fff; box-shadow: 0 3px 10px -3px var(--brand, #7c3aed); }
+a.fbc-footer-social:focus-visible { outline: 2px solid var(--bs-primary, #7c3aed); outline-offset: 2px; }
+
+/* 問い合わせ・プライバシーポリシー */
+/* 内容の列（見出し・説明・カード）。読みやすい幅で、横の中央に置く。Copyright など、ほかのページには効かせない */
+.page-column { width: 100%; max-width: 46rem; margin-left: auto; margin-right: auto; }
+.page-card { margin-left: auto; margin-right: auto; }   /* 枠（.page-pane）の中で、カードを中央に置く（幅は .report-card・.policy-card の 46rem） */
+.report-card, .policy-card { max-width: 46rem; }
+.policy-card h5, .policy-card .policy-heading { margin-top: 1.1rem; font-size: 1rem; font-weight: 500; line-height: 1.2; margin-bottom: .5rem; }   /* ページの h1 の次は h2（見た目は従来の h5 と同じ） */
+.policy-card h5:first-child, .policy-card .policy-heading:first-child { margin-top: 0; }
+.report-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+/* メンテナンスのお知らせ（MAINTENANCE_MODE=notice）と、メンテナンス画面（MAINTENANCE_MODE=true） */
+/* メンテナンスのお知らせの帯は、ヘッダーの真下に固定する。PC は、ページの中身（.fbc-content）だけがスクロールするので、帯は元から動かない。
+   スマホは、ページ全体（window）がスクロールするので、sticky で残す（top はヘッダーの高さ）。
+   z-index は、ヘッダー（1040）より下・ページ内の要素（数十まで）より上・ドロワーやポップアップより下。
+   MudBlazor は、ヘッダーの下に置く本体の余白を画面の幅で変えていて、600px 未満ではヘッダーに少し重なる（縦は 1/8、横は 1/4）。その分だけ帯を下にずらす */
+.fbc-notice {
+    flex: none; padding: 0.5rem 1rem; background: #f59e0b; color: #1a0b33; font-size: 0.9rem; font-weight: 700; text-align: center;
+    position: sticky; top: var(--mud-appbar-height, 3.5rem); z-index: 1030;
+}
+/* 見出し（【お知らせ】）は 1 行目に、本文はその次の行に出す。太字は .fbc-notice のまま */
+.fbc-notice-title { display: block; }
+@media (max-width: 599.98px) {
+    .fbc-notice { margin-top: calc(var(--mud-appbar-height, 3.5rem) / 8); }
+}
+@media (max-width: 599.98px) and (orientation: landscape) {
+    .fbc-notice { margin-top: calc(var(--mud-appbar-height, 3.5rem) / 4); }
+}
+/* メンテナンス画面（kit の MaintenanceScreen。.fbc-maintenance の見た目は kit の CSS）。連絡先のボタンは、ライト・ダークのどちらでも、これまで通り同じ紫 */
+.fbc-maintenance .fbc-maintenance-link { background: #7c3aed; }
+
+@media (max-width: 575.98px) {
+    .entry-static-nav ul {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ---------- 404（存在しない URL）: ポートフォリオの 404 と同じ形（kit の NotFoundView。.fbc-not-found の見た目の基本は kit の CSS） ---------- */
+.fbc-not-found { text-align: center; display: grid; justify-items: center; gap: 4px; padding: clamp(40px, 12vh, 120px) 16px 48px; }
+.fbc-not-found-code {
+    margin: 0;
+    font: 800 clamp(96px, 20vw, 180px)/1 "Outfit", "Zen Kaku Gothic New", system-ui, sans-serif;
+    background-image: linear-gradient(120deg, #7c3aed 0%, #a855f7 60%, #6366f1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+html[data-bs-theme="dark"] .fbc-not-found-code { background-image: linear-gradient(120deg, #c084fc 0%, #a855f7 60%, #818cf8 100%); }
+/* 短いページでも、フッターが画面の下に来るよう、スマホでは中身の高さを確保する（ヘッダー・フッターの分を引く） */
+@media (max-width: 720px) { .fbc-not-found { min-height: calc(100dvh - 132px); align-content: center; } }
+.fbc-not-found h1 { font-size: clamp(24px, 3.6vw, 32px); margin: 8px 0 0; }
+.fbc-not-found-lead { margin: 0 0 20px; color: var(--bs-secondary-color, #6b6485); }
+html[data-bs-theme="dark"] .fbc-not-found-lead { color: #b4a7d1; }
+/* ホームへ戻るボタン: kit は紫のグラデーションと影を付ける。このサイトは、これまで通り、MudBlazor の既定の塗り（primary）にして、丸い形・余白・太字だけを足す */
+.fbc-btn-primary.mud-button-root { background: var(--mud-palette-primary); box-shadow: var(--mud-elevation-2); border-radius: 999px; padding: 10px 24px; text-transform: none; font-weight: 700; }
+
+/* 行頭禁則（句読点・閉じ括弧・長音・小さい仮名を行頭に出さない）は、ページ全体（ポップアップ・表・ボタン・ヘルプの吹き出しも）に効かせる。
+   auto-phrase（句の単位の折り返し）は、下の本文にだけ当てる */
+html { line-break: strict; }
+
+/* ---------- 日本語の改行（本文だけ。フォームの入力欄やコマンドの表には当てない） ---------- */
+.page-column p, .page-column h3, .policy-card p, .policy-card li, .policy-card h5, .policy-card .policy-heading {
+    word-break: normal;
+    word-break: auto-phrase;
+    line-break: strict;
+    overflow-wrap: break-word;
+    text-wrap: pretty;
+}
+.nowrap { white-space: nowrap; }
+/* 長文のページ（プライバシー・権利表記）: PC では横幅を広く使う。スマホは今のまま（46rem の上限は、画面が狭いときは効かない） */
+.page-column--wide { max-width: 72rem; }
+.policy-card--wide { max-width: 72rem; }
+
+/* プライバシーポリシー（.policy-doc）。段落・見出し・リストの間隔、行の長さ、リンク、外部サービスの表を整える。権利表記には効かせない。
+   行が長くなりすぎないよう、PC でも本文の幅は 56rem まで（見出しの枠も同じ幅にそろえる） */
+.policy-card--wide.policy-doc { max-width: 56rem; }
+.page-header.page-column--wide:has(+ .page-pane .policy-doc) { max-width: 56rem; }
+.policy-doc { line-height: 1.8; }
+.policy-doc p, .policy-doc ul { margin: 0 0 0.9rem; }
+.policy-doc ul { padding-left: 1.4rem; list-style: disc; }
+.policy-doc li + li { margin-top: 0.35rem; }
+.policy-doc .policy-heading { margin: 2.25rem 0 0.75rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--app-card-border); font-size: 1.2rem; font-weight: 700; line-height: 1.5; }
+.policy-doc .policy-heading:first-child { margin-top: 0; }
+.policy-doc .policy-subheading { margin: 1.5rem 0 0.5rem; font-size: 1.05rem; font-weight: 700; line-height: 1.5; word-break: auto-phrase; text-wrap: pretty; }
+/* 本文のリンクは、色と下線で見分ける */
+.policy-doc a { color: var(--bs-link-color); text-decoration: underline; text-underline-offset: 0.18em; }
+.policy-doc a:hover { color: var(--bs-link-hover-color); text-decoration-thickness: 2px; }
+/* 制定日・最終改定日 */
+.policy-dates { display: block; margin-top: 0.25rem; font-size: 0.9rem; }
+/* 外部サービスの表。幅が足りるときは 4 列の表、狭いとき（枠の幅が 42rem 未満）は 1 行ずつのカードにして、横にスクロールさせない */
+.policy-table-wrap { container-type: inline-size; margin-bottom: 0.9rem; }
+.policy-table { width: 100%; margin: 0; border-collapse: collapse; font-size: 0.95rem; line-height: 1.6; }
+.policy-table th, .policy-table td { padding: 0.55rem 0.75rem; border: 1px solid var(--app-card-border); text-align: left; vertical-align: top; }
+.policy-table thead th { background: var(--app-panel-bg); font-weight: 700; white-space: nowrap; }
+.policy-table tbody th { font-weight: 700; }
+.policy-table tbody tr:nth-child(even) { background: rgba(var(--bs-primary-rgb), 0.05); }
+.policy-table th:first-child { width: 22%; }
+@container (max-width: 41.99rem) {
+    .policy-table, .policy-table tbody, .policy-table tr, .policy-table th, .policy-table td { display: block; }
+    .policy-table thead { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+    .policy-table tbody tr { margin-bottom: 0.75rem; border: 1px solid var(--app-card-border); border-radius: 0.5rem; overflow: hidden; }
+    .policy-table th, .policy-table td { border: 0; padding: 0.35rem 0.75rem; }
+    .policy-table th:first-child { width: auto; }
+    .policy-table tbody th { padding-top: 0.55rem; background: var(--app-panel-bg); border-bottom: 1px solid var(--app-card-border); }
+    .policy-table td::before { content: attr(data-label); display: block; color: var(--app-muted); font-size: 0.8rem; line-height: 1.5; }
+    .policy-table td:last-child { padding-bottom: 0.55rem; }
+}
+
+/* ---- kit の報告フォーム（ReportFormView）が使うクラス（fbc-）を、このサイトのこれまでの同じ意味のクラス（Bootstrap 由来の card・mb-3 など。base.css）に合わせる ----
+   （kit の CSS には、これらのユーティリティが無い。.fbc-card の枠線・影・背景は、上の .card の規則に名前を足して共有している。ここは base.css の .card・.card-body と同じ構造の部分） */
+.fbc-mb-0 { margin-bottom: 0 !important; }
+.fbc-mb-1 { margin-bottom: 0.25rem !important; }
+.fbc-mb-3 { margin-bottom: 1rem !important; }
+.fbc-mt-3 { margin-top: 1rem !important; }
+.fbc-small { font-size: 0.875em; }
+/* 入力欄のまとまりは、これまで .form-group（0.75rem）が .mb-3（1rem）に勝っていた（どちらも !important で、.form-group が後ろ） */
+.fbc-form-group.fbc-mb-3 { margin-bottom: 0.75rem !important; }
+
+/* ---- 安全領域（ノッチ・ホームバー）。index.html の viewport-fit=cover とセット ----
+   横向きのノッチ端末で、文字・ボタン・サイドバーが隠れないよう、左右の端と下端に余白を足す。背景は端まで広げる。
+   ブラウザ表示や PC では env() が 0 なので、見た目は変わらない。上は、ブラウザ表示では 0（ヘッダーの高さが固定なので、ここでは扱わない）。
+   確かめるときは、CSS の env() を固定値（47px など）に置き換えて表示する。
+   サイドバー（Mud のドロワー）は左の安全領域の分だけ広げる（幅の変数に足す）。本文の左の余白・配置は、この幅に従う。
+   このブロックは、上の規則を上書きするので、ファイルの最後に置く。 */
+:root {
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* MudBlazor がテーマから :root に出す幅を、詳細度で上書きする */
+html:root {
+    --mud-drawer-width-left: calc(230px + var(--safe-l));
+    --mud-drawer-width-mini-left: calc(56px + var(--safe-l));
+}
+
+.fbc-header .mud-toolbar {
+    padding-left: calc(12px + var(--safe-l));
+    padding-right: calc(12px + var(--safe-r));
+}
+
+.fbc-sidebar .mud-drawer-content {
+    box-sizing: border-box;
+    padding-left: var(--safe-l);
+    padding-bottom: var(--safe-b);
+}
+
+.fbc-sidebar .mud-navmenu {
+    width: calc(var(--mud-drawer-width-left, 230px) - var(--safe-l));
+}
+
+/* 本文・お知らせの帯・フッターの左右。PC は本文がサイドバーの右にあるので、左は幅の変数で足りている（右だけ足す）。スマホは左右とも足す */
+.fbc-content {
+    padding-right: calc(1.5rem + var(--safe-r));
+}
+
+.fbc-notice,
+.fbc-footer {
+    padding-right: calc(1rem + var(--safe-r));
+}
+
+.fbc-footer {
+    padding-bottom: calc(0.55rem + var(--safe-b));
+}
+
+@media (max-width: 767.98px) {
+    .fbc-content {
+        padding-left: calc(1.5rem + var(--safe-l));
+    }
+
+    .fbc-notice,
+    .fbc-footer {
+        padding-left: calc(1rem + var(--safe-l));
+    }
+
+    html.fbc-search-open .fbc-search-sheet {
+        padding-left: calc(12px + var(--safe-l));
+        padding-right: calc(56px + var(--safe-r));
+    }
+
+    .site-search-close {
+        right: calc(4px + var(--safe-r));
+    }
+}
+
+/* 起動前の静的な本文（入口ページ）。背景は端まで、文字は安全領域の内側 */
+.entry-static-bar {
+    padding-left: calc(1.25rem + var(--safe-l));
+    padding-right: calc(1.25rem + var(--safe-r));
+}
+
+.entry-static-body {
+    padding-left: calc(1rem + var(--safe-l));
+    padding-right: calc(1rem + var(--safe-r));
+}
+
+/* メンテナンス画面（アプリの代わりに全面に出す）・読み込みエラーの帯 */
+.fbc-maintenance {
+    padding-left: calc(24px + var(--safe-l));
+    padding-right: calc(24px + var(--safe-r));
+    padding-bottom: calc(24px + var(--safe-b));
+}
+
+#blazor-error-ui {
+    padding-left: calc(1.25rem + var(--safe-l));
+    padding-right: calc(1.25rem + var(--safe-r));
+    padding-bottom: calc(0.7rem + var(--safe-b));
+}
+
+#blazor-error-ui .dismiss {
+    right: calc(0.75rem + var(--safe-r));
+}
+
+/* 画面の下の結果バー・「いちばん上へ」ボタン・対戦画面 */
+@media (max-width: 1399.98px) {
+    .result-bar {
+        padding: 0 var(--safe-r) var(--safe-b) var(--safe-l);
+    }
+
+    .has-result-bar {
+        padding-bottom: calc(4rem + var(--safe-b));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .scroll-top {
+        right: calc(0.9rem + var(--safe-r));
+        bottom: calc(1rem + var(--safe-b));
+    }
+
+    .scroll-top.above-bar {
+        bottom: calc(4.8rem + var(--safe-b));
+    }
+}
+
+.battle-ui {
+    inset: 3.6rem var(--safe-r) var(--safe-b) var(--safe-l);
+}
+
+@media (min-width: 768px) {
+    .battle-ui {
+        inset: 3.5rem var(--safe-r) var(--safe-b) calc(230px + var(--safe-l));
+    }
+
+    html.fbc-sidebar-hidden .battle-ui {
+        inset: 3.5rem var(--safe-r) var(--safe-b) calc(3.5rem + var(--safe-l));
+    }
+
+    .bg-scene {
+        --stage-shift: calc(115px + var(--safe-l) / 2);
+    }
+
+    html.fbc-sidebar-hidden .bg-scene {
+        --stage-shift: calc(1.75rem + var(--safe-l) / 2);
+    }
+
+    .type-chart {
+        --tc-cell: clamp(1.5rem, min(calc((100vh - 17rem) / 19.6), calc((100vw - 230px - var(--safe-l) - var(--safe-r) - 20rem - 6rem) / 21)), 2.6rem);
+    }
+
+    .type-chart-main {
+        min-width: calc(clamp(1.5rem, min(calc((100vh - 17rem) / 19.6), calc((100vw - 230px - var(--safe-l) - var(--safe-r) - 20rem - 6rem) / 21)), 2.6rem) * 19);
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1399.98px) {
+    .result-bar {
+        left: calc(230px + var(--safe-l));
+        padding-left: 0;
+    }
+
+    html.fbc-sidebar-hidden .result-bar {
+        left: calc(3.5rem + var(--safe-l));
+    }
+
+    .calc-grid.pane-fill.has-result-bar > .calc-col,
+    .calc-grid.pane-fill.has-result-bar > .calc-right {
+        padding-bottom: calc(3.5rem + var(--safe-b));
+    }
+}
+
+/* キーボードのフォーカス枠。MudBlazor の outline: none に負けないよう、詳細度を上げて表示する（ヘッダー・ドロワー・スキップリンク） */
+.fbc-header :is(a, button):focus-visible,
+.mud-button-root:focus-visible,
+.fbc-skip-link:focus-visible,
+.mud-nav-link:focus-visible {
+    outline: 2px solid #e879f9;
+    outline-offset: 2px;
+}
+
+/* スマホで押しやすいよう、ヘッダーの操作・ドロワーのリンクは 44px 以上にする（見た目の大きさはそのまま） */
+@media (max-width: 575.98px) {
+    .fbc-header .mud-icon-button,
+    .fbc-header .fbc-theme-switch {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    /* ブランドは block のまま（inline-flex にすると、text-overflow の …が出ず、右の要素の下まで文字が伸びる）。
+       触れる範囲は、上下に透明な余白（padding）を足して 44px にする（見た目の位置は変えない） */
+    .fbc-brand {
+        padding-block: 12px;
+        margin-block: -12px;
+    }
+    .mud-drawer .mud-nav-link {
+        min-height: 44px;
+    }
+}
+
+/* ---- レイアウトレビュー2（360px の 44px）: 説明ボタン・入力欄・ボタン・ツールへのリンクの押せる範囲を 44px 以上にする。
+   説明ボタン（help-btn。17.6px）は、負の余白で周りの並びを動かさずに押せる範囲だけ広げる ---- */
+@media (max-width: 575.98px) {
+    .home-tool-link { min-height: 44px; display: flex; align-items: center; }
+    .form-control,
+    .form-select,
+    .form-control-sm { min-height: 44px; }
+    .mud-button-root.mud-button-outlined,
+    .mud-button-root.mud-button-filled { min-height: 44px; }
+    .dex-type-btn { min-width: 44px; min-height: 44px; }
+}
+
+/* ---- レイアウトレビュー3: キーボードのフォーカス枠・押せる大きさ（44px）・表の横スクロール・ヘッダー・計算機の列の高さ。
+   前の規則より後ろに置き、詳細度を上げて効かせる（MudBlazor・Bootstrap の outline: none に負けないように） ---- */
+
+/* フォーカス枠の色（ライトは紫、ダークは明るい桃。どちらの地色の上でも見える） */
+:root { --focus-ring: #7c3aed; }
+[data-bs-theme="dark"] { --focus-ring: #e879f9; }
+
+/* 操作できる部品（リンク・ボタン・要約・切り替え）のフォーカス枠。カードの中のリンクも含む */
+html body :is(a, button, summary, [role="switch"]):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+
+/* ホーム: 機能のカード全体に枠を出す（枠が親の overflow で切れないように、内側に描く） */
+html body .home-tools .home-tool-card:has(.home-tool-link:focus-visible) {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+}
+html body .home-tools .home-tool-link:focus-visible,
+html body .home-tools .home-tool-link:focus-visible::after { outline: none; }
+
+/* 左のメニューの項目: 枠はドロワーの端で切れないように、内側に描く */
+html body .fbc-sidebar .mud-nav-link:focus-visible {
+    outline: 2px solid #e879f9;
+    outline-offset: -2px;
+}
+
+/* 説明ボタン（?）: 見た目は 17.6px のまま、押せる範囲（ボタンの箱）を 44px にする。負の余白で周りの並びは動かさない。
+   丸い枠と地色は ::before に描く（ボタン自身の箱の外は、overflow で当たり判定が効かないため） */
+html body .help-wrap .help-btn.mud-icon-button {
+    position: relative;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 0;
+    padding: 0;
+    margin: -0.825rem;
+    border: 0;
+    background: transparent;
+}
+html body .help-wrap .help-btn.mud-icon-button::before {
+    content: "";
+    position: absolute;
+    inset: 0.825rem;
+    border-radius: 50%;
+    border: 1px solid var(--app-input-border);
+    background: var(--bs-body-bg);
+}
+html body .help-wrap .help-btn.mud-icon-button:hover { background: transparent; }
+html body .help-wrap .help-btn.mud-icon-button:hover::before { background: var(--bs-tertiary-bg); }
+html body .help-wrap .help-btn.mud-icon-button .mud-icon-root { position: relative; z-index: 1; }
+html body .fbc-sidebar .help-wrap .help-btn.mud-icon-button::before { background: transparent; border-color: rgba(255, 255, 255, 0.6); }
+html body .fbc-sidebar .help-wrap .help-btn.mud-icon-button:hover::before { background: rgba(255, 255, 255, 0.15); }
+
+/* 押せる大きさ（44px 以上）: 入力欄・切り替え・タイプ選択ボタン */
+html body .dex-type-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+html body .dex-summary .app-check-row .mud-switch { min-height: 44px; }
+/* 入力欄の高さは枠線と余白を含めて 44px（content-box のままだと、余白ぶん 65px になる） */
+html body .dex-filters .app-field input.mud-input-slot,
+html body .sync-card .sync-join input.mud-input-slot { box-sizing: border-box; min-height: 44px; }
+/* 「対戦画面」のスイッチ（ヘッダー）: 根の要素（MudSwitch の div）は高さ 24px に固定されていたので、44px にする */
+html body .hdr-battle.mud-input-control { height: 44px; min-height: 44px; }
+html body .hdr-battle,
+html body .top-battle { min-height: 44px; }
+html body .hdr-battle .mud-switch,
+html body .top-battle .mud-switch { min-height: 44px; }
+
+/* ポケモン一覧（PC）の表: 幅が足りないときは表の枠の中で横にスクロールする。
+   行は表の幅（中身の幅）まで伸ばし、先頭の No. は左に固定、右端に影を出して、続きがあることを示す */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    html body .dex-table.pane-scroll {
+        background:
+            linear-gradient(to left, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 1.25rem) no-repeat right top / 100% 100%,
+            var(--glass);
+    }
+    /* 表の幅: 列の最小の幅の合計（約 55rem）まで広げ、足りないときだけ横にスクロールする（fr の列は残りの幅に広がる） */
+    html body .dex-table.pane-scroll .dex-head,
+    html body .dex-table.pane-scroll .dex-row { min-width: 56rem; }
+    /* 固定した No. は、行の左の余白（0.6rem）ぶん外へ広げて、スクロールしても文字が枠の端に寄らないようにする */
+    html body .dex-table.pane-scroll .dex-head > .dex-no,
+    html body .dex-table.pane-scroll .dex-row > .dex-no {
+        position: sticky;
+        left: 0;
+        z-index: 3;
+        box-sizing: border-box;
+        margin-left: -0.6rem;
+        padding-left: 0.6rem;
+        box-shadow: 4px 0 6px -4px rgba(0, 0, 0, 0.3);
+    }
+    html body .dex-table.pane-scroll .dex-head > .dex-no { background: var(--app-panel-bg); }
+    html body .dex-table.pane-scroll .dex-row > .dex-no { background: var(--bs-body-bg); }
+    html body .dex-table.pane-scroll .dex-item.selected > .dex-row > .dex-no {
+        background: linear-gradient(var(--bs-primary-bg-subtle), var(--bs-primary-bg-subtle)), var(--bs-body-bg);
+    }
+    html body .dex-table.pane-scroll .dex-row:hover > .dex-no {
+        background: linear-gradient(var(--app-panel-bg), var(--app-panel-bg)), var(--bs-body-bg);
+    }
+}
+@media (min-width: 1200px) {
+    html body .dex-table.pane-scroll { background: var(--glass); }
+}
+/* 並べ替えの印（⇅ ▲ ▼）: 9.6px では読めないので 12px 以上 */
+html body .dex-sort-mark { font-size: 0.75rem; }
+/* 特性: 名前ごとに折り返す（語中で割れない。区切りの「・」は名前の後ろに付ける） */
+html body .dex-abilities { display: flex; flex-wrap: wrap; }
+html body .dex-ability { white-space: nowrap; }
+html body .dex-ability:not(:last-child)::after { content: "・"; }
+
+/* 覚える技の候補（検索つきの選択欄）: 名前は 1 行、分類と威力は名前の右に続けて置く（3 行に割れないように）。候補の欄は、項目の幅に合わせて少し広げる */
+html body .searchable-select-item .dex-opt-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+html body .searchable-select-item .dex-opt-meta { flex: none; margin-left: auto; white-space: nowrap; }
+html body .dex-filter-grid .dex-select-field .searchable-select-dropdown { min-width: 14rem; }
+html body .dex-filter-grid .dex-select-field:nth-child(even) .searchable-select-dropdown { left: auto; right: 0; }
+
+/* 計算機・素早さ比較（1400px 以上の 3 列）: 列は内容の高さで上にそろえ、長い列だけ列の中でスクロールする（行の高さで止める） */
+@media (min-width: 1400px) {
+    html body .calc-grid.pane-fill { align-items: start; }
+    html body .calc-grid.pane-fill > .calc-col,
+    html body .calc-grid.pane-fill > .calc-right > .calc-col { max-height: 100%; }
+}
+
+/* ヘッダー（スマホ）: 「対戦画面」の文字は 12px 以上、スイッチのトラックは暗い地色の上で見えるように明るくする。
+   ブランドは 390px 以下で少し小さくして、全文に近く読めるようにする */
+@media (max-width: 767.98px) {
+    html body .top-battle .mud-typography,
+    html body .top-battle .mud-switch-label { font-size: 0.75rem; }
+    html body .top-battle .mud-switch-track { background-color: #cbbcf0 !important; opacity: 1; }
+}
+@media (max-width: 575.98px) {
+    html body .fbc-brand { min-height: 44px; }
+}
+@media (max-width: 390px) {
+    html body .fbc-brand { font-size: 0.75rem; letter-spacing: -0.02em; }
+}
+
+/* ---------- 文章が続くページ（用語・略語 / API / 更新履歴）の読みやすさ ----------
+   行が長くなりすぎないよう、本文の幅を 56rem までにして中央に置く（プライバシーポリシーと同じ幅）。
+   行間をゆるめ、句の単位で折り返し、段落の最後の行に 1 文字だけ残らないようにし、本文中のリンクは下線で見分ける */
+.page-prose { width: 100%; max-width: 56rem; margin-left: auto; margin-right: auto; }
+.page-prose p, .page-prose dd { line-height: 1.75; }
+.page-prose li, .page-prose td { line-height: 1.65; }
+.page-prose p, .page-prose li, .page-prose dd, .page-prose dt, .page-prose td, .page-prose .card-title, .page-prose h2 {
+    word-break: normal;
+    word-break: auto-phrase;
+    overflow-wrap: break-word;
+    text-wrap: pretty;
+}
+.page-prose a:not(.btn):not(.mud-button-root) { text-decoration: underline; text-underline-offset: 0.18em; }
+.page-prose dl.row dd { margin-bottom: 0.5rem; }
+/* 見出しを h2 に直したぶん、カードの見出しの見た目（太さ・間隔）は従来どおりにそろえる */
+.card-header h2 { margin-bottom: 0; font-size: 1rem; font-weight: 600; }
+.page-prose h2.card-title { margin-bottom: 0.6rem; }
+/* ライトの配色: 補足の灰色・コードの桃色が、背景の薄い紫の上で読みにくい（コントラスト 4.5 未満）ので、濃くする */
+html[data-bs-theme="light"] .page-header .text-muted,
+html[data-bs-theme="light"] .page-prose .text-muted { color: #4a4466 !important; }
+html[data-bs-theme="light"] .page-prose code,
+html[data-bs-theme="light"] .policy-card code { color: #a3205f; }
+/* API の表: スマホ幅では、API の名前の下に説明を重ねて縦に並べる（2 列のままだと説明が 8〜10 行に折れて読みにくい） */
+@media (max-width: 575.98px) {
+    .api-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .api-table, .api-table tbody, .api-table tr, .api-table td { display: block; width: 100%; }
+    .api-table tr { padding: 0.5rem 0; border-bottom: 1px solid var(--app-card-border); }
+    .api-table td { border: 0; padding: 0.1rem 0; }
+    .api-table td:first-child { word-break: break-all; }
+}

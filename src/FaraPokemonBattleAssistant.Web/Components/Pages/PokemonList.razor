@@ -1,0 +1,326 @@
+@page "/pokemon-list"
+@inherits AppPageBase
+@inject DataCatalog Catalog
+
+<PageTitle>ポケモン一覧 | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h1 class="h3">ポケモン一覧 <Help Title="ポケモン一覧">左のメニューで選んでいるゲームに収録されているポケモンを、全国図鑑順に並べます（フォルム違い・メガシンカは元の姿のすぐ後ろ）。名前・タイプ（2 つまでで両方を持つもの）・特性・覚える技（2 つまでで両方を覚えるもの）で絞り込めます。見出しを押すたびに 昇順 → 降順 → 並べ替えなし（全国図鑑順）と切り替わります（スマホでは「並び順」の選択欄で、高い順・低い順も選べます）。ポケモンを押すと、ダメージ計算機・素早さ比較・タイプ相性表で開けます。特性はデータに通常・隠れ特性の区別が無いため、まとめて表示しています。</Help></h1>
+    <p class="text-muted mb-0 dex-intro">@(data?.Info.Name ?? "")に収録されているポケモン（全国図鑑順）。条件で絞り込み、見出しを押すと並べ替えられます。@(data?.Info.Generation == 1 ? "第 1 世代は C・D の区別が無く、どちらも「とくしゅ」の値です。" : "")@(data?.Info.Generation <= 2 ? "第 2 世代までは特性がありません。" : "")</p>
+    <p class="text-muted small mb-0 mt-1">H: HP / A: こうげき / B: ぼうぎょ / C: とくこう / D: とくぼう / S: すばやさ（<a href="battle-terms">用語・略語</a>）</p>
+</div>
+
+@if (!string.IsNullOrEmpty(LoadError))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" NoIcon="true">@LoadError</MudAlert>
+}
+
+@if (data is not null && dex is not null)
+{
+    var f = s.Filter;
+    <MudCard Elevation="0" Class="card mb-2">
+        <MudCardContent Class="card-body dex-filters">
+            <div class="dex-filter-grid">
+                <div class="form-group">
+                    <label for="dex-name">名前</label>
+                    <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" Immediate="true" InputId="dex-name" Placeholder="カタカナ・ひらがな・ローマ字" Value="@(f.Name)" ValueChanged="@(v => { f.Name = v?.ToString() ?? ""; Refresh(); })" / />
+                </div>
+                @if (abilityChoices.Count > 0)
+                {
+                <div class="form-group dex-select-field">
+                    <label>特性</label>
+                    <SearchableSelect TItem="Ability" Items="abilityChoices" DisplayText="@(a => a.Name)" ValueSelector="@(a => a.Id.ToString())"
+                        SelectedValue="@(f.AbilityId == 0 ? "" : f.AbilityId.ToString())" SelectedValueChanged="@(v => { f.AbilityId = ParseId(v); Refresh(); })"
+                        Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）" AriaLabel="特性" />
+                </div>
+                }
+                @for (var i = 0; i < 2; i++)
+                {
+                    var slot = i;
+                    <div class="form-group dex-select-field">
+                        <label>覚える技@(slot + 1)</label>
+                        <SearchableSelect TItem="Move" Items="moveChoices" DisplayText="@(m => m.Name)" ValueSelector="@(m => m.Id.ToString())"
+                            SelectedValue="@(MoveAt(slot) == 0 ? "" : MoveAt(slot).ToString())" SelectedValueChanged="@(v => SetMove(slot, ParseId(v)))"
+                            Dropdown="true" EmptyOption="指定なし" Placeholder="指定なし（入力して検索）" AriaLabel="@($"覚える技{slot + 1}")">
+                            <ItemTemplate Context="m"><TypeIcon Type="@m.Type" Small="true" /><span class="dex-opt-name">@m.Name</span><span class="dex-opt-meta text-muted small">@MoveText.Category(m) @(m.Power > 0 ? m.Power.ToString() : "-")</span></ItemTemplate>
+                        </SearchableSelect>
+                    </div>
+                }
+            </div>
+            <div class="dex-type-row">
+                <span class="small fw-bold">タイプ（2 つまで）</span>
+                <div class="dex-type-buttons">
+                    @foreach (var t in data.TypeChart.Types)
+                    {
+                        var on = f.Types.Contains(t);
+                        var blocked = !on && f.Types.Count >= 2;
+                        <button type="button" class="dex-type-btn @(on ? "active" : "") @(blocked ? "blocked" : "")" aria-pressed="@(on ? "true" : "false")" disabled="@blocked"
+                                title="@(blocked ? "2 つまで。外してから選び直してください" : TypeNames.ToJapanese(t))" @onclick="() => ToggleType(t)"><TypeIcon Type="@t" Small="true" /></button>
+                    }
+                </div>
+            </div>
+            <div class="dex-summary">
+                <strong>@results.Count 匹</strong>
+                @if (hasMega)
+                {
+                    <div class="app-check-row mb-0"><MudSwitch T="bool" Value="@(f.MegaOnly)" ValueChanged="@(v => { f.MegaOnly = v; Refresh(); })" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">メガシンカのみ</MudSwitch></div>
+                }
+                @if (hasProvisional)
+                {
+                    <div class="app-check-row mb-0"><MudSwitch T="bool" Value="@(f.IncludeProvisional)" ValueChanged="@(v => { f.IncludeProvisional = v; Refresh(); })" Color="Color.Primary" Size="Size.Small" LabelPlacement="Placement.End">未収録も表示</MudSwitch></div>
+                }
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Class="ms-auto dex-clear" OnClick="ClearFilters">条件をクリア</MudButton>
+                <div class="dex-sort-mobile">
+                    @* スマホ: 向きまで含めた選択肢にする（PC は見出しを押して切り替える） *@
+                    <MudSelect T="string" Value="@((SortValue(f.Sort, f.Descending))?.ToString())" ValueChanged="@(v => SetSort(v?.ToString()))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" aria-label="並び順">
+                        <MudSelectItem T="string" Value="@((SortValue(PokedexSort.Dex, false)).ToString())">並べ替えなし（図鑑順）</MudSelectItem>
+                        <MudSelectItem T="string" Value="@((SortValue(PokedexSort.Dex, true)).ToString())">図鑑順（逆順）</MudSelectItem>
+                        @foreach (var (sort, label) in SortColumns.Where(c => c.Sort != PokedexSort.Dex))
+                        {
+                            <MudSelectItem T="string" Value="@((SortValue(sort, true)).ToString())">@label（高い順）</MudSelectItem>
+                            <MudSelectItem T="string" Value="@((SortValue(sort, false)).ToString())">@label（低い順）</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+            </div>
+        </MudCardContent>
+    </MudCard>
+
+    <div class="dex-list dex-table pane-scroll">
+        <div class="dex-row dex-head">
+            @foreach (var (sort, label) in SortColumns)
+            {
+                if (sort == PokedexSort.Dex)
+                {
+                    <button type="button" class="dex-sort dex-no @SortClass(sort)" title="@SortTitle(sort, "図鑑番号")" @onclick="() => SortBy(sort)">No.<span class="dex-sort-mark">@SortMark(sort)</span></button>
+                    <div class="dex-name">ポケモン</div>
+                    <div class="dex-types-cell">タイプ</div>
+                    <div class="dex-abilities">特性</div>
+                }
+                else
+                {
+                    <button type="button" class="dex-sort dex-stat @(sort == PokedexSort.Total ? "dex-total" : "") @SortClass(sort)" title="@SortTitle(sort, label)" @onclick="() => SortBy(sort)">@ShortLabel(sort)<span class="dex-sort-mark">@SortMark(sort)</span></button>
+                }
+            }
+        </div>
+        @if (results.Count == 0)
+        {
+            <Notice Empty="true" Class="m-3">条件に合うポケモンはいません。</Notice>
+        }
+        <Virtualize TItem="Pokemon" Items="results" Context="p" ItemSize="54" OverscanCount="8">
+            <div class="dex-item @(s.SelectedId == p.Id ? "selected" : "")" @key="p.Id">
+                <div class="dex-row" role="button" tabindex="0" aria-label="@($"{PokemonNameText(p)}の詳細")" aria-expanded="@(s.SelectedId == p.Id ? "true" : "false")"
+                     @onclick="() => ToggleRow(p.Id)" @onkeydown="e => OnRowKey(e, p.Id)">
+                    <div class="dex-no">@Pokedex.DexNumber(p).ToString("0000")</div>
+                    <div class="dex-name"><PokemonIcon Pokemon="p" Small="true" /><span>@PokemonNameText(p)@(p.IsProvisional ? "※未収録" : "")</span></div>
+                    <div class="dex-types-cell"><PokemonTypes Pokemon="p" Small="true" /></div>
+                    <div class="dex-abilities">@if (abilityChoices.Count == 0) { <span class="dex-ability">（特性なし）</span> } else { @AbilityNames(p) }</div>
+                    <div class="dex-stat" data-label="H">@p.BaseStats.HP</div>
+                    <div class="dex-stat" data-label="A">@p.BaseStats.Attack</div>
+                    <div class="dex-stat" data-label="B">@p.BaseStats.Defense</div>
+                    <div class="dex-stat" data-label="C">@p.BaseStats.SpAttack</div>
+                    <div class="dex-stat" data-label="D">@p.BaseStats.SpDefense</div>
+                    <div class="dex-stat" data-label="S">@p.BaseStats.Speed</div>
+                    <div class="dex-stat dex-total" data-label="計">@p.BaseStats.Total</div>
+                </div>
+                @if (s.SelectedId == p.Id)
+                {
+                    <div class="dex-actions">
+                        <span class="small text-muted">@p.Name を開く:</span>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="@($"damage-calculator?attacker={p.Id}")">ダメージ計算（攻撃側）</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="@($"damage-calculator?defender={p.Id}")">ダメージ計算（防御側）</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="@($"speed-comparison?p1={p.Id}")">素早さ比較</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Href="@($"type-chart?pokemon={p.Id}")">タイプ相性表</MudButton>
+                    </div>
+                }
+            </div>
+        </Virtualize>
+    </div>
+}
+else if (string.IsNullOrEmpty(LoadError))
+{
+    @* 読み込み中は、スマホで最初の画面の高さの骨格を置く（届いた一覧で下のフッターが大きく動かないように、画面の外へ出しておく。app.css の .load-skeleton） *@
+    <div class="load-skeleton" role="status"><div class="text-muted">読み込み中…</div></div>
+}
+
+@code {
+    private void ToggleRow(int id) => s.SelectedId = s.SelectedId == id ? 0 : id;
+
+    /// <summary>行をキーボードで開閉する（Enter / Space）。</summary>
+    private void OnRowKey(KeyboardEventArgs e, int id)
+    {
+        if (!e.Repeat && e.Key is "Enter" or " ") ToggleRow(id);
+    }
+
+    public sealed class State
+    {
+        public string DataSetKey { get; set; } = "";
+        public PokedexFilter Filter { get; set; } = new();
+        /// <summary>押して開いているポケモン（0 なら無し）。</summary>
+        public int SelectedId { get; set; }
+    }
+
+    private static readonly (PokedexSort Sort, string Label)[] SortColumns =
+    {
+        (PokedexSort.Dex, "全国図鑑順"),
+        (PokedexSort.HP, "HP"),
+        (PokedexSort.Attack, "こうげき"),
+        (PokedexSort.Defense, "ぼうぎょ"),
+        (PokedexSort.SpAttack, "とくこう"),
+        (PokedexSort.SpDefense, "とくぼう"),
+        (PokedexSort.Speed, "すばやさ"),
+        (PokedexSort.Total, "合計"),
+    };
+
+    private State s = new();
+    private PokemonDataSet? data;
+    private Pokedex? dex;
+    private List<Pokemon> results = new();
+    private IReadOnlyList<Ability> abilityChoices = Array.Empty<Ability>();
+    private IReadOnlyList<Move> moveChoices = Array.Empty<Move>();
+    private bool hasMega;
+    private bool hasProvisional;
+
+    protected override async Task OnAppReadyAsync()
+    {
+        s = PageStates.Get<State>("pokedex");
+        await LoadAsync();
+    }
+
+    protected override Task OnAppChangedAsync() => LoadAsync();
+
+    private Task LoadAsync() => LoadSafelyAsync(LoadCoreAsync, () => { data = null; dex = null; results = new(); });
+
+    private async Task LoadCoreAsync(int version)
+    {
+        // ゲームが変わった直後は、読み込みが終わるまで前のゲームのデータを出さない（操作・計算にも使わせない）
+        if (!IsCurrentGame(data)) { data = null; dex = null; }
+        var loaded = await Catalog.GetDataSetAsync(App.DataSetKey);
+        if (!IsLatestLoad(version)) return;   // 読み込みの間にゲームが変わったら、古いゲームのデータを入れない
+        data = loaded;
+        dex = new Pokedex(data);
+        if (s.DataSetKey != App.DataSetKey)
+        {
+            // 特性・技の ID はゲームごとに違うことがあるので、並び順以外は戻す
+            s.DataSetKey = App.DataSetKey;
+            s.Filter = new PokedexFilter { Sort = s.Filter.Sort, Descending = s.Filter.Descending };
+            s.SelectedId = 0;
+        }
+        var listed = data.Pokemon.Where(p => !p.IsProvisional).ToList();
+        hasMega = data.Pokemon.Any(p => p.IsMega);
+        hasProvisional = data.Pokemon.Any(p => p.IsProvisional);
+        var abilityIds = data.Pokemon.SelectMany(p => p.AbilityIds).ToHashSet();
+        abilityChoices = data.Abilities.Where(a => abilityIds.Contains(a.Id)).OrderBy(a => a.Name, StringComparer.Ordinal).ToList();
+        moveChoices = MoveDex.Query(data, new MoveFilter());   // 五十音順
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        if (dex is null) return;
+        results = dex.Query(s.Filter).ToList();
+    }
+
+    private int MoveAt(int slot) => slot < s.Filter.MoveIds.Count ? s.Filter.MoveIds[slot] : 0;
+
+    private void SetMove(int slot, int moveId)
+    {
+        while (s.Filter.MoveIds.Count <= slot) s.Filter.MoveIds.Add(0);
+        s.Filter.MoveIds[slot] = moveId;
+        Refresh();
+    }
+
+    /// <summary>タイプの選択を切り替える（2 つまで。2 つ選んでいるときは、外すまで新しく選べない）。</summary>
+    private void ToggleType(string type)
+    {
+        var types = s.Filter.Types;
+        if (!types.Remove(type) && types.Count < 2) types.Add(type);
+        Refresh();
+    }
+
+    /// <summary>
+    /// 見出しを押すたびに 昇順 → 降順 → 並べ替えなし（全国図鑑順）と切り替える。
+    /// 図鑑番号の見出しは 降順 ↔ 並べ替えなし（もともと図鑑番号の昇順なので）。
+    /// </summary>
+    private void SortBy(PokedexSort sort)
+    {
+        var f = s.Filter;
+        if (f.Sort != sort)
+        {
+            f.Sort = sort;
+            f.Descending = false;
+        }
+        else if (!f.Descending) f.Descending = true;
+        else
+        {
+            f.Sort = PokedexSort.Dex;
+            f.Descending = false;
+        }
+        Refresh();
+    }
+
+    private bool IsSorted(PokedexSort sort) => s.Filter.Sort == sort && (sort != PokedexSort.Dex || s.Filter.Descending);
+
+    /// <summary>並べ替えている見出しには ▲（昇順）/ ▼（降順）、それ以外は薄い ⇅。</summary>
+    private string SortMark(PokedexSort sort) => !IsSorted(sort) ? "⇅" : s.Filter.Descending ? "▼" : "▲";
+
+    private string SortClass(PokedexSort sort) => IsSorted(sort) ? "sorted" : "";
+
+    private string SortTitle(PokedexSort sort, string label) =>
+        !IsSorted(sort) ? $"{label}の昇順で並べ替え"
+        : s.Filter.Descending ? $"{label}の降順で並べ替え中（押すと並べ替えなし）" : $"{label}の昇順で並べ替え中（押すと降順）";
+
+    private static string SortValue(PokedexSort sort, bool descending) => $"{sort}:{(descending ? "desc" : "asc")}";
+
+    /// <summary>スマホの並び順の選択欄（項目 + 向き）から並べ替えを決める。</summary>
+    private void SetSort(string? value)
+    {
+        var parts = (value ?? "").Split(':');
+        s.Filter.Sort = parts.Length == 2 && Enum.TryParse<PokedexSort>(parts[0], out var sort) ? sort : PokedexSort.Dex;
+        s.Filter.Descending = parts.Length == 2 && parts[1] == "desc";
+        Refresh();
+    }
+
+    /// <summary>名前と括弧のフォーム名を分け、括弧の前で折り返す（括弧の中は途中で折り返さない）。</summary>
+    private static RenderFragment PokemonNameText(Pokemon p) => __builder =>
+    {
+        var i = p.Name.IndexOfAny(new[] { '(', '（' });
+        if (i <= 0)
+        {
+            @p.Name
+        }
+        else
+        {
+            @p.Name[..i]<wbr /><span class="dex-form">@p.Name[i..]</span>
+        }
+    };
+
+    private static string ShortLabel(PokedexSort sort) => sort switch
+    {
+        PokedexSort.HP => "H",
+        PokedexSort.Attack => "A",
+        PokedexSort.Defense => "B",
+        PokedexSort.SpAttack => "C",
+        PokedexSort.SpDefense => "D",
+        PokedexSort.Speed => "S",
+        PokedexSort.Total => "合計",
+        _ => "",
+    };
+
+    private void ClearFilters()
+    {
+        s.Filter = new PokedexFilter { Sort = s.Filter.Sort, Descending = s.Filter.Descending };
+        Refresh();
+    }
+
+    /// <summary>特性を 1 つずつ折り返さない部品にする（語中で割れない・列からはみ出さない）。区切りの「・」は CSS（.dex-ability::after）で付ける。</summary>
+    private RenderFragment AbilityNames(Pokemon p) => __builder =>
+    {
+        if (data is null) return;
+        foreach (var a in data.AbilitiesOf(p))
+        {
+            <span class="dex-ability">@a.Name</span>
+        }
+    };
+
+}

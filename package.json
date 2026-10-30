@@ -1,0 +1,31 @@
+{
+  "name": "fara-pokemon-battle-assistant",
+  "private": true,
+  "description": "Cloudflare Workers への公開用（wrangler のバージョン固定）。サイト本体は src/FaraPokemonBattleAssistant.Web",
+  "scripts": {
+    "publish:web": "node -e \"require('fs').rmSync('publish', { recursive: true, force: true })\" && dotnet publish src/FaraPokemonBattleAssistant.Web -c Release -o publish && node tools/build-entry-pages.mjs --env production && node tools/check-routes.mjs",
+    "preview": "npm run publish:web && wrangler dev",
+    "check": "npm run publish:web && wrangler deploy --dry-run --env=\"\" && wrangler deploy --dry-run --env develop",
+    "gen:search": "node tools/gen-search-index.mjs",
+    "test:worker": "node --test worker/report-limiter.test.mjs && node tools/worker-api-test.mjs",
+    "test:report": "node --test external/fara-blazor-component/worker/report.test.mjs",
+    "test:maintenance": "node --test external/fara-blazor-component/worker/maintenance.test.mjs",
+    "test:gate": "node --test .github/scripts/require-maintenance.test.mjs .github/scripts/deploy-workflow.test.mjs .github/scripts/check-maintenance-message.test.mjs",
+    "test:kit-js": "node --test external/fara-blazor-component/tests/js/kit-js.test.mjs",
+    "test:entry": "node --test tools/build-entry-pages.test.mjs",
+    "test:routes": "node tools/not-found-test.mjs",
+    "check:routes": "node tools/check-routes.mjs",
+    "layout-check": "node tools/layout-check.mjs",
+    "lint": "eslint .",
+    "test:kit": "node --test external/fara-blazor-component/tests/build/pokemon-equivalence.test.mjs external/fara-blazor-component/tests/csp/render-headers.test.mjs external/fara-blazor-component/tests/csp/limits.test.mjs",
+    "test:search": "node --test tools/gen-search-index.test.mjs",
+    "test:home": "node --test worker/home.test.mjs",
+    "test:teams": "node --test worker/teams.test.mjs"
+  },
+  "devDependencies": {
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "playwright-core": "1.64.1",
+    "wrangler": "4.136.3"
+  }
+}

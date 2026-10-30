@@ -1,0 +1,154 @@
+@* サイドバーの中身（MudBlazor の MudNavMenu / MudNavLink）。PC は Shared/MainLayout.razor（fara-blazor-component の SiteLayout）の Mini ドロワーに入り、隠すとアイコンだけの細い列になる。
+   スマホは、ハンバーガーで開く一時的なメニューで、上のほうに、全ページ共通の設定（ゲーム・バトル形式・ライト／ダーク・対戦画面で表示）を置く *@
+@using MudBlazor
+@inject AppState App
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (Mobile)
+{
+    <div class="side-settings px-3 pt-3">
+        <label class="side-label" for="side-dataset">ゲーム <Help Title="ゲーム（データ）">計算に使うポケモン・技・持ち物のデータを切り替えます。チャットコマンドの接頭辞（!pokech など）もこれに合わせて変わります。全ページ共通です。</Help></label>
+        <MudSelect T="string" Value="@(Convert.ToString(App.DataSetKey))" ValueChanged="@(v => App.SetDataSetAsync(v?.ToString() ?? ""))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="side-dataset">
+            @foreach (var ds in App.DataSets)
+            {
+                <MudSelectItem T="string" Value="@(Convert.ToString(ds.Key))">@ds.Name</MudSelectItem>
+            }
+        </MudSelect>
+        @if (UsageFallbackName is { } fallbackName)
+        {
+            <div class="side-note">使用率は公開されていないため、@(fallbackName) の使用率で並べています</div>
+        }
+        <label class="side-label mt-2" for="side-format">バトル形式 <Help Title="バトル形式">ダブルバトルでは全体技の威力が 0.75 倍になります。使用率の既定値（技・持ち物・性格）もシングル / ダブルで切り替わります。</Help></label>
+        <MudSelect T="string" Value="@(Convert.ToString(App.Format))" ValueChanged="@(v => App.SetFormatAsync(Enum.TryParse<BattleFormat>(v?.ToString(), out var f) ? f : BattleFormat.Singles))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Class="app-select" InputId="side-format">
+            <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Singles))">シングル</MudSelectItem>
+            <MudSelectItem T="string" Value="@(Convert.ToString(BattleFormat.Doubles))">ダブル</MudSelectItem>
+        </MudSelect>
+        @* ライト／ダーク（文字のボタン。値は kit の SiteThemeState が持つので、ヘッダーのスイッチと同じになる） *@
+        <ThemeSwitch AsButton="true" Class="mt-2" />
+        @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使え、全ページ共通のスイッチ *@
+        <BattleViewSwitch InputId="side-battle-view" Class="side-battle mt-2" OnChanged="OnNavigate" />
+    </div>
+}
+
+<MudNavMenu Class="fbc-nav">
+    @foreach (var group in Groups)
+    {
+        @if (group.Title is not null)
+        {
+            <div class="fbc-nav-section">@group.Title</div>
+        }
+        @foreach (var (href, label, icon, needsCalc) in group.Items)
+        {
+            @if (needsCalc && CalcDisabled)
+            {
+                @* 未対応の世代: 選べず、押しても何も起きない（メニューも閉じない） *@
+                <MudNavLink Disabled="true" Icon="@icon" title="@DisabledHint">@label</MudNavLink>
+            }
+            else
+            {
+                <MudNavLink Href="@href" Match="@(href.Length == 0 ? NavLinkMatch.All : NavLinkMatch.Prefix)" Icon="@icon" OnClick="OnNavigate">@label</MudNavLink>
+            }
+        }
+    }
+</MudNavMenu>
+
+@code {
+    /// <summary>スマホのメニュー（上のほうに共通の設定を出す）かどうか（768px 未満。kit の faraBlazorComponent.watchMobile が知らせる。SiteLayout の判定と同じ）。</summary>
+    private bool Mobile { get; set; }
+
+    private DotNetObjectReference<NavMenu>? self;
+
+    /// <summary>項目を選んだとき・スイッチを切り替えたときに呼ぶ（スマホでメニューを閉じる）。</summary>
+    [Parameter] public EventCallback OnNavigate { get; set; }
+
+    private sealed record NavGroup(string? Title, (string Href, string Label, string Icon, bool NeedsCalc)[] Items);
+
+    /// <summary>メニューの項目（needsCalc: 計算・登録に対応していないゲームでは選べない）。見出しで分ける。</summary>
+    private static readonly NavGroup[] Groups =
+    {
+        new(null, new[]
+        {
+            ("", "ホーム", Icons.Material.Filled.Home, false),
+        }),
+        new("計算", new[]
+        {
+            ("damage-calculator", "ダメージ計算機", Icons.Material.Filled.Calculate, true),
+            ("speed-comparison", "素早さ比較", Icons.Material.Filled.Speed, true),
+        }),
+        new("登録", new[]
+        {
+            ("data-share", "データ共有", Icons.Material.Filled.CloudUpload, false),
+            ("my-pokemon", "育成ポケモン", Icons.Material.Filled.PersonAdd, true),
+            ("my-team", "自分チーム", Icons.Material.Filled.Groups, true),
+            ("my-rival", "相手チーム", Icons.Material.Filled.Face, true),
+        }),
+        new("情報", new[]
+        {
+            ("type-chart", "タイプ相性表", Icons.Material.Filled.GridView, false),
+            ("pokemon-list", "ポケモン一覧", Icons.Material.Filled.FormatListBulleted, false),
+            ("move-list", "わざ一覧", Icons.Material.Filled.Bolt, false),
+            ("battle-terms", "用語・略語", Icons.Material.Filled.MenuBook, false),
+            ("api-docs", "API", Icons.Material.Filled.Code, false),
+        }),
+        new("配信", new[]
+        {
+            ("chat-commands", "チャットコマンド", Icons.Material.Filled.Chat, true),
+        }),
+        new("サポート", new[]
+        {
+            ("changelog", "更新履歴", Icons.Material.Filled.History, false),
+            ("report", "問い合わせ", Icons.Material.Filled.MailOutline, false),
+            ("privacy", "プライバシーポリシー", Icons.Material.Filled.PrivacyTip, false),
+            ("copyright", "権利表記", Icons.Material.Filled.Copyright, false),
+        }),
+    };
+
+    // 計算・登録に対応していないゲーム（昔の世代）では、使えない項目を選べなくする。
+    // 設定を読み終えるまで（DataSet が決まるまで）も選べなくし、未対応のゲームで一瞬押せてしまうのを防ぐ
+    private bool CalcDisabled => App.DataSet is not { CalcSupported: true };
+
+    private string DisabledHint => App.DataSet is null
+        ? "読み込み中です"
+        : $"{App.DataSet.Name}は未対応です（ポケモン一覧とタイプ相性表のみ）";
+
+    protected override void OnInitialized()
+    {
+        // 最初の描画の前に、スマホかどうかを同期で決める（WebAssembly の JS 呼び出しは同期でもできる。非同期だと、PC の表示で一度描かれる）
+        if (JS is not IJSInProcessRuntime sync) return;
+        try
+        {
+            self = DotNetObjectReference.Create(this);
+            Mobile = sync.Invoke<bool>("faraBlazorComponent.watchMobile", self);
+        }
+        catch { /* JS が使えないときは PC として扱う */ }
+    }
+
+    [JSInvokable]
+    public void OnMobileChanged(bool matches)
+    {
+        if (Mobile == matches) return;
+        Mobile = matches;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await App.InitializeAsync();
+        App.Changed += OnChanged;
+    }
+
+    private Task OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        App.Changed -= OnChanged;
+        self?.Dispose();
+    }
+
+    // 使用率データの無いゲームでは、代わりに使っているゲームの名前（並び順の根拠を示す）
+    private string? UsageFallbackName =>
+        App.DataSet is { UsageFallback.Length: > 0 } ds
+            ? App.DataSets.FirstOrDefault(d => d.Key == ds.UsageFallback)?.Name ?? ds.UsageFallback
+            : null;
+}
