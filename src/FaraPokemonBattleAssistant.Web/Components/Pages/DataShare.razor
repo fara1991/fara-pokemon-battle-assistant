@@ -1,0 +1,200 @@
+@page "/data-share"
+@using FaraPokemonBattleAssistant.Core.Roster
+@implements IDisposable
+@inject CloudSync Sync
+@inject FaraPokemonBattleAssistant.Core.Roster.RosterRepository Repo
+@inject IJSRuntime JS
+@inject ToastService Toast
+
+<PageTitle>データ共有 | Pokémon Battle Assistant</PageTitle>
+
+<div class="page-header">
+    <h1 class="h3">データ共有 <Help Title="データ共有">登録したポケモンとチームを、別のブラウザ・端末や配信用BOTと共有するための設定です。使わないときは、登録データはこのブラウザだけに保存されます。</Help></h1>
+    <p class="text-muted mb-0">アクセスキーを作ると、<a href="my-pokemon">育成ポケモン</a>と<a href="my-team">自分チーム</a>・<a href="my-rival">相手チーム</a>のデータがクラウドに保存され、同じアクセスキーを入れた別のブラウザ・端末や配信用BOTから読み書きできます。</p>
+</div>
+
+@* PC: 見出しは固定にして、カードの中だけがスクロールする *@
+<div class="pane-scroll">
+<div class="sync-page">
+<MudCard Elevation="0" Class="card mb-3 sync-card">
+    <MudCardHeader Class="card-header"><CardHeaderContent>
+        <h2 class="h5">アクセスキー @(Sync.IsSyncing ? "（データ共有中）" : "（未共有）")</h2>
+    </CardHeaderContent></MudCardHeader>
+    <MudCardContent Class="card-body">
+        @if (!Sync.IsSyncing)
+        {
+            <Notice Class="mb-2">今はこのブラウザだけに保存しています。データ共有を始めると、別のブラウザ・端末や配信用BOTと同じ登録データを読み書きできます。</Notice>
+            <div class="d-flex flex-wrap gap-2 align-items-start">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="@(syncBusy)" OnClick="StartSyncAsync">データ共有を始める（新しいアクセスキーを作る）</MudButton>
+                <div class="input-group input-group-sm sync-join">
+                    <MudTextField T="string" Variant="Variant.Outlined" Margin="Margin.Dense" Class="app-field" InputType="InputType.Password" Immediate="true" Placeholder="アクセスキー（43 文字）" aria-label="アクセスキー" Value="@(joinKey)" ValueChanged="@(v => joinKey = v?.ToString() ?? "")" / />
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@(syncBusy || string.IsNullOrWhiteSpace(joinKey))" OnClick="JoinSyncAsync">アクセスキーを入力して共有</MudButton>
+                </div>
+            </div>
+            <p class="small text-muted mb-0 mt-2">アクセスキーを入力して共有を始めると、このブラウザの登録データはクラウドのデータに置き換わります。新しいアクセスキーを作ったときは、このブラウザの登録データがそのままクラウドに保存されます。</p>
+        }
+        else
+        {
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                <span>アクセスキー:</span>
+                <code class="sync-key">@(showKey ? Sync.Key : new string('•', 16))</code>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" OnClick="@(() => showKey = !showKey)">@(showKey ? "隠す" : "表示")</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" OnClick="CopyKeyAsync">コピー</MudButton>
+            </div>
+            <p class="small text-danger mb-2">アクセスキーはパスワードと同じです。知っている人は誰でも登録データを読み書きできるので、配信画面に映したり、人に教えたりしないでください。</p>
+            <p class="small mb-2">
+                @if (!string.IsNullOrEmpty(Sync.LastError))
+                {
+                    <span class="text-danger">読み書きできませんでした: @Sync.LastError</span>
+                }
+                else if (Sync.LastSyncedAt is { } at)
+                {
+                    <span class="text-muted">最終読み込み @at.ToLocalTime().ToString("HH:mm:ss")</span>
+                }
+                @if (!string.IsNullOrEmpty(Sync.LastNotice))
+                {
+                    <br /><span class="text-warning-emphasis">@Sync.LastNotice</span>
+                }
+            </p>
+            <div class="d-flex flex-wrap gap-2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Disabled="@(syncBusy)" OnClick="ReloadAsync">読み込み直す</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small" Disabled="@(syncBusy)" OnClick="RotateKeyAsync">アクセスキーを作り直す</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" Disabled="@(syncBusy)" OnClick="StopSyncAsync">データ共有をやめる（クラウドのデータを削除）</MudButton>
+            </div>
+        }
+    </MudCardContent>
+</MudCard>
+
+
+</div>
+</div>
+
+@code {
+    private bool syncBusy;
+    private bool showKey;
+    private string joinKey = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Sync.Changed += OnSyncChanged;
+        // ページを直接開いたときも、保存してあるアクセスキーがあれば「データ共有中」と表示する
+        await Sync.InitializeAsync();
+    }
+
+    private void OnSyncChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Sync.Changed -= OnSyncChanged;
+
+    private void Show(string text, bool isError) => Toast.Show(text, isError);
+
+    // ---- データ共有
+
+    private async Task<bool> ConfirmAsync(string text)
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("confirm", text);
+        }
+        catch (JSException)
+        {
+            return false;
+        }
+    }
+
+    private async Task RunSyncAsync(Func<Task> action)
+    {
+        syncBusy = true;
+        try
+        {
+            await action();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Show(CloudSync.Describe(ex), true);
+        }
+        finally
+        {
+            syncBusy = false;
+        }
+        StateHasChanged();
+    }
+
+    private Task StartSyncAsync() => RunSyncAsync(async () =>
+    {
+        var hadData = await Sync.LocalHasDataAsync();
+        await Sync.StartNewAsync();
+        showKey = false;
+        Show("データ共有を始めました。" + (hadData ? "このブラウザの登録データをクラウドに保存しました。" : "") +
+             "別の端末や配信用BOTで使うときは、アクセスキーを「コピー」して貼り付けてください", false);
+    });
+
+    private async Task JoinSyncAsync()
+    {
+        var key = joinKey.Trim();
+        if (!RemoteRosterStore.IsValidKey(key))
+        {
+            Show("アクセスキーの形式が正しくありません（43 文字の英数字・-・_）", true);
+            return;
+        }
+        await RunSyncAsync(async () =>
+        {
+            if (await Sync.LocalHasDataAsync()
+                && !await ConfirmAsync("このブラウザの登録データは削除され、クラウドのデータに置き換わります。よろしいですか？"))
+                return;
+            var result = await Sync.JoinAsync(key);
+            if (result == JoinResult.CloudEmpty)
+            {
+                // 打ち間違えたキーの可能性がある。続けると、ブラウザの登録データが消えて、空のクラウドで共有が始まる
+                if (!await ConfirmAsync("このアクセスキーのクラウドのデータは空です（打ち間違えている可能性があります）。続けると、このブラウザの登録データは削除され、空の状態で共有を始めます。それでも続けますか？"))
+                    return;
+                result = await Sync.JoinAsync(key, allowEmptyCloud: true);
+            }
+            joinKey = "";
+            showKey = false;
+            Show(result == JoinResult.Joined
+                ? "アクセスキーでデータ共有を始めました。クラウドの登録データを表示しています"
+                : "アクセスキーでデータ共有を始めました（このアクセスキーのクラウドデータはまだ空です。打ち間違えていないか確認してください）", false);
+        });
+    }
+
+    private async Task RotateKeyAsync()
+    {
+        if (!await ConfirmAsync("新しいアクセスキーを作り、データを移します。今のアクセスキーは使えなくなるので、配信用BOTや他の端末には新しいアクセスキーを入れ直してください。よろしいですか？"))
+            return;
+        await RunSyncAsync(async () =>
+        {
+            var result = await Sync.RotateAsync();
+            showKey = false;
+            Show(CloudSync.DescribeRotation(result), !result.OldKeyDeleted);
+        });
+    }
+
+    private async Task StopSyncAsync()
+    {
+        if (!await ConfirmAsync("データ共有をやめると、このアクセスキーのクラウドのデータ（登録ポケモン・チーム・相手チーム・試合の履歴）がすべて削除され、このブラウザの登録データも空になります。他の端末や配信用BOTでも、このアクセスキーは使えなくなります（元に戻せません）。必要なら、先に控えてください。よろしいですか？"))
+            return;
+        await RunSyncAsync(async () =>
+        {
+            await Sync.StopAsync();
+            showKey = false;
+            Show("データ共有をやめました。クラウドのデータを削除しました。もう一度共有するには、新しく始めてください", false);
+        });
+    }
+
+    private Task ReloadAsync() => RunSyncAsync(async () => { await Repo.GetAsync(); Show("クラウドの登録データを読み込み直しました", false); });
+
+    private async Task CopyKeyAsync()
+    {
+        if (Sync.Key is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Sync.Key);
+            Show("アクセスキーをコピーしました", false);
+        }
+        catch (JSException)
+        {
+            // キーは自動では表示しない（配信画面に映らないよう、本人が「表示」を押したときだけ）
+            Show("コピーできませんでした。配信画面に映っていないことを確かめてから「表示」を押し、キーを選択してコピーしてください", true);
+        }
+    }
+}

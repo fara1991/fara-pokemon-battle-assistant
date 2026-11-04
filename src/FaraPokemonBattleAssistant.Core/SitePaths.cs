@@ -1,0 +1,59 @@
+namespace FaraPokemonBattleAssistant.Core;
+
+/// <summary>
+/// サイトのページの URL（先頭の / なし）と、以前の URL から新しい URL への対応表。
+/// 古い URL は Web 側の <c>LegacyUrlRedirect</c> が新しい URL へ転送する（ブックマーク・既存のリンク用）。
+/// API のパス（/api/my/pokemon・/api/my/team・/api/my/rival・/api/my/access-key）とゲームデータのパス（/api/game/...）はページの URL ではないので、ここには入れない。
+/// </summary>
+public static class SitePaths
+{
+    public const string DamageCalculator = "damage-calculator";
+    public const string SpeedComparison = "speed-comparison";
+    public const string DataShare = "data-share";
+    public const string MyPokemon = "my-pokemon";
+    public const string MyTeam = "my-team";
+    public const string TypeChart = "type-chart";
+    public const string PokemonList = "pokemon-list";
+    public const string MoveList = "move-list";
+    public const string BattleTerms = "battle-terms";
+    public const string ChatCommands = "chat-commands";
+    public const string Report = "report";
+
+    /// <summary>以前の「作者・問い合わせ」（about-author）。問い合わせ（Report）に統一したので、使わない。互換のため残す。</summary>
+    [Obsolete("問い合わせは SitePaths.Report を使う（about-author は Report へ転送される）")]
+    public const string AboutAuthor = Report;
+
+    /// <summary>以前の URL → 新しい URL（どちらも先頭の / なし、小文字）。</summary>
+    public static readonly IReadOnlyDictionary<string, string> Legacy = new Dictionary<string, string>
+    {
+        ["speed"] = SpeedComparison,
+        ["sync"] = DataShare,
+        ["data-sync"] = DataShare,
+        ["pokemon"] = MyPokemon,
+        ["roster"] = MyPokemon,
+        ["team"] = MyTeam,
+        ["my-teams"] = MyTeam,
+        ["types"] = TypeChart,
+        ["pokedex"] = PokemonList,
+        ["glossary"] = BattleTerms,
+        ["command"] = ChatCommands,
+        ["about"] = Report,
+        ["about-author"] = Report,
+    };
+
+    /// <summary>
+    /// 以前の URL なら転送先を返す。パスは / の有無・大文字小文字を問わない（例: <c>/Speed/</c>）。
+    /// ブラウザでは Blazor が転送する。ただし HTTP としては、小文字・末尾スラッシュなしの旧 URL（<c>/speed</c>）だけが 200 の殻で、
+    /// 大文字・末尾スラッシュ付き（<c>/Speed</c>・<c>/speed/</c>）は静的 HTML が無く 404 のステータスで返る（ページは Blazor が描いて転送する。検索エンジンには 404）。
+    /// クエリ文字列（?...）とハッシュ（#...）はそのまま引き継ぐ。以前の URL でなければ <c>null</c>。
+    /// </summary>
+    public static string? Redirect(string pathAndQuery)
+    {
+        if (pathAndQuery is null) return null;
+        var end = pathAndQuery.IndexOfAny(new[] { '?', '#' });
+        var path = end < 0 ? pathAndQuery : pathAndQuery[..end];
+        var suffix = end < 0 ? "" : pathAndQuery[end..];
+        var key = path.Trim('/').ToLowerInvariant();
+        return Legacy.TryGetValue(key, out var target) ? target + suffix : null;
+    }
+}

@@ -27,9 +27,10 @@ x86/
 *.swp
 *~
 
-## Claude Code
-.claude/
-CLAUDE.md
+## Claude Code（共有するのは CLAUDE.md と .claude/skills/ だけ。個人の設定とメモは入れない）
+.claude/*
+!.claude/skills/
+CLAUDE.local.md
 
 ## OS
 Thumbs.db
@@ -39,3 +40,13 @@ Desktop.ini
 
 ## Logs
 *.log
+
+## Cloudflare Workers（wrangler）
+node_modules/
+publish/
+.wrangler/
+
+## Python
+__pycache__/
+*.pyc
+tools/.cache/

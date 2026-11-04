@@ -1,0 +1,54 @@
+@* PC の上のヘッダーに出す、全ページ共通の設定（ゲーム・バトル形式・対戦画面で表示・ライト／ダーク）。スマホは、サイドバーの上のほうに同じものがある（NavMenu.razor）。
+   値は AppState / BattleStage が持つので、ヘッダーとサイドバーのどちらで変えても同じになる。部品は MudBlazor（MudSelect・MudSwitch） *@
+@using MudBlazor
+@inject AppState App
+@implements IDisposable
+
+<div class="hdr-controls">
+    <div class="hdr-field">
+        <span class="hdr-label">ゲーム</span>
+        <MudSelect T="string" Value="@App.DataSetKey" ValueChanged="@(v => App.SetDataSetAsync(v ?? ""))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                   Class="hdr-select hdr-dataset" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
+                   title="計算に使うポケモン・技・持ち物のデータを切り替えます。チャットコマンドの接頭辞（!pokech など）もこれに合わせて変わります。全ページ共通です。">
+            @foreach (var ds in App.DataSets)
+            {
+                <MudSelectItem T="string" Value="@ds.Key">@ds.Name</MudSelectItem>
+            }
+        </MudSelect>
+        @if (UsageFallbackName is { } fallbackName)
+        {
+            <span class="hdr-note" tabindex="0" role="note" title="使用率は公開されていないため、@(fallbackName) の使用率で並べています" aria-label="使用率は公開されていないため、@(fallbackName) の使用率で並べています">!</span>
+        }
+    </div>
+    <div class="hdr-field">
+        <span class="hdr-label">バトル形式</span>
+        <MudSelect T="BattleFormat" Value="@App.Format" ValueChanged="@(f => App.SetFormatAsync(f))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                   Class="hdr-select hdr-format" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
+                   title="ダブルバトルでは全体技の威力が 0.75 倍になります。使用率の既定値（技・持ち物・性格）もシングル / ダブルで切り替わります。">
+            <MudSelectItem T="BattleFormat" Value="BattleFormat.Singles">シングル</MudSelectItem>
+            <MudSelectItem T="BattleFormat" Value="BattleFormat.Doubles">ダブル</MudSelectItem>
+        </MudSelect>
+    </div>
+    @* 対戦画面（背景のフィールドに結果を重ねて出す）。ダメージ計算機・素早さ比較・育成ポケモンで使える *@
+    <BattleViewSwitch InputId="hdr-battle-view" Class="hdr-battle" Compact="true" />
+    @* ライト／ダーク（kit の ThemeSwitch）: ON = ダークモード（月）、OFF = ライトモード（太陽） *@
+    <ThemeSwitch Class="theme-switch" />
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await App.InitializeAsync();
+        App.Changed += OnChanged;
+    }
+
+    private Task OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => App.Changed -= OnChanged;
+
+    // 使用率データの無いゲームでは、代わりに使っているゲームの名前（並び順の根拠を示す）
+    private string? UsageFallbackName =>
+        App.DataSet is { UsageFallback.Length: > 0 } ds
+            ? App.DataSets.FirstOrDefault(d => d.Key == ds.UsageFallback)?.Name ?? ds.UsageFallback
+            : null;
+}

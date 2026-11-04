@@ -10,5 +10,22 @@
   <PropertyGroup>
     <!-- もう一方の OS の出力フォルダーを、ソースとして拾わない -->
     <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj.unix/**;bin.unix/**</DefaultItemExcludes>
+    <!-- 静的解析（ラチェット）。ルールと重大度は kit の tools/lint/dotnet.editorconfig（error は違反 0 件のもの）。件数と理由は docs/lint.md -->
+
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <!--
+      kit の tools/lint/dotnet.editorconfig（v1.0.1 以降）は CA1031・CA2000・VSTHRD002・VSTHRD003・VSTHRD103 なども error にしている。
+      ここには、kit に無いルールのうち、このリポジトリで警告が 0 件になったものだけを、サイトの上書きとして error にして戻らないようにする。
+      kit の外（external/ 以下）のプロジェクトは kit 自身の Directory.Build.props を使うので、この設定は届かない。
+    -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS0105;CS0618;CS1573;CS8602;VSTHRD200;xUnit2013</WarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)external/fara-blazor-component/tools/lint/dotnet.editorconfig" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 非同期の誤用（async void・同期の待ち）を見る。PrivateAssets=all なので、参照先には流れない -->
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" PrivateAssets="all" />
+  </ItemGroup>
 </Project>

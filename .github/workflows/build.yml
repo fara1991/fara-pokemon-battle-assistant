@@ -1,37 +1,185 @@
 name: Build and test
 
 on:
+  # PR の間は pull_request の 1 回だけ動かす（作業ブランチへの push では動かさない）。develop・master に入ったときは push で動く
   push:
-    branches-ignore: [gh-pages]
+    branches: [develop, master]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore FaraPokemonAssistance.sln
+        run: dotnet restore FaraPokemonBattleAssistant.sln
 
       - name: Build
-        run: dotnet build FaraPokemonAssistance.sln --configuration Release --no-restore
+        run: dotnet build FaraPokemonBattleAssistant.sln --configuration Release --no-restore
+
+      - name: "検索の索引が、ページの内容と合っているか"
+        # ページの文言・見出しを変えたら `npm run gen:search` で作り直して、一緒にコミットする
+        run: node tools/gen-search-index.mjs --check
 
       - name: Test
-        run: dotnet test tests/FaraPokemonAssistance.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+        run: dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+
+      - name: "Test (ICU なし（InvariantGlobalization）でも同じ結果か: Core・Web・日本語の並び・検索)"
+        # Web は ICU を載せない（InvariantGlobalization=true）。テストも ICU なしで動かして、同じ結果になることを確かめる
+        env:
+          DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
+        run: |
+          dotnet test tests/FaraPokemonBattleAssistant.Core.Tests --configuration Release --no-build
+          dotnet test tests/FaraPokemonBattleAssistant.Web.Tests --configuration Release --no-build
+
+      - name: "Test (Web: データ共有・ブラウザ保存)"
+        run: dotnet test tests/FaraPokemonBattleAssistant.Web.Tests --configuration Release --no-build
 
       - name: Publish web (sanity check)
-        run: dotnet publish src/FaraPokemonAssistance.Web --configuration Release --no-build --output artifacts/web
+        run: dotnet publish src/FaraPokemonBattleAssistant.Web --configuration Release --no-build --output artifacts/web
+
+      - name: Build entry pages (sanity check)
+        run: node tools/build-entry-pages.mjs --env production --dir artifacts/web/wwwroot
+
+      - name: "有効なルート（@page）の HTML と 404.html が全部あるか"
+        run: node tools/check-routes.mjs --dir artifacts/web/wwwroot
+
+      - name: "入口ページの確認（ホームの HTML と canonical。/ で配られる home.html）"
+        run: |
+          test -f artifacts/web/wwwroot/home.html
+          grep -q '<link rel="canonical" href="https://pokemon.fara-labs.com/" />' artifacts/web/wwwroot/home.html
+          grep -q '<title>ホーム | Pokémon Battle Assistant</title>' artifacts/web/wwwroot/home.html
+          grep -q '<title>Pokémon Battle Assistant</title>' artifacts/web/wwwroot/index.html
+          ! grep -q 'entry-static' artifacts/web/wwwroot/index.html
+          test -f artifacts/web/wwwroot/favicon.ico
+          grep -q 'href="/favicon.ico?v=4"' artifacts/web/wwwroot/home.html
+          grep -q 'href="/favicon.ico?v=4"' artifacts/web/wwwroot/404.html
+          test -f artifacts/web/wwwroot/og.png
+          grep -q '<meta property="og:image" content="https://pokemon.fara-labs.com/og.png?v=1" />' artifacts/web/wwwroot/home.html
+          grep -q '<meta name="twitter:card" content="summary_large_image" />' artifacts/web/wwwroot/home.html
+          grep -q '<meta property="og:image:width" content="1200" />' artifacts/web/wwwroot/home.html
 
       - name: Pack Core
-        run: dotnet pack src/FaraPokemonAssistance.Core --configuration Release --no-build --output artifacts/nuget
+        run: dotnet pack src/FaraPokemonBattleAssistant.Core --configuration Release --no-build --output artifacts/nuget
 
+      # 保存するのは develop / master への push と、手動実行のときだけ（作業ブランチ・Pull Request の実行では保存しない。
+      # 成果物の容量はアカウント全体で共有で、上限に達するとほかのサイトの公開まで止まるため）。パッケージを作れることの確認（Pack Core）は毎回行う
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/master'))
         with:
-          name: FaraPokemonAssistance.Core-nupkg
+          name: FaraPokemonBattleAssistant.Core-nupkg
           path: artifacts/nuget/*.nupkg
+          # 保存期間は 3 日（bot-moderator が CI の .nupkg を参照する手順があるため、既定の 90 日から短縮。docs/bot-integration.md 参照）
+          retention-days: 3
+
+  worker:
+    # データ共有 API（worker/index.js）を wrangler dev で起動して確認する
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Dry run (production / develop)
+        run: |
+          mkdir -p publish/wwwroot && echo '<!doctype html><title>ci</title>' > publish/wwwroot/index.html
+          npx wrangler deploy --dry-run --env=""
+          npx wrangler deploy --dry-run --env develop
+
+      - name: Report endpoint test
+        run: npm run test:report
+
+      - name: Maintenance test
+        run: npm run test:maintenance
+
+      - name: Deploy gate test
+        run: npm run test:gate
+
+      - name: API test
+        run: npm run test:worker
+
+      - name: Kit JS test (スクロール量の線・読み込み表示・スマホの検索欄・報告の部品)
+        run: npm run test:kit-js
+
+      - name: Entry pages test
+        run: npm run test:entry
+
+      - name: Kit build and CSP test (pokemon の出力と同じ・_headers の形)
+        run: npm run test:kit
+
+      - name: Search index test
+        run: npm run test:search
+
+      - name: "Not found (404) test: 存在しない URL は 404、有効なルートは 200（wrangler dev）"
+        run: npm run test:routes
+
+      - name: Home page (Worker) test
+        run: npm run test:home
+
+      - name: Teams (Worker) test
+        run: npm run test:teams
+
+  lint:
+    # JavaScript の静的解析（eslint.config.mjs。違反は直す。共通のルールは kit の tools/lint と docs/lint.md）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+  layout-check:
+    # レイアウトの数値の崩れ（横スクロール・見出し・タップ・文字の大きさ・フォーカス）を、公開の出力を配って測る（公開はしない）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Publish web（公開の出力 publish/wwwroot を作る）
+        run: npm run publish:web
+
+      - name: Install Chromium
+        run: npx playwright-core install --with-deps chromium
+
+      - name: Layout check
+        run: npm run layout-check
+

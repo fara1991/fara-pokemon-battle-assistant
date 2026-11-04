@@ -1,0 +1,23 @@
+@* 登録したポケモン（メガシンカ前の姿で登録）の、メガシンカする前・後を切り替える。メガシンカ後の姿が 2 つ以上あるとき（リザードン X・Y など）は、姿ごとのボタンにする（MudBlazor の MudButton）。 *@
+@using MudBlazor
+@if (Forms.Count > 0)
+{
+    <div class="mega-switch mb-2" role="group" aria-label="メガシンカの前後">
+        <MudButton Size="Size.Small" Variant="@(Current is null ? Variant.Filled : Variant.Outlined)" Color="@(Current is null ? Color.Primary : Color.Default)"
+                   aria-pressed="@(Current is null ? "true" : "false")" OnClick="@(() => OnPick.InvokeAsync(null))">メガシンカ前</MudButton>
+        @foreach (var form in Forms)
+        {
+            var f = form;
+            var active = Current?.Id == f.Id;
+            <MudButton Size="Size.Small" Variant="@(active ? Variant.Filled : Variant.Outlined)" Color="@(active ? Color.Primary : Color.Default)"
+                       aria-pressed="@(active ? "true" : "false")" OnClick="@(() => OnPick.InvokeAsync(f))">@(Forms.Count == 1 ? "メガシンカ後" : f.Name)</MudButton>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<Pokemon> Forms { get; set; } = Array.Empty<Pokemon>();
+    /// <summary>いま選んでいるメガシンカ後の姿。null ならメガシンカ前。</summary>
+    [Parameter] public Pokemon? Current { get; set; }
+    [Parameter] public EventCallback<Pokemon?> OnPick { get; set; }
+}

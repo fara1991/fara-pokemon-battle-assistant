@@ -1,0 +1,24 @@
+@* ダブルバトル: 自分側・相手側のそれぞれで、何体目のポケモンを入力するかを選ぶ。選んだ 1 体の入力欄だけを出して、画面が長くならないようにする *@
+<div class="slot-picker" role="tablist" aria-label="@Title">
+    <span class="slot-picker-title">@Title</span>
+    @for (var i = 0; i < Names.Count; i++)
+    {
+        var index = i;
+        <button type="button" role="tab" aria-selected="@(Selected == index ? "true" : "false")" class="slot-picker-btn @(Selected == index ? "active" : "")" @onclick="() => SelectedChanged.InvokeAsync(index)">
+            <strong>@(index + 1) 体目</strong><small>@Names[index]</small>
+        </button>
+    }
+</div>
+
+@code {
+    /// <summary>「自分側」「相手側」。</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>それぞれの体の表示名（ポケモン名。選んでいなければ「未選択」）。</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<string> Names { get; set; } = Array.Empty<string>();
+
+    /// <summary>いま入力している体（0 から）。</summary>
+    [Parameter] public int Selected { get; set; }
+
+    [Parameter] public EventCallback<int> SelectedChanged { get; set; }
+}
