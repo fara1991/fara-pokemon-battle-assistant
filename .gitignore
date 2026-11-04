@@ -27,9 +27,10 @@ x86/
 *.swp
 *~
 
-## Claude Code
-.claude/
-CLAUDE.md
+## Claude Code（共有するのは CLAUDE.md と .claude/skills/ だけ。個人の設定とメモは入れない）
+.claude/*
+!.claude/skills/
+CLAUDE.local.md
 
 ## OS
 Thumbs.db
